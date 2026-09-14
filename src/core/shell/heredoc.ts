@@ -131,7 +131,9 @@ function readQuotedDelimiter(source: string, start: number, end: number, quote: 
 }
 
 function isBoundary(char: string): boolean {
-  return /[\s;&|<>)]/u.test(char) || char === '`';
+  // A carriage return is an ordinary delimiter character in a shell, so `<<EOF\r\n` declares
+  // `EOF\r` and only an `EOF\r` line can end the body.
+  return char !== '\r' && (/[\s;&|<>)]/u.test(char) || char === '`');
 }
 
 function readLine(source: string, start: number, end: number) {

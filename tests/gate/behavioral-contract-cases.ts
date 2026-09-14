@@ -524,15 +524,33 @@ export function behavioralContractCases(paths: {
       expected: { kind: 'allow' },
     },
     {
-      name: 'blocks a CRLF heredoc at strict safety because no line matches its terminator',
+      name: 'allows a benign CRLF heredoc at strict safety because its delimiter keeps the CR',
       command: 'cat <<EOF\r\nhello\r\nEOF\r\n',
+      options: options({ cwd: paths.cwd, strict: true }),
+      expected: { kind: 'allow' },
+    },
+    {
+      name: 'blocks a live expansion inside a CRLF heredoc at standard safety',
+      command: 'cat <<EOF\r\n$(git switch -f main)\r\nEOF\r\n',
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.switch-force',
+        intent: 'use_alternative',
+        reasonIncludes: 'discards uncommitted changes',
+        segment: 'git switch -f main',
+      },
+    },
+    {
+      name: 'blocks a live expansion inside a CRLF heredoc at strict safety',
+      command: 'cat <<EOF\r\n$(git switch -f main)\r\nEOF\r\n',
       options: options({ cwd: paths.cwd, strict: true }),
       expected: {
         kind: 'block',
-        ruleId: undefined,
-        intent: 'stop_and_explain',
-        reasonIncludes: 'Unsupported heredoc syntax',
-        segment: 'cat <<EOF\r\nhello\r\nEOF\r\n',
+        ruleId: 'git.switch-force',
+        intent: 'use_alternative',
+        reasonIncludes: 'discards uncommitted changes',
+        segment: 'git switch -f main',
       },
     },
     {
