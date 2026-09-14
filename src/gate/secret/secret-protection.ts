@@ -1222,8 +1222,7 @@ function usedLiterals(masked: MaskedCode, statements: readonly CodeStatement[]):
     defined.size === 0 ? null : new RegExp(`\\b(?:${[...defined].join('|')})\\s*\\(`);
   const kept = statements.filter(
     (statement) =>
-      containsRecognizableInlineAccess(statement.text) ||
-      (callsDefined !== null && callsDefined.test(statement.text)),
+      containsRecognizableInlineAccess(statement.text) || callsDefined?.test(statement.text),
   );
   const live = propagateAssignedNames(
     kept.flatMap((statement) => codeIdentifiers(statement.text)),
