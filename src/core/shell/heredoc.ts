@@ -136,15 +136,8 @@ function isBoundary(char: string): boolean {
 
 function readLine(source: string, start: number, end: number) {
   let contentEnd = start;
-  while (contentEnd < end && source[contentEnd] !== '\n' && source[contentEnd] !== '\r') {
-    contentEnd++;
-  }
-  const next =
-    contentEnd >= end
-      ? end
-      : source[contentEnd] === '\r' && source[contentEnd + 1] === '\n'
-        ? contentEnd + 2
-        : contentEnd + 1;
+  while (contentEnd < end && source[contentEnd] !== '\n') contentEnd++;
+  const next = contentEnd >= end ? end : contentEnd + 1;
   return { text: source.slice(start, contentEnd), contentEnd, next };
 }
 

@@ -494,6 +494,48 @@ export function behavioralContractCases(paths: {
       },
     },
     {
+      name: 'blocks a live expansion behind a CR-suffixed heredoc terminator at standard safety',
+      command: "cat <<EOF\nEOF\r\ncat <<'EOF'\n$(git push --force)\nEOF",
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.push-force',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys remote history',
+        segment: 'git push --force',
+      },
+    },
+    {
+      name: 'blocks a live expansion behind a CR-suffixed heredoc terminator at strict safety',
+      command: "cat <<EOF\nEOF\r\ncat <<'EOF'\n$(git push --force)\nEOF",
+      options: options({ cwd: paths.cwd, strict: true }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.push-force',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys remote history',
+        segment: 'git push --force',
+      },
+    },
+    {
+      name: 'allows a benign CRLF heredoc at standard safety',
+      command: 'cat <<EOF\r\nhello\r\nEOF\r\n',
+      options: options({ cwd: paths.cwd }),
+      expected: { kind: 'allow' },
+    },
+    {
+      name: 'blocks a CRLF heredoc at strict safety because no line matches its terminator',
+      command: 'cat <<EOF\r\nhello\r\nEOF\r\n',
+      options: options({ cwd: paths.cwd, strict: true }),
+      expected: {
+        kind: 'block',
+        ruleId: undefined,
+        intent: 'stop_and_explain',
+        reasonIncludes: 'Unsupported heredoc syntax',
+        segment: 'cat <<EOF\r\nhello\r\nEOF\r\n',
+      },
+    },
+    {
       name: 'allows dd writing to a regular file',
       command: 'dd if=/dev/zero of=disk.img bs=1M',
       options: options({ cwd: paths.cwd }),
