@@ -73,9 +73,11 @@ export function assertOpenClawPluginDirIsOurs(environment: Environment): void {
   );
 }
 
-function openClawArtifactCandidates(): string[] {
+/** @internal */
+export function openClawArtifactCandidates(): string[] {
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   return [
+    join(moduleDir, OPENCLAW_ARTIFACT_RELATIVE),
     join(moduleDir, '..', OPENCLAW_ARTIFACT_RELATIVE),
     join(moduleDir, '..', '..', '..', 'dist', OPENCLAW_ARTIFACT_RELATIVE),
   ];

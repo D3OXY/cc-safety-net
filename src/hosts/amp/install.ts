@@ -34,14 +34,15 @@ export function getAmpPluginPath(environment: Environment): string {
 
 /**
  * Candidate locations of the packaged Amp artifact, resolved relative to the
- * installed CLI module (never the user's project). The bundled CLI and its
- * chunks sit one directory under `dist/`; the dev entrypoint runs from
- * `src/hosts/amp/`.
+ * installed CLI module (never the user's project). Bun may hoist this module
+ * into `dist/cli.js` at the dist root or emit it under `dist/chunks/`; the dev
+ * entrypoint runs from `src/hosts/amp/`.
  * @internal
  */
 export function ampArtifactCandidates(): string[] {
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   return [
+    join(moduleDir, AMP_ARTIFACT_RELATIVE),
     join(moduleDir, '..', AMP_ARTIFACT_RELATIVE),
     join(moduleDir, '..', '..', '..', 'dist', AMP_ARTIFACT_RELATIVE),
   ];

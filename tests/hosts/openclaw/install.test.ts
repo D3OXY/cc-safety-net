@@ -12,6 +12,7 @@ import {
   getOpenClawConfigPath,
   getOpenClawInstallCommands,
   getOpenClawPluginDir,
+  openClawArtifactCandidates,
   resolveOpenClawArtifactDir,
   verifyOpenClawPluginRuntime,
 } from '@/hosts/openclaw/install';
@@ -126,6 +127,12 @@ describe('guarding the extension directory before a --force command', () => {
 describe('finding the packaged plugin directory', () => {
   test('agrees on the built directory the installed CLI ships with', () => {
     expect(findOpenClawArtifactDir()).toBe(join(REPO_ROOT, 'dist', 'openclaw', 'cc-safety-net'));
+  });
+
+  test('looks beside the module itself, where the bundled cli.js sits at the dist root', () => {
+    expect(openClawArtifactCandidates()).toContain(
+      join(REPO_ROOT, 'src', 'hosts', 'openclaw', 'openclaw', 'cc-safety-net'),
+    );
   });
 
   test('says what is missing when a checkout was never built', () => {

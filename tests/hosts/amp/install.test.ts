@@ -17,6 +17,7 @@ import { createTempRoot, describeAsyncOutcome, removeTempRoots } from '../../hel
 
 const ARTIFACT = `${AMP_MANAGED_HEADER}\n// version: dev\nexport default function plugin() {}\n`;
 const ENTRY = 'cc-safety-net/index.ts';
+const SRC_MODULE_DIR = join(import.meta.dir, '..', '..', '..', 'src', 'hosts', 'amp');
 const LEGACY = 'cc-safety-net.ts';
 const LOCAL_PLUGINS = '.config/amp/plugins';
 const PLUGIN_PATH = `${AMP_CLONE_REF}/cc-safety-net`;
@@ -327,6 +328,10 @@ describe('finding the packaged artifact', () => {
   test('resolves the same shipped dist path from either module', () => {
     const candidates = ampArtifactCandidates();
     expect(candidates.at(-1)).toBe(join(import.meta.dir, '..', '..', '..', 'dist', 'amp', ENTRY));
+  });
+
+  test('looks beside the module itself, where the bundled cli.js sits at the dist root', () => {
+    expect(ampArtifactCandidates()).toContain(join(SRC_MODULE_DIR, 'amp', ENTRY));
   });
 
   test.each([
