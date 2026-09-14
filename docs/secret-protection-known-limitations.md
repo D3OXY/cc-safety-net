@@ -75,6 +75,18 @@ as operating-system permissions, a sandbox, container isolation, Landlock on
 Linux, or another policy that prevents the executed process from opening
 sensitive files even if the command text evades static detection.
 
+## Known Limitation: A Quote Inside a Comment
+
+The literal masker is lexical, so a quote character inside a comment can
+mis-pair. A Ruby or Perl contraction (`# it's the config`) leaves an apostrophe
+that the next apostrophe closes, and a Python comment holding `"""` opens a
+triple-quoted literal. The result is a literal masked or left unmasked wrongly.
+An unterminated single-line literal is contained: a single- or double-quoted
+literal that reaches a newline aborts the mask and the whole code falls back to
+the full literal scan. A comment that opens a Python triple-quote is not, and
+can still hide a read from standard mode. Strict mode is unaffected, because it
+scans inside literal text.
+
 ## Known Limitation: A Deny Path Covering the Workspace
 
 Configuration validation rejects the deny entries that would block every
@@ -102,9 +114,11 @@ something else is kept as a path candidate and resolved against the cwd, so
 `cat README.md` blocks on `README.md`. What survives is the narrow set whose
 tokens are not kept as path candidates: operand-less commands, `echo` and
 `printf`, and shapes such as a pattern-only `grep` or interpreter inline code
-with no path-like literal. In standard mode an interpreter string literal that
-no access call, locally defined function, or shell-exec call uses is inert data
-and is not kept as a candidate; strict mode keeps every literal.
+with no path-like literal. In standard mode an interpreter string literal is
+kept as a candidate only when the code as a whole holds a recognizable
+filesystem, command-execution, or eval marker; code with no such marker anywhere
+contributes no literal. Strict mode keeps every literal and also scans inside
+literal text.
 
 The failure is loud, not silent. Each denial carries `Rule: secret.deny-path`
 in the hook message (`formatBlockedMessage` in `src/integrations/format.ts`), and
