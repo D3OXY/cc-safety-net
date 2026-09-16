@@ -189,7 +189,7 @@ describe('analyzeCommand', () => {
     });
     expect(analyzeCommand(`awk ${option} 'BEGIN { print "ready" }'`, options)).toBeNull();
   });
-  test('unset -v removes an inherited SSH override before a Git network command', () => {
+  test('an inherited SSH override does not block a Git network command', () => {
     const options = {
       environment: createTestEnvironment({
         env: new Map([...processState, ['GIT_SSH_COMMAND', 'custom-ssh']]),
@@ -202,11 +202,11 @@ describe('analyzeCommand', () => {
       effectiveCapabilities: standard.capabilities,
       protectedGitMetadata: gitMetadata,
     };
-    expect(analyzeCommand('git fetch', options)).toMatchObject({
+    expect(analyzeCommand('git fetch', options)).toBeNull();
+    expect(analyzeCommand('GIT_SSH_COMMAND=custom-ssh git fetch', options)).toMatchObject({
       kind: 'deny',
       ruleId: 'git.ssh-env',
     });
-    expect(analyzeCommand('unset -v GIT_SSH_COMMAND; git fetch', options)).toBeNull();
   });
 
   test('unsetting inherited GIT_DIR restores the linked-worktree discard context', async () => {
