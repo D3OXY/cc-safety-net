@@ -8,10 +8,9 @@ const SOURCE = 'https://github.com/kenryu42/cc-safety-net.git';
 const row = (state: string) => `cc-safety-net  ${SOURCE}  ${state}\n`;
 
 const detection = (codexPluginListOutput: string | null) =>
-  detectionRunner({
-    ported: (environment) =>
-      detectCodex({ environment, cwd: environment.home, codexPluginListOutput }),
-  })({});
+  detectionRunner((environment) =>
+    detectCodex({ environment, cwd: environment.home, codexPluginListOutput }),
+  )({});
 
 afterEach(removeTempRoots);
 

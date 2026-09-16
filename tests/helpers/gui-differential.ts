@@ -6,29 +6,13 @@ import { createPolicyGuiServer as createPortedServer } from '@/gui/index';
 import { snapshotTree, type TreeSpec, writeTree } from './fixture-tree';
 import { normalizePage } from './gui-page';
 import {
+  BLANKED_ENV_NAMES,
   createTempRoot,
   environmentFor,
   isolationEnv,
   normalize,
   WINDOWS_SEPARATOR_FOLDS,
 } from './temp-home';
-
-const BLANKED_ENV_NAMES = [
-  'CC_SAFETY_NET_LEVEL',
-  'CC_SAFETY_NET_STRICT',
-  'CC_SAFETY_NET_PARANOID',
-  'CC_SAFETY_NET_PARANOID_RM',
-  'CC_SAFETY_NET_PARANOID_INTERPRETERS',
-  'CC_SAFETY_NET_WORKTREE',
-  'CC_SAFETY_NET_DEBUG',
-  'CC_SAFETY_NET_AUDIT_SCOPE',
-  'SAFETY_NET_STRICT',
-  'SAFETY_NET_PARANOID',
-  'SAFETY_NET_PARANOID_RM',
-  'SAFETY_NET_PARANOID_INTERPRETERS',
-  'SAFETY_NET_WORKTREE',
-  'CLAUDE_SETTINGS_PATH',
-];
 
 export type GuiSide = {
   root: string;

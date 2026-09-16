@@ -11,9 +11,9 @@ const settings = (...packages: readonly unknown[]): TreeSpec => ({
   [SETTINGS]: JSON.stringify({ packages }),
 });
 
-const detection = detectionRunner({
-  ported: (environment) => detectPi({ environment, cwd: environment.home }),
-});
+const detection = detectionRunner((environment) =>
+  detectPi({ environment, cwd: environment.home }),
+);
 
 const status = (value: HookDetection) => ({ kind: 'returned' as const, value });
 

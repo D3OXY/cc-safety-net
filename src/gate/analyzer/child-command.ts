@@ -36,7 +36,7 @@ export interface NormalizedChildCommand {
 }
 
 export interface ChildProvenance {
-  readonly producer: 'xargs' | 'parallel' | 'unknown-head';
+  readonly embedded: boolean;
 
   readonly cwd: string | undefined;
 
@@ -54,6 +54,23 @@ export interface ChildProvenance {
   readonly shellDynamicMatch?: DestructiveCommandRuleMatch;
   readonly dynamicSourceMatch?: DestructiveCommandRuleMatch;
   readonly rmDynamicMatch?: DestructiveCommandRuleMatch;
+}
+
+/** Provenance a dynamic-input producer (xargs, GNU Parallel) attaches to the child command it runs. */
+export function childProvenance(
+  childCommand: NormalizedChildCommand,
+  context: NestedCommandAnalyzeContext,
+): ChildProvenance {
+  return {
+    embedded: false,
+    cwd: childCommand.cwd,
+    originalCwd: context.originalCwd,
+    effectiveCwd: childCommand.cwd,
+    envAssignments: childCommand.envAssignments,
+    allowTmpdirVar: context.allowTmpdirVar,
+    worktreeMode: context.worktreeMode,
+    wrappedByTransparent: false,
+  };
 }
 
 export function normalizeChildCommands(

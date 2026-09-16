@@ -35,7 +35,6 @@ export function getActivityFeed(
   const skips = { count: 0 };
   for (const file of logsDir ? listAuditLogFiles(logsDir, skips) : []) {
     for (const entry of readAuditLogEntries(file, skips)) {
-      if (!entry || typeof entry.ts !== 'string' || typeof entry.command !== 'string') continue;
       const ts = new Date(entry.ts).getTime();
       if (!Number.isFinite(ts)) continue;
       if (ts >= cutoff) windowEntries.push(entry);

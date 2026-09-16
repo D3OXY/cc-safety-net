@@ -22,13 +22,11 @@ const CONFIGURED = {
   configPath: HOOKS_PATH,
 } as const;
 
-const { row, detection } = hostRunner({
-  ported: (environment) => ({
-    install: () => installGrokBuild(environment),
-    detect: () => detectGrok({ environment, cwd: environment.home }),
-    uninstall: () => uninstallGrokBuild(environment),
-  }),
-});
+const { row, detection } = hostRunner((environment) => ({
+  install: () => installGrokBuild(environment),
+  detect: () => detectGrok({ environment, cwd: environment.home }),
+  uninstall: () => uninstallGrokBuild(environment),
+}));
 
 afterEach(removeTempRoots);
 
@@ -99,10 +97,12 @@ describe('the Grok Build hook config differential', () => {
 
   test('leaves content it cannot parse in place instead of deleting it', async () => {
     const seed = 'not json';
-    const removal = await differential({
-      seed: { [HOOKS]: seed },
-      ported: (environment) => describeOutcome(() => uninstallGrokBuild(environment)),
-    });
+    const removal = await differential(
+      {
+        seed: { [HOOKS]: seed },
+      },
+      (environment) => describeOutcome(() => uninstallGrokBuild(environment)),
+    );
 
     expect(removal.outcome).toEqual({
       kind: 'returned',

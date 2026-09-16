@@ -16,7 +16,6 @@ import {
 } from './paths';
 import { assertValidRulebook, type Rulebook } from './rulebook';
 import {
-  type ActiveRulebookSummary,
   type LoadedRulebookInfo,
   type LoadedRulesPolicy,
   type RuleOverride,
@@ -29,7 +28,6 @@ import type { CustomRule } from './types';
 interface ScopePolicy {
   rules: CustomRule[];
   rulebooks: LoadedRulebookInfo[];
-  entries: ActiveRulebookSummary[];
   knownRuleIds: Set<string>;
   errors: string[];
   warnings: string[];
@@ -217,12 +215,6 @@ function loadScopePolicy(
   return {
     rules,
     rulebooks: loaded.map((item) => item.rulebook),
-    entries: loaded.map((item) => ({
-      spec: item.rulebook.spec,
-      name: item.rulebook.name,
-      version: item.rulebook.version,
-      ruleCount: item.rulebook.rules.length,
-    })),
     knownRuleIds: new Set(rules.map((rule) => rule.name)),
     errors,
     warnings,
@@ -399,7 +391,6 @@ function emptyScopePolicy(): ScopePolicy {
   return {
     rules: [],
     rulebooks: [],
-    entries: [],
     knownRuleIds: new Set(),
     errors: [],
     warnings: [],

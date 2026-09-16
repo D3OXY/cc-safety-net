@@ -67,12 +67,9 @@ test.each([
   expect(ported.messages[0]?.[1]).toStrictEqual(isIdle ? undefined : { deliverAs: 'followUp' });
 });
 
-test('the template stays in sync with the skill document it is copied from', () => {
+test('the skill document the template is built from keeps its expected shape', () => {
   const skill = readFileSync(join(import.meta.dir, '../../skills/cc-safety-net/SKILL.md'), 'utf-8');
 
-  expect(CC_SAFETY_NET_TEMPLATE.trimStart()).toBe(
-    skill.slice(skill.indexOf('# CC Safety Net')).replace(/\r\n/g, '\n'),
-  );
   expect(skill).toContain('disable-model-invocation: true');
   expect(skill).toContain('npx -y cc-safety-net rule doc');
   expect(skill).not.toContain('**STRICT**');

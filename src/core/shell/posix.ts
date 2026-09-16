@@ -72,7 +72,6 @@ export function parsePosixCommand(source: string, limits: CommandParserLimits): 
         {
           code: 'input-limit',
           message: `command exceeds ${limits.maxInputLength} UTF-16 code units`,
-          span,
         },
       ],
       nodes: [],
@@ -185,7 +184,7 @@ function scanSequence(
     const functionOpening =
       accumulator.start === -1 ? readFunctionOpening(source, i, end) : undefined;
     if (functionOpening) {
-      appendMissingConnectorIssue(nodes, issues, i);
+      appendMissingConnectorIssue(nodes, issues);
       if (depth >= limits.maxDepth) {
         return limitedResult(nodes, issues, i, 'depth-limit', limits.maxDepth);
       }
@@ -218,7 +217,6 @@ function scanSequence(
         issues.push({
           code: 'unsupported-heredoc-context',
           message: 'heredocs attached inside function bodies are not supported safely',
-          span: { start: i, end: functionEnd },
         });
       }
       pendingHeredocs.push(...inner.pendingHeredocs);
@@ -227,7 +225,6 @@ function scanSequence(
         issues.push({
           code: 'unclosed-function-body',
           message: 'function body is not closed',
-          span: { start: functionOpening.braceIndex, end: functionEnd },
         });
       }
       i = functionEnd;
@@ -241,7 +238,6 @@ function scanSequence(
         issues.push({
           code: 'unexpected-connector',
           message: `connector ${connector} has no preceding command`,
-          span: { start: i, end: i + connector.length },
         });
       }
       nodes.push(
@@ -260,7 +256,6 @@ function scanSequence(
       issues.push({
         code: 'unexpected-closing-delimiter',
         message: 'closing parenthesis has no matching opening parenthesis',
-        span: { start: i, end: i + 1 },
       });
       nodes.push({ kind: 'unknown', source: char, span: { start: i, end: i + 1 } });
       i++;
@@ -271,7 +266,7 @@ function scanSequence(
       (char === '(' || (char === '{' && isBraceGroupOpening(source, i, end))) &&
       accumulator.start === -1
     ) {
-      appendMissingConnectorIssue(nodes, issues, i);
+      appendMissingConnectorIssue(nodes, issues);
       if (depth >= limits.maxDepth) {
         return limitedResult(nodes, issues, i, 'depth-limit', limits.maxDepth);
       }
@@ -291,7 +286,6 @@ function scanSequence(
         issues.push({
           code: 'unsupported-heredoc-context',
           message: 'heredocs attached inside command groups are not supported safely',
-          span: { start: i, end: groupEnd },
         });
       }
       pendingHeredocs.push(...inner.pendingHeredocs);
@@ -300,7 +294,6 @@ function scanSequence(
         issues.push({
           code: char === '(' ? 'unclosed-subshell' : 'unclosed-brace-group',
           message: `${char} group is not closed`,
-          span: { start: i, end: groupEnd },
         });
       }
       i = groupEnd;
@@ -379,7 +372,6 @@ function scanSequence(
         issues.push({
           code: 'missing-heredoc-delimiter',
           message: 'heredoc redirection requires a delimiter word',
-          span: { start: i, end: i + redirect.length },
         });
       }
       if (delimiter) {
@@ -387,7 +379,6 @@ function scanSequence(
           issues.push({
             code: 'ambiguous-heredoc-delimiter',
             message: 'heredoc delimiter cannot be determined safely',
-            span: delimiter.span,
           });
         }
         const nested = accumulator.nested;
@@ -416,7 +407,6 @@ function scanSequence(
         issues.push({
           code: 'missing-redirection-target',
           message: `redirection ${redirect} requires a target word`,
-          span: { start: i, end: i + redirect.length },
         });
       }
       if (targetResult) {
@@ -427,7 +417,7 @@ function scanSequence(
       continue;
     }
 
-    if (accumulator.start === -1) appendMissingConnectorIssue(nodes, issues, i);
+    if (accumulator.start === -1) appendMissingConnectorIssue(nodes, issues);
     const wordResult = readWord(source, i, end, limits, wordBudget, depth);
     issues.push(...wordResult.issues);
     if (wordResult.limited) {
@@ -534,7 +524,6 @@ function readWord(
         issues.push({
           code: 'unclosed-single-quote',
           message: 'single-quoted word is not closed',
-          span: { start: i, end },
         });
         i = end;
         break;
@@ -566,7 +555,6 @@ function readWord(
         issues.push({
           code: 'unclosed-ansi-c-quote',
           message: 'ANSI-C quoted word is not closed',
-          span: { start: i, end },
         });
       }
       i = ansi.next;
@@ -579,7 +567,6 @@ function readWord(
         issues.push({
           code: 'trailing-escape',
           message: 'escape has no following character',
-          span: { start: i, end: i + 1 },
         });
         i++;
         break;
@@ -679,7 +666,6 @@ function readDoubleQuoted(
         issues.push({
           code: 'unclosed-arithmetic',
           message: '$(( substitution is not closed',
-          span: { start: i, end: next },
         });
       }
       i = next;
@@ -707,7 +693,6 @@ function readDoubleQuoted(
   issues.push({
     code: 'unclosed-double-quote',
     message: 'double-quoted word is not closed',
-    span: { start, end },
   });
   return { text, provenance, nested, issues, next: end, limited };
 }
@@ -766,7 +751,6 @@ function readSubstitution(
       arithmeticIssues.push({
         code: 'unclosed-arithmetic',
         message: '$(( substitution is not closed',
-        span: { start, end: next },
       });
     }
     return {
@@ -790,7 +774,6 @@ function readSubstitution(
           {
             code: 'unclosed-command-substitution',
             message: `${source.slice(start, start + openLength)} substitution is not closed`,
-            span: { start, end: next },
           },
         ]
       : [];
@@ -800,7 +783,6 @@ function readSubstitution(
           {
             code: 'unsupported-heredoc-context',
             message: 'heredocs are supported only in ordinary commands and $(...) substitutions',
-            span: { start, end: next },
           },
         ]
       : [];
@@ -1051,7 +1033,6 @@ function readAnsiCString(source: string, start: number, end: number) {
       issues.push({
         code: 'invalid-ansi-c-code-point',
         message: `ANSI-C escape is not a valid Unicode scalar value: ${decoded.invalidCodePoint}`,
-        span: { start: i, end: decoded.next },
       });
     }
     i = decoded.next;
@@ -1334,34 +1315,11 @@ export function expandPosixLiteralBraceWord(
 ) {
   if (word.provenance !== 'literal' || !word.raw.includes('{')) return undefined;
 
-  const values = [word.raw];
-  let totalLength = word.raw.length;
-  let expansions = 0;
-  while (true) {
-    const valueIndex = values.findIndex((value) => findActiveBraceExpansion(value));
-    if (valueIndex === -1) break;
-    if (++expansions > maxExpansions) return { limited: true as const };
-    const value = values[valueIndex] ?? '';
-    const expansion = findActiveBraceExpansion(value);
-    if (!expansion || expansion.kind === 'range') return { limited: true as const };
-    const fixedLength = expansion.start + value.length - expansion.end;
-    const replacementsLength = expansion.alternatives.reduce(
-      (total, alternative) => total + fixedLength + alternative.length,
-      0,
-    );
-    if (
-      totalLength - value.length + replacementsLength > maxExpandedLength ||
-      values.length - 1 + expansion.alternatives.length > maxWords
-    ) {
-      return { limited: true as const };
-    }
-    const replacements = buildBraceReplacements(value, expansion);
-    values.splice(valueIndex, 1, ...replacements);
-    totalLength += replacementsLength - value.length;
-  }
+  const expanded = expandBraceValues(word.raw, maxWords, maxExpansions, maxExpandedLength, true);
+  if (!expanded) return undefined;
+  if ('limited' in expanded) return { limited: true as const };
 
-  if (expansions === 0) return undefined;
-  const words = values.map((value) => decodePosixLiteralWord(value, maxExpansions));
+  const words = expanded.values.map((value) => decodePosixLiteralWord(value, maxExpansions));
   if (words.some((value) => value === null)) return { limited: true as const };
   return {
     words: [...new Set(words.filter((value): value is string => value !== null && value !== ''))],
@@ -1380,84 +1338,65 @@ function expandLiteralCommandWord(
       limitCode?: 'word-limit' | 'depth-limit' | 'brace-expansion-limit';
     }
   | undefined {
-  if (
-    word.provenance !== 'literal' ||
-    word.quoted ||
-    word.raw !== word.text ||
-    !word.raw.includes('{')
-  ) {
-    return undefined;
+  if (word.provenance !== 'literal' || !word.raw.includes('{')) return undefined;
+
+  const expanded = expandBraceValues(word.raw, maxWords, maxDepth, maxExpandedLength, false);
+  if (!expanded) return undefined;
+  if ('limited' in expanded) {
+    if (expanded.limited === 'expansions') return { limitCode: 'depth-limit' };
+    return { limitCode: expanded.limited === 'length' ? 'brace-expansion-limit' : 'word-limit' };
   }
 
-  const values = [word.text];
-  let totalLength = word.text.length;
+  const texts = expanded.values.map((value) => decodePosixLiteralWord(value, maxDepth));
+  // A value that does not re-lex as one literal word leaves the word unexpanded, as before the
+  // command position shared the quote-aware scanner.
+  if (texts.some((text) => text === null)) return undefined;
+  return {
+    words: texts
+      .filter((text): text is string => text !== null && text !== '')
+      .map((text) =>
+        freezeParsedCommandWord(source, word.span.start, word.span.end, text, 'literal', false),
+      ),
+  };
+}
+
+/** Splices brace alternatives until no active expansion is left, or a parser cap is reached. */
+function expandBraceValues(
+  raw: string,
+  maxWords: number,
+  maxExpansions: number,
+  maxExpandedLength: number,
+  ranges: boolean,
+): { values: string[] } | { limited: 'expansions' | 'length' | 'words' } | undefined {
+  const values = [raw];
+  let totalLength = raw.length;
   let expansions = 0;
   while (true) {
-    const valueIndex = values.findIndex((value) => findBraceExpansion(value));
+    const valueIndex = values.findIndex((value) => findActiveBraceExpansion(value, ranges));
     if (valueIndex === -1) break;
-    if (++expansions > maxDepth) return { limitCode: 'depth-limit' };
+    if (++expansions > maxExpansions) return { limited: 'expansions' };
     const value = values[valueIndex] ?? '';
-    const expansion = findBraceExpansion(value);
-    if (!expansion) break;
+    const expansion = findActiveBraceExpansion(value, ranges);
+    if (!expansion || expansion.kind === 'range') return { limited: 'expansions' };
     const fixedLength = expansion.start + value.length - expansion.end;
-    const alternatives = expansion.alternatives.filter(
-      (alternative) => fixedLength + alternative.length > 0,
-    );
-    const replacementsLength = alternatives.reduce(
+    const replacementsLength = expansion.alternatives.reduce(
       (total, alternative) => total + fixedLength + alternative.length,
       0,
     );
     if (totalLength - value.length + replacementsLength > maxExpandedLength) {
-      return { limitCode: 'brace-expansion-limit' };
+      return { limited: 'length' };
     }
-    if (values.length - 1 + alternatives.length > maxWords) {
-      return { limitCode: 'word-limit' };
+    if (values.length - 1 + expansion.alternatives.length > maxWords) {
+      return { limited: 'words' };
     }
-    const replacements = buildBraceReplacements(value, { ...expansion, alternatives });
-    values.splice(valueIndex, 1, ...replacements);
+    values.splice(valueIndex, 1, ...buildBraceReplacements(value, expansion));
     totalLength += replacementsLength - value.length;
   }
 
-  const expanded = values.filter((value) => value.length > 0);
-  if (expansions === 0) return undefined;
-  return {
-    words: expanded.map((text) =>
-      freezeParsedCommandWord(source, word.span.start, word.span.end, text, 'literal', false),
-    ),
-  };
+  return expansions === 0 ? undefined : { values };
 }
 
-function findBraceExpansion(
-  value: string,
-): { start: number; end: number; alternatives: string[] } | undefined {
-  const stack: { start: number; commas: number[] }[] = [];
-  let selected: { start: number; end: number; commas: number[] } | undefined;
-  for (let i = 0; i < value.length; i++) {
-    const char = value[i];
-    if (char === '{') {
-      stack.push({ start: i, commas: [] });
-      continue;
-    }
-    if (char === ',' && stack.length > 0) {
-      stack.at(-1)?.commas.push(i);
-      continue;
-    }
-    if (char !== '}' || stack.length === 0) continue;
-    const frame = stack.pop();
-    if (!frame || frame.commas.length === 0) continue;
-    if (!selected || frame.start < selected.start) {
-      selected = { start: frame.start, end: i + 1, commas: frame.commas };
-    }
-  }
-  if (!selected) return undefined;
-  return {
-    start: selected.start,
-    end: selected.end,
-    alternatives: sliceBraceAlternatives(value, selected),
-  };
-}
-
-function findActiveBraceExpansion(value: string) {
+function findActiveBraceExpansion(value: string, ranges: boolean) {
   const stack: { start: number; commas: number[] }[] = [];
   let selected:
     | { kind: 'alternatives'; start: number; end: number; commas: number[] }
@@ -1503,7 +1442,7 @@ function findActiveBraceExpansion(value: string) {
             end: index + 1,
             commas: frame.commas,
           } as const)
-        : isActiveBraceRange(value.slice(frame.start + 1, index))
+        : ranges && isActiveBraceRange(value.slice(frame.start + 1, index))
           ? ({ kind: 'range', start: frame.start, end: index + 1 } as const)
           : undefined;
     if (candidate && (!selected || candidate.start < selected.start)) selected = candidate;
@@ -1573,7 +1512,7 @@ function limitedProgram(source: string, start: number, end: number, code: string
     source: source.slice(start, end),
     span: { start, end },
     status: 'limited',
-    issues: [{ code, message: 'command structure exceeds parser limit', span: { start, end } }],
+    issues: [{ code, message: 'command structure exceeds parser limit' }],
     nodes: [],
   });
 }
@@ -1592,7 +1531,6 @@ function limitedResult(
       {
         code,
         message: `command structure exceeds parser limit ${limit}`,
-        span: { start: next, end: next },
       },
     ],
     next,
@@ -1645,7 +1583,6 @@ function unterminatedHeredocIssues(pending: readonly PendingHeredoc[]): CommandI
   return pending.map((declaration) => ({
     code: 'unterminated-heredoc',
     message: `heredoc delimiter ${declaration.delimiter} was not found`,
-    span: declaration.declarationSpan,
   }));
 }
 
@@ -1659,20 +1596,14 @@ function appendMissingCommandIssue(nodes: readonly CommandNode[], issues: Comman
   issues.push({
     code: 'missing-command-after-connector',
     message: `connector ${trailing.operator} requires a following command`,
-    span: trailing.span,
   });
 }
 
-function appendMissingConnectorIssue(
-  nodes: readonly CommandNode[],
-  issues: CommandIssue[],
-  start: number,
-): void {
+function appendMissingConnectorIssue(nodes: readonly CommandNode[], issues: CommandIssue[]): void {
   if (!isExecutableNode(nodes.at(-1))) return;
   issues.push({
     code: 'missing-command-connector',
     message: 'adjacent commands require a connector',
-    span: { start, end: start + 1 },
   });
 }
 

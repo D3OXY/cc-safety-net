@@ -632,7 +632,6 @@ exports[`explain renders the same trace from both bins 06-busybox: json 1`] = `
           {
             "type": "tmpdir-check",
             "tmpdirValue": "<redacted>",
-            "isOverriddenToNonTemp": false,
             "allowTmpdirVar": true
           },
           {
@@ -765,7 +764,6 @@ exports[`explain renders the same trace from both bins 07-cwd-change: json 1`] =
           {
             "type": "tmpdir-check",
             "tmpdirValue": "<redacted>",
-            "isOverriddenToNonTemp": false,
             "allowTmpdirVar": true
           },
           {
@@ -1098,7 +1096,6 @@ exports[`explain renders the same trace from both bins 10-dynamic-target: json 1
           {
             "type": "tmpdir-check",
             "tmpdirValue": "<redacted>",
-            "isOverriddenToNonTemp": false,
             "allowTmpdirVar": true
           },
           {
@@ -1918,7 +1915,6 @@ exports[`explain renders the same trace from both bins 19-tmpdir-check: json 1`]
           {
             "type": "tmpdir-check",
             "tmpdirValue": "<redacted>",
-            "isOverriddenToNonTemp": false,
             "allowTmpdirVar": true
           },
           {

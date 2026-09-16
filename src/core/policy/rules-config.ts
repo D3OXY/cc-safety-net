@@ -360,7 +360,7 @@ export function formatIssues(
   ];
 }
 
-function renderIssuePath(path: readonly PropertyKey[]): string {
+export function renderIssuePath(path: readonly PropertyKey[]): string {
   return path
     .map((segment, index) => {
       if (typeof segment === 'number') return `[${segment}]`;

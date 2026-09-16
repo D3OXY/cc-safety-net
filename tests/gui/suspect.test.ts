@@ -12,15 +12,11 @@ type Entry = {
 };
 
 const pages = renderPages(TOKEN);
-const block = (page: string) =>
-  [
-    sliceBlock(page, 'var commandSignature = (source) => {', '\n// '),
-    sliceBlock(page, 'var findSuspects = (entries) => {', 'var clearCommandFilter'),
-  ].join('\n');
+const block = (page: string) => sliceBlock(page, 'var commandSignature = (source) => {', '\n// ');
 
 const findSuspects = new Function(
   'entries',
-  `${block(pages.ported)}\nreturn findSuspects(entries);`,
+  `${block(pages.ported)}\nreturn findSuspectEntries(entries);`,
 ) as (entries: readonly Entry[]) => Set<Entry>;
 
 const suspectCommands = (entries: readonly Entry[]) =>

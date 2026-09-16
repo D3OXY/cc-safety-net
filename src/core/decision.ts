@@ -8,8 +8,6 @@ export const BLOCK_INTENTS = Object.freeze([
 
 export type BlockIntent = (typeof BLOCK_INTENTS)[number];
 
-type DecisionEvidence = { kind: 'command'; command: string; segment?: string };
-
 export type Decision =
   | { kind: 'allow' }
   | {
@@ -17,5 +15,5 @@ export type Decision =
       reason: string;
       intent: BlockIntent;
       ruleId?: string;
-      evidence: readonly DecisionEvidence[];
+      evidence?: { command: string; segment?: string };
     };

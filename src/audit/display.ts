@@ -20,3 +20,27 @@ export const commandSignature = (source: string | undefined): string | null => {
   const next = tokens[1];
   return next && /^[a-z][a-z0-9-]*$/.test(next) ? `${binary} ${next}` : binary;
 };
+
+export function findSuspectEntries<
+  T extends {
+    decision?: string;
+    sessionId?: string;
+    segment?: string;
+    command?: string;
+    failureStage?: string;
+  },
+>(entries: readonly T[]): Set<T> {
+  const signatureKey = (entry: T) =>
+    `${entry.sessionId}\n${commandSignature(entry.segment || entry.command)}`;
+  const denials = entries.filter((entry) => entry.decision !== 'allow');
+  const repeats = denials
+    .filter((entry) => entry.sessionId)
+    .reduce(
+      (counts, entry) =>
+        counts.set(signatureKey(entry), (counts.get(signatureKey(entry)) ?? 0) + 1),
+      new Map<string, number>(),
+    );
+  return new Set(
+    denials.filter((entry) => entry.failureStage || (repeats.get(signatureKey(entry)) ?? 0) >= 2),
+  );
+}

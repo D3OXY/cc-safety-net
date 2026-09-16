@@ -34,12 +34,7 @@ export type TraceStep =
       reason?: string;
     }
   | { type: 'worktree-relaxation'; originalReason: string; gitCwd: string }
-  | {
-      type: 'tmpdir-check';
-      tmpdirValue: string | null;
-      isOverriddenToNonTemp: boolean;
-      allowTmpdirVar: boolean;
-    }
+  | { type: 'tmpdir-check'; tmpdirValue: string | null; allowTmpdirVar: boolean }
   | { type: 'fallback-scan'; tokensScanned: string[]; embeddedCommandFound?: string }
   | { type: 'custom-rules-check'; rulesChecked: boolean; matched: boolean; reason?: string }
   | { type: 'cwd-change'; segment: string; effectiveCwdNowUnknown: true }
@@ -53,14 +48,8 @@ export type CommandTraceEvent = Readonly<
   | { kind: 'step'; scope: 'segment'; segmentIndex: number; step: TraceStep }
 >;
 
-export type CommandTraceTerminal = Readonly<
-  { result: 'allowed' } | { result: 'blocked'; reason: string; segment: string; ruleId?: string }
->;
-
 export type CommandTrace = Readonly<{
   events: readonly CommandTraceEvent[];
-  droppedEvents: number;
-  terminal: CommandTraceTerminal;
 }>;
 
 export type CommandTraceContext = {
@@ -147,43 +136,20 @@ export function createCommandTraceRecorder(options: RecorderOptions = {}) {
     maxObjectProperties: options.maxObjectProperties ?? options.maxListLength ?? 128,
     maxDepth: options.maxDepth ?? 16,
   };
-  let droppedEvents = 0;
   let result: CommandTrace | undefined;
   const sensitiveHashes = new Set<string>();
 
   return {
     record(event: CommandTraceEvent): void {
       if (result) return;
+      if (!event || events.length >= maxEvents) return;
       try {
-        if (!event || events.length >= maxEvents) {
-          droppedEvents++;
-          return;
-        }
         events.push(deepFreeze(sanitizeEvent(event, limits, sensitiveHashes)));
-      } catch {
-        droppedEvents++;
-      }
+      } catch {}
     },
-    finish(terminal: CommandTraceTerminal): CommandTrace {
+    finish(): CommandTrace {
       if (result) return result;
-      try {
-        result = deepFreeze({
-          events: Object.freeze(events),
-          droppedEvents,
-          terminal: sanitizeTerminal(terminal, limits, sensitiveHashes),
-        }) as CommandTrace;
-      } catch {
-        droppedEvents++;
-        result = Object.freeze({
-          events: Object.freeze(events),
-          droppedEvents,
-          terminal: Object.freeze({
-            result: 'blocked',
-            reason: 'trace unavailable'.slice(0, limits.maxTextLength),
-            segment: 'trace unavailable'.slice(0, limits.maxTextLength),
-          }),
-        });
-      }
+      result = deepFreeze({ events: Object.freeze(events) }) as CommandTrace;
       return result;
     },
   };
@@ -207,27 +173,6 @@ function sanitizeEvent(
     segmentIndex: event.segmentIndex,
     step: sanitizedStep,
   };
-}
-
-function sanitizeTerminal(
-  terminal: CommandTraceTerminal,
-  limits: TraversalLimits,
-  sensitiveHashes: ReadonlySet<string>,
-): CommandTraceTerminal {
-  const result = terminal.result;
-  if (result === 'allowed') return Object.freeze({ result: 'allowed' });
-  if (result !== 'blocked') throw new TypeError('invalid trace terminal');
-  const ruleId = terminal.ruleId;
-  return Object.freeze({
-    result: 'blocked',
-    reason: sanitizeValue(terminal.reason, limits, sensitiveHashes) as string,
-    segment: sanitizeValue(terminal.segment, limits, sensitiveHashes) as string,
-    ...(ruleId
-      ? {
-          ruleId: sanitizeValue(ruleId, limits, sensitiveHashes) as string,
-        }
-      : {}),
-  });
 }
 
 function collectSensitiveHashes(

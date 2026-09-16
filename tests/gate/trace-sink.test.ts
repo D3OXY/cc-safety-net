@@ -6,7 +6,6 @@ import { projectSegmentWords } from '@/core/shell/traversal';
 import { evaluateGuard, type GuardEvaluation } from '@/gate/pipeline';
 import {
   type CommandTraceContext,
-  type CommandTraceTerminal,
   createCommandTraceContext,
   createCommandTraceRecorder,
 } from '@/gate/trace';
@@ -34,18 +33,6 @@ const dependencies = {
 
 const CWD = '/work/project';
 
-function terminalFor(evaluation: GuardEvaluation, command: string): CommandTraceTerminal {
-  const decision = evaluation.decision;
-  if (decision.kind !== 'deny') return { result: 'allowed' };
-  const evidence = decision.evidence.find((item) => item.kind === 'command');
-  return {
-    result: 'blocked',
-    reason: decision.reason,
-    segment: evidence?.segment ?? command,
-    ...(decision.ruleId ? { ruleId: decision.ruleId } : {}),
-  };
-}
-
 function evaluateWithSink(command: string) {
   const recorder = createCommandTraceRecorder();
   const trace = createCommandTraceContext(recorder);
@@ -59,7 +46,7 @@ function evaluateWithSink(command: string) {
     trace,
     dependencies,
   });
-  return { evaluation, trace: recorder.finish(terminalFor(evaluation, command)) };
+  return { evaluation, trace: recorder.finish() };
 }
 
 describe('the analyzer steps reach a sink handed to evaluateGuard', () => {

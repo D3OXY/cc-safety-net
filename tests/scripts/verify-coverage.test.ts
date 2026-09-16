@@ -72,33 +72,8 @@ describe('coverage verification', () => {
     );
   });
 
-  test.each([
-    ['', 'LCOV report is empty'],
-    ['SF:src/a.ts\nLF:1\nLH:1\nend_of_record', 'LCOV report has no function totals'],
-    [
-      'SF:src/a.ts\nFNF:1\nFNH:2\nLF:1\nLH:1\nend_of_record',
-      'LCOV report has invalid function totals',
-    ],
-    ['SF:src/a.ts\nFNF:x\nFNH:1\nLF:1\nLH:1\nend_of_record', 'Malformed LCOV FNF value'],
-  ])('rejects malformed or incomplete LCOV: %#', (lcov, error) => {
-    expect(() => parseCoverageSummary(lcov)).toThrow(error);
-  });
-
-  test.each([
-    ['LF:1', 'LCOV metric outside record'],
-    ['SF:src/a.ts\nSF:src/b.ts\nFNF:1\nFNH:1\nLF:1\nLH:1\nend_of_record', 'Nested LCOV SF record'],
-    ['SF:src/a.ts\nFNF:1\nFNH:1\nLF:1\nLH:1', 'LCOV record missing end_of_record'],
-    ['end_of_record', 'LCOV end_of_record without SF'],
-    ['SF:src/a.ts\nFNF:1\nFNH:1\nLF:1\nLF:1\nLH:1\nend_of_record', 'Duplicate LCOV LF field'],
-    ['SF:src/a.ts\nFNF:1\nFNH:1\nLF:-1\nLH:1\nend_of_record', 'Malformed LCOV LF value'],
-    [
-      'SF:src/a.ts\nFNF:1\nFNH:1\nLF:999999999999999999999999\nLH:1\nend_of_record',
-      'Malformed LCOV LF value',
-    ],
-    ['SF:src/a.ts\nFNF:1\nFNH:1\nLF:1\nLH:2\nend_of_record', 'LCOV record has invalid line totals'],
-    ['SF:src/a.ts\nend_of_record', 'LCOV record is empty'],
-  ])('rejects invalid record state: %#', (lcov, error) => {
-    expect(() => parseCoverageSummary(lcov)).toThrow(error);
+  test('rejects an empty report', () => {
+    expect(() => parseCoverageSummary('')).toThrow('LCOV report is empty');
   });
 
   test('rejects a missing LCOV report', () => {

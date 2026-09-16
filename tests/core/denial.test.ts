@@ -14,7 +14,7 @@ const TOKEN = 'ghp_abcdefghijklmnopqrstuvwxyz0123';
 function deny(
   reason: string,
   intent: BlockIntent,
-  evidence: { command: string; segment?: string }[],
+  evidence: { command: string; segment?: string } | undefined,
   ruleId?: string,
 ): Decision {
   return {
@@ -22,7 +22,7 @@ function deny(
     reason,
     intent,
     ...(ruleId === undefined ? {} : { ruleId }),
-    evidence: evidence.map((item) => ({ kind: 'command' as const, ...item })),
+    ...(evidence === undefined ? {} : { evidence }),
   };
 }
 
@@ -161,15 +161,7 @@ describe('denial renderer', () => {
       expect(next.projectGuardDenial({ decision: { kind: 'allow' } }, option)).toBeUndefined();
     }
 
-    const decision = deny(
-      'Reason',
-      'hard_stop',
-      [
-        { command: 'first', segment: 'one' },
-        { command: 'second', segment: 'two' },
-      ],
-      'test.rule',
-    );
+    const decision = deny('Reason', 'hard_stop', { command: 'first', segment: 'one' }, 'test.rule');
     expect(
       next.projectGuardDenial({ decision }, { includeEvidence: true, toolName: 'Bash' }),
     ).toEqual({
@@ -190,7 +182,7 @@ describe('denial renderer', () => {
     });
     expect(
       next.projectGuardDenial(
-        { decision: deny('Bare', 'scope_down', []) },
+        { decision: deny('Bare', 'scope_down', undefined) },
         { includeEvidence: true },
       ),
     ).toEqual({
@@ -203,14 +195,14 @@ describe('denial renderer', () => {
     });
     expect(
       next.projectGuardDenial(
-        { decision: deny('No segment', 'scope_down', [{ command: 'find . -delete' }]) },
+        { decision: deny('No segment', 'scope_down', { command: 'find . -delete' }) },
         { includeEvidence: true },
       )?.segment,
     ).toBeUndefined();
     expect(
       next.projectGuardDenial(
         {
-          decision: deny('Unrelated', 'manual_only', [{ command: 'git reset --hard' }]),
+          decision: deny('Unrelated', 'manual_only', { command: 'git reset --hard' }),
           configFallback: { reason: 'digest mismatch' },
         },
         { includeEvidence: true },
@@ -218,8 +210,10 @@ describe('denial renderer', () => {
     ).toBe('digest mismatch');
     for (const intent of BLOCK_INTENTS) {
       expect(
-        next.projectGuardDenial({ decision: deny('r', intent, []) }, { includeEvidence: false })
-          ?.intent,
+        next.projectGuardDenial(
+          { decision: deny('r', intent, undefined) },
+          { includeEvidence: false },
+        )?.intent,
       ).toBe(intent);
     }
   });
@@ -232,7 +226,7 @@ describe('denial renderer', () => {
             decision: deny(
               'Secrets in every field',
               'hard_stop',
-              [{ command: SECRET_COMMAND, segment: 'git push --force origin main' }],
+              { command: SECRET_COMMAND, segment: 'git push --force origin main' },
               'secret.token',
             ),
             configFallback: { reason: SECRET_CONFIG },

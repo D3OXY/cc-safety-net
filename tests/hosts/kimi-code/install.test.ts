@@ -18,13 +18,11 @@ const CONFIGURED = {
   configPath: `<home>/${TOML}`,
 } as const;
 
-const { row, detection } = hostRunner({
-  ported: (environment) => ({
-    install: () => installKimiCode(environment),
-    detect: () => detectKimi({ environment, cwd: environment.home }),
-    uninstall: () => uninstallKimiCode(environment),
-  }),
-});
+const { row, detection } = hostRunner((environment) => ({
+  install: () => installKimiCode(environment),
+  detect: () => detectKimi({ environment, cwd: environment.home }),
+  uninstall: () => uninstallKimiCode(environment),
+}));
 
 afterEach(removeTempRoots);
 

@@ -234,7 +234,7 @@ function decided(evaluation: GuardEvaluation) {
     stage: evaluation.stage,
     intent: decision.intent,
     ruleId: decision.ruleId,
-    segment: decision.evidence.find((item) => item.kind === 'command')?.segment,
+    segment: decision.evidence?.segment,
   };
 }
 

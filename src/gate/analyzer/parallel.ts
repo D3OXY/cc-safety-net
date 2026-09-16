@@ -15,6 +15,7 @@ import type { AnalyzeNestedOverrides, PathResolver } from '@/gate/analysis';
 import { extractAwkExecutableSources } from './awk';
 import {
   type ChildProvenance,
+  childProvenance,
   collectCommandTemplate,
   type NestedCommandAnalyzeContext,
   type NormalizedChildCommand,
@@ -22,6 +23,7 @@ import {
 } from './child-command';
 import { analysisWordText, textCommandWords } from './command-words';
 import { dangerousInTextMatch } from './dangerous-text';
+import { solveDynamicInput, substitutionAddsExecutableSource } from './dynamic-input';
 import { getFindPrimaryArity, isFindExecPrimary } from './find';
 import { extractGitSubcommandAndRest } from './git/parse';
 import { GIT_RULE_SUBCOMMANDS } from './git/rules';
@@ -45,7 +47,7 @@ const REASON_PARALLEL_COMMAND_STREAM =
   'parallel without a command reads executable commands from dynamic input. Use an explicit command template or ::: arguments instead.';
 const REASON_PARALLEL_UNSUPPORTED =
   'parallel command construction cannot be verified safely. Use the default ::: separator, literal arguments, and built-in replacement strings.';
-const PARALLEL_PLACEHOLDER_RE = /\{[^{}\s]*\}/;
+const PARALLEL_PLACEHOLDER_RE = /\{[^{}\s]*\}/g;
 const PARALLEL_RM_PLACEHOLDER_RE = /\{\}|\{-?\d+\}/g;
 const AWK_SOURCE_OPTION_INPUTS = ['e', 'f', 'source', 'file', '-e', '-f', '--source', '--file'];
 const INTERPRETER_SOURCE_OPTION_INPUTS = [
@@ -463,22 +465,6 @@ function analyzeParallelChildCommand(
   });
 }
 
-function childProvenance(
-  childCommand: NormalizedChildCommand,
-  executionContext: ParallelAnalyzeContext,
-): ChildProvenance {
-  return {
-    producer: 'parallel',
-    cwd: childCommand.cwd,
-    originalCwd: executionContext.originalCwd,
-    effectiveCwd: childCommand.cwd,
-    envAssignments: childCommand.envAssignments,
-    allowTmpdirVar: executionContext.allowTmpdirVar,
-    worktreeMode: executionContext.worktreeMode,
-    wrappedByTransparent: false,
-  };
-}
-
 function parallelInputCanChangeExecutedSource(
   tokens: readonly string[],
   childHead: string,
@@ -569,13 +555,8 @@ function executableSourceCanChange<T extends { kind: string; tokenIndex: number;
       (source) => source.value === PARALLEL_APPENDED_SOURCE,
     );
   }
-  const existing = new Set(
-    existingSources.map((source) => `${source.tokenIndex}\0${source.kind}\0${source.value}`),
-  );
-  return candidates.some((candidate) =>
-    extractSources(tokens.map((token) => replaceParallelJobPlaceholder(token, [candidate]))).some(
-      (source) => !existing.has(`${source.tokenIndex}\0${source.kind}\0${source.value}`),
-    ),
+  return substitutionAddsExecutableSource(existingSources, candidates, (candidate) =>
+    extractSources(tokens.map((token) => replaceParallelJobPlaceholder(token, [candidate]))),
   );
 }
 
@@ -640,15 +621,12 @@ function dynamicCustomRuleWork(
 
 function parallelInputsThatProduce(tokens: readonly string[], target: string): string[] {
   return tokens.flatMap((token) => {
-    const matches = [...token.matchAll(/\{[^{}\s]*\}/g)];
+    const matches = [...token.matchAll(PARALLEL_PLACEHOLDER_RE)];
     if (matches.length !== 1) return [];
     const match = matches[0];
     if (!match || match.index === undefined) return [];
-    const prefix = token.slice(0, match.index);
-    const suffix = token.slice(match.index + match[0].length);
-    if (!target.startsWith(prefix) || !target.endsWith(suffix)) return [target];
-    const input = target.slice(prefix.length, target.length - suffix.length);
-    return input !== target ? [target, input] : [target];
+    const input = solveDynamicInput(token, match.index, match[0].length, target);
+    return input !== null && input !== target ? [target, input] : [target];
   });
 }
 
@@ -925,7 +903,7 @@ function expandedJobBytesExceedLimit(
 function getReplacementStats(value: string, placeholderKind: PlaceholderKind): ReplacementStats {
   const matches =
     placeholderKind === 'generic'
-      ? value.matchAll(/\{[^{}\s]*\}/g)
+      ? value.matchAll(PARALLEL_PLACEHOLDER_RE)
       : value.matchAll(PARALLEL_RM_PLACEHOLDER_RE);
   let occurrences = 0;
   let fixedBytes = 0;
@@ -1034,7 +1012,7 @@ interface ParallelParseResult {
 }
 
 function replaceParallelJobPlaceholder(token: string, job: ParallelJob): string {
-  return token.replace(/\{[^{}\s]*\}/g, (placeholder) =>
+  return token.replace(PARALLEL_PLACEHOLDER_RE, (placeholder) =>
     getParallelPlaceholderValue(placeholder, job),
   );
 }
@@ -1056,12 +1034,12 @@ function getParallelPlaceholderValue(placeholder: string, job: ParallelJob): str
 }
 
 function hasParallelPlaceholder(token: string): boolean {
-  return PARALLEL_PLACEHOLDER_RE.test(token);
+  return token.search(PARALLEL_PLACEHOLDER_RE) !== -1;
 }
 
 function hasUnsupportedParallelPlaceholder(token: string): boolean {
   if (hasExecutableParallelPlaceholder(token)) return true;
-  for (const match of token.matchAll(/\{[^{}\s]*\}/g)) {
+  for (const match of token.matchAll(PARALLEL_PLACEHOLDER_RE)) {
     if (!/^(?:\{\}|\{-?\d+\})$/.test(match[0])) {
       return true;
     }

@@ -94,7 +94,7 @@ describe('input past the intake caps', () => {
       tree.workspace,
     );
     const ported = portedVerdict(call, environment, dependencies);
-    expect(ported).toMatchObject({ thrown: 'GuardEvaluationError', evidence: [] });
+    expect(ported).toMatchObject({ thrown: 'GuardEvaluationError', evidence: undefined });
   });
 });
 

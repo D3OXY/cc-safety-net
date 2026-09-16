@@ -3,7 +3,6 @@ import {
   advanceQuoteScanState,
   extractShortOpts,
   getBasename,
-  getShellCommandString,
   hasUnclosedQuotes,
   normalizeCommandToken,
 } from '@/core/shell/tokens';
@@ -55,35 +54,6 @@ describe('core/shell/tokens', () => {
       expect([...extractShortOpts(row.argv, row.options)], row.argv.join(' ')).toStrictEqual([
         ...row.expected,
       ]);
-    }
-  });
-
-  test('a shell argv selects a command string only before a script positional', () => {
-    const rows: readonly {
-      readonly shell: string;
-      readonly args: readonly string[];
-      readonly command: string | null;
-    }[] = [
-      { shell: 'bash', args: ['-c', 'echo ok'], command: 'echo ok' },
-      { shell: 'bash', args: ['-lc', 'echo ok'], command: 'echo ok' },
-      { shell: 'bash', args: ['--', '-c', 'echo ok'], command: null },
-      { shell: 'bash', args: ['script.sh', '-c', 'echo ok'], command: null },
-      { shell: 'bash', args: ['-c'], command: null },
-      { shell: 'bash', args: ['--rcfile=profile', '-c', 'echo ok'], command: 'echo ok' },
-      { shell: 'bash', args: ['--rcfile', 'profile', '-c', 'echo ok'], command: 'echo ok' },
-      { shell: 'bash', args: ['--rcfile'], command: null },
-      { shell: 'bash', args: ['-O', '-c', 'echo ok'], command: null },
-      { shell: 'bash', args: ['-O', 'extglob', '-lc', 'echo ok'], command: 'echo ok' },
-      { shell: 'ksh', args: ['-o', 'errexit', '-c', 'echo ok'], command: 'echo ok' },
-      { shell: 'ksh', args: ['-oc', 'echo ok'], command: 'echo ok' },
-      { shell: 'ksh', args: ['-o-c', 'echo ok'], command: 'echo ok' },
-      { shell: 'sh', args: ['+e', '-c', 'echo ok'], command: 'echo ok' },
-      { shell: 'fish', args: ['-c', 'echo ok'], command: 'echo ok' },
-    ];
-    for (const row of rows) {
-      expect(getShellCommandString(row.shell, row.args), `${row.shell} ${row.args.join(' ')}`).toBe(
-        row.command,
-      );
     }
   });
 

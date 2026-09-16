@@ -1,10 +1,7 @@
-import { RULE_SOURCE_LIMIT } from '@/core/policy/resource-limits';
-
 const RULE_SYNC_RESOURCE_LIMIT_ERROR =
   "Rule synchronization exceeds CC Safety Net's safe resource limits.";
 
 export const RULE_SYNC_RESOURCE_LIMITS = Object.freeze({
-  maxSources: RULE_SOURCE_LIMIT,
   concurrency: 4,
   maxRequests: 131,
   maxResponseBytes: 64 * 1024 * 1024,

@@ -148,18 +148,13 @@ describe('core/shell/parse', () => {
     const unterminated = parseCommand('echo "unterminated', 'posix');
     expect(unterminated.status).toBe('partial');
     expect(unterminated.issues).toStrictEqual([
-      {
-        code: 'unclosed-double-quote',
-        message: 'double-quoted word is not closed',
-        span: { start: 5, end: 'echo "unterminated'.length },
-      },
+      { code: 'unclosed-double-quote', message: 'double-quoted word is not closed' },
     ]);
     const openBody = parseCommand('cleanup() { echo ok', 'posix');
     expect(openBody.status).toBe('partial');
     expect(openBody.issues).toContainEqual({
       code: 'unclosed-function-body',
       message: 'function body is not closed',
-      span: { start: 10, end: 19 },
     });
     for (const source of ["printf $'\\UFFFFFFFF'", "printf $'\\U00110000'", "printf $'\\uD800'"]) {
       expect(parseCommand(source, 'posix'), source).toMatchObject({

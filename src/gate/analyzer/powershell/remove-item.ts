@@ -17,7 +17,8 @@ import {
   classifyRecursiveDeleteTarget,
   createRecursiveDeleteTargetContext,
   isDangerousRootOrHomeTarget,
-  type RecursiveDeleteTargetClassification,
+  matchRecursiveDeleteClassification,
+  type RecursiveDeleteRuleTable,
   type RecursiveDeleteTargetContext,
 } from '../recursive-delete-targets';
 
@@ -41,6 +42,37 @@ const REASON_REMOVE_ITEM_HOME_CWD =
   'PowerShell Remove-Item -Recurse -Force in home directory is dangerous. Change to a project directory first.';
 const REASON_REMOVE_ITEM_PIPELINE =
   'PowerShell Remove-Item receives pipeline input that cannot be verified safely. Use explicit literal paths within cwd.';
+
+const REMOVE_ITEM_RULES: RecursiveDeleteRuleTable = {
+  root_or_home_target: {
+    id: 'powershell.remove-item-recursive-force-root-or-home',
+    reason: REASON_REMOVE_ITEM_ROOT_HOME,
+  },
+  git_metadata_target: {
+    id: 'powershell.remove-item-git-metadata',
+    reason: REASON_GIT_METADATA_PROTECTION,
+  },
+  dynamic_target: {
+    id: 'powershell.remove-item-recursive-force-dynamic-target',
+    reason: REASON_REMOVE_ITEM_DYNAMIC_TARGET,
+  },
+  home_cwd_target: {
+    id: 'powershell.remove-item-recursive-force-home-cwd',
+    reason: REASON_REMOVE_ITEM_HOME_CWD,
+  },
+  cwd_self_target: {
+    id: 'powershell.remove-item-recursive-force-cwd-self',
+    reason: REASON_REMOVE_ITEM_RF,
+  },
+  within_anchored_cwd: {
+    id: 'powershell.remove-item-recursive-force-paranoid',
+    reason: REASON_REMOVE_ITEM_RF_POLICY,
+  },
+  outside_anchored_cwd: {
+    id: 'powershell.remove-item-recursive-force-outside-cwd',
+    reason: REASON_REMOVE_ITEM_RF,
+  },
+};
 
 interface AnalyzePowerShellRemoveItemOptions {
   environment: EnvironmentContext;
@@ -175,10 +207,11 @@ function analyzePowerShellSegment(
   }
 
   for (const target of parsed.targets) {
-    const match = matchForClassification(
+    const match = matchRecursiveDeleteClassification(
       classifyRecursiveDeleteTarget(powerShellTargetForPolicy(target.text), ctx),
       ctx,
       policy,
+      REMOVE_ITEM_RULES,
     );
     if (match) return match;
   }
@@ -322,66 +355,4 @@ function isProtectiveSwitchValue(value: string | undefined): boolean {
 
 function normalizeCommandName(name: string): string {
   return name.toLowerCase();
-}
-
-function matchForClassification(
-  classification: RecursiveDeleteTargetClassification,
-  ctx: RecursiveDeleteTargetContext,
-  policy: AnalyzePowerShellRemoveItemOptions['policy'],
-): DestructiveCommandRuleMatch | null {
-  switch (classification.kind) {
-    case 'root_or_home_target':
-      return destructiveCommandMatch(
-        'powershell.remove-item-recursive-force-root-or-home',
-        REASON_REMOVE_ITEM_ROOT_HOME,
-      );
-    case 'git_metadata_target':
-      return destructiveCommandMatch(
-        'powershell.remove-item-git-metadata',
-        REASON_GIT_METADATA_PROTECTION,
-      );
-    case 'temp_target':
-      return null;
-    case 'dynamic_target':
-      if (
-        !destructiveCommandRuleIsEnabled(
-          policy,
-          'powershell.remove-item-recursive-force-dynamic-target',
-          ctx.strict,
-        )
-      )
-        return null;
-      return destructiveCommandMatch(
-        'powershell.remove-item-recursive-force-dynamic-target',
-        REASON_REMOVE_ITEM_DYNAMIC_TARGET,
-      );
-    case 'home_cwd_target':
-      return destructiveCommandMatch(
-        'powershell.remove-item-recursive-force-home-cwd',
-        REASON_REMOVE_ITEM_HOME_CWD,
-      );
-    case 'cwd_self_target':
-      return destructiveCommandMatch(
-        'powershell.remove-item-recursive-force-cwd-self',
-        REASON_REMOVE_ITEM_RF,
-      );
-    case 'within_anchored_cwd':
-      if (
-        !destructiveCommandRuleIsEnabled(
-          policy,
-          'powershell.remove-item-recursive-force-paranoid',
-          ctx.paranoid,
-        )
-      )
-        return null;
-      return destructiveCommandMatch(
-        'powershell.remove-item-recursive-force-paranoid',
-        REASON_REMOVE_ITEM_RF_POLICY,
-      );
-    case 'outside_anchored_cwd':
-      return destructiveCommandMatch(
-        'powershell.remove-item-recursive-force-outside-cwd',
-        REASON_REMOVE_ITEM_RF,
-      );
-  }
 }

@@ -87,7 +87,7 @@ const RM_MATCH = {
 type ChildInput = Partial<
   Pick<
     ChildProvenance,
-    | 'producer'
+    | 'embedded'
     | 'wrappedByTransparent'
     | 'dynamicInput'
     | 'dynamicRmInput'
@@ -154,7 +154,7 @@ function dispatchPair(tokens: readonly string[], row: ChildAnalysisCase, input: 
     },
   };
   const child: ChildProvenance = {
-    producer: 'xargs',
+    embedded: false,
     cwd: workspace,
     originalCwd: workspace,
     effectiveCwd: workspace,
@@ -255,10 +255,8 @@ describe('synthesized child dispatch', () => {
       if (!outcome.ok) throw outcome.error;
       return outcome.value?.id ?? null;
     };
-    expect(idFor({ producer: 'unknown-head', wrappedByTransparent: false })).toBeNull();
-    expect(idFor({ producer: 'unknown-head', wrappedByTransparent: true })).toBe(
-      'custom.block-deploy',
-    );
+    expect(idFor({ embedded: true, wrappedByTransparent: false })).toBeNull();
+    expect(idFor({ embedded: true, wrappedByTransparent: true })).toBe('custom.block-deploy');
     expect(idFor({})).toBe('custom.block-deploy');
   });
 

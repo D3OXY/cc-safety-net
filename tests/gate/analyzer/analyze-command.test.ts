@@ -304,13 +304,7 @@ describe('analyzeCommand', () => {
         "git reset --hard destroys all uncommitted changes permanently. Use 'git stash' first.",
       intent: 'use_alternative',
       ruleId: 'git.reset-hard',
-      evidence: [
-        {
-          kind: 'command',
-          command: 'echo start && git reset --hard',
-          segment: 'git reset --hard',
-        },
-      ],
+      evidence: { command: 'echo start && git reset --hard', segment: 'git reset --hard' },
     });
   });
 
@@ -435,7 +429,7 @@ describe('analyzeCommand', () => {
         reason: row.reason,
         intent: row.intent,
         ruleId: row.ruleId,
-        evidence: [{ kind: 'command', command: row.command, segment: row.segment }],
+        evidence: { command: row.command, segment: row.segment },
       });
     }
     expect(decision('unknown-head -x terraform destroy -auto-approve', standard)).toBeNull();
@@ -493,9 +487,10 @@ describe('analyzeCommand', () => {
       const decided = decision(row.command, standard);
       expect(decided?.ruleId, row.command).toBe(row.ruleId);
       expect(decided?.intent, row.command).toBe(row.intent);
-      expect(decided?.evidence, row.command).toStrictEqual([
-        { kind: 'command', command: row.command, segment: row.segment },
-      ]);
+      expect(decided?.evidence, row.command).toStrictEqual({
+        command: row.command,
+        segment: row.segment,
+      });
     }
   });
 

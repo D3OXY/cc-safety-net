@@ -271,7 +271,7 @@ describe('a failing dependency fails closed the same way', () => {
             kind: 'deny',
             reason: expect.stringContaining(cause.reasonIncludes),
             intent: 'stop_and_explain',
-            evidence: [{ kind: 'command', command: 'git status', segment: 'git status' }],
+            evidence: { command: 'git status', segment: 'git status' },
           },
         });
       });
@@ -290,7 +290,6 @@ describe('a failing dependency fails closed the same way', () => {
         kind: 'deny',
         reason: expect.stringContaining('failed closed'),
         intent: 'stop_and_explain',
-        evidence: [],
       },
     });
   });

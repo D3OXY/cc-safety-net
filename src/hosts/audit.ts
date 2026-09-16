@@ -50,7 +50,7 @@ export function projectGuardAudit(
     };
   }
 
-  const evidence = evaluation.decision.evidence.find((item) => item.kind === 'command');
+  const evidence = evaluation.decision.evidence;
   const command =
     evidence?.command ?? (includeInvocationCommand ? getInvocationCommand(invocation) : '');
   return {

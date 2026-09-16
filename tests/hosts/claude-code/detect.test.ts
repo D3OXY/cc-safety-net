@@ -21,9 +21,9 @@ const enabledPlugins = (value: boolean) =>
 
 const NOT_ENABLED = `${PLUGIN_ID} is installed but not enabled in Claude Code`;
 
-const detection = detectionRunner({
-  ported: (environment) => detectClaudeCode({ environment, cwd: environment.home }),
-});
+const detection = detectionRunner((environment) =>
+  detectClaudeCode({ environment, cwd: environment.home }),
+);
 
 const NOT_INSPECTED: HookDetection = { platform: 'claude-code', status: 'not-inspected' };
 const ABSENT: HookDetection = { platform: 'claude-code', status: 'n/a' };
@@ -76,10 +76,12 @@ describe('reading what Claude Code recorded', () => {
 describe('asking whether a specific plugin id is installed', () => {
   const legacyInstalled = async (seed: TreeSpec) =>
     (
-      await differential({
-        seed,
-        ported: (environment) => hasClaudeInstalledPlugin(environment, LEGACY_ID),
-      })
+      await differential(
+        {
+          seed,
+        },
+        (environment) => hasClaudeInstalledPlugin(environment, LEGACY_ID),
+      )
     ).outcome;
 
   test('finds the pre-rename id the install flow cleans up after', async () => {

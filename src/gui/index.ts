@@ -317,8 +317,6 @@ async function handleRequest(
 
     const user = readRuntimeUserBaseline(environment, options);
     sendJson(response, 200, {
-      dir,
-
       path: getProjectPolicyPath(dir),
       revision: session.revision,
       baseline: user.baseline,
@@ -348,7 +346,6 @@ async function handleRequest(
       ),
       weakenings: proposed.weakenings,
       existingFileDiagnostics: current.diagnostics,
-      errors: [],
     });
     return;
   }

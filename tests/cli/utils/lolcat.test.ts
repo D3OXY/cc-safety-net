@@ -12,7 +12,6 @@ const plain = (frame: string) => frame.replace(ANSI_STYLE, '');
 function captureAnimation(isTTY: boolean, signal?: AbortSignal, seed = 5) {
   const output = createFakeOutput({ isTTY });
   return portedWriteAnimated(TEXT, {
-    duration: 2,
     output,
     seed,
     signal,
@@ -35,7 +34,7 @@ describe('cli/utils/lolcat', () => {
     const ported = await captureAnimation(true);
     expect(ported[0]).toBe('\x1b[?25l\n\x1b[1A\x1b7');
     expect(ported.slice(-3)).toEqual(['\x1b8', '\x1b[1B', '\n\x1b[0m\x1b[?25h']);
-    expect(ported).toHaveLength(11);
+    expect(ported).toHaveLength(41);
     for (const frame of ported.slice(1, -3)) {
       expect(frame, frame).toStartWith(BEGIN_SYNC);
       expect(frame, frame).toEndWith(END_SYNC);

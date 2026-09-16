@@ -914,6 +914,11 @@ bun test tests/gate/secret/secret-protection.test.ts 2>&1 | grep -E "expect\\(|p
         expected: null,
       },
       {
+        name: 'an option value equal to the bash -c body is not re-read as a positional operand',
+        command: 'bash -O .env -c .env',
+        expected: null,
+      },
+      {
         name: 'a positional operand after a bash -c body',
         command: 'bash -c \'cat "$1"\' _ .env',
         expected: env('.env'),

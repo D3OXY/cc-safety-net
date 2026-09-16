@@ -52,11 +52,12 @@ describe('reading the Amp plugin listing', () => {
   test.each(OUTPUTS)('reports %s', async (_case, ampPluginListOutput, expected) => {
     expect(
       (
-        await differential({
-          seed: {},
-          ported: (environment) =>
-            detect({ environment, cwd: environment.home, ampPluginListOutput }),
-        })
+        await differential(
+          {
+            seed: {},
+          },
+          (environment) => detect({ environment, cwd: environment.home, ampPluginListOutput }),
+        )
       ).outcome,
     ).toEqual({ kind: 'returned', value: expected });
   });

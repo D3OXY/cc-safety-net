@@ -117,7 +117,7 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
         kind: 'deny',
         reason: REASON_RECURSION_LIMIT,
         intent: 'stop_and_explain',
-        evidence: [{ kind: 'command', command: invocation.command, segment: invocation.command }],
+        evidence: { command: invocation.command, segment: invocation.command },
       },
     };
   }
@@ -128,7 +128,6 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
         kind: 'deny',
         reason: REASON_STRUCTURAL_COMMAND_VALIDATION_LIMIT,
         intent: 'stop_and_explain',
-        evidence: [],
       },
     };
   }
@@ -151,7 +150,7 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
         kind: 'deny',
         reason: REASON_POLICY_CONFIG_PROTECTION,
         intent: 'hard_stop',
-        evidence: [{ kind: 'command', command: displayCommand, segment: policyTarget.target }],
+        evidence: { command: displayCommand, segment: policyTarget.target },
       },
     };
   }
@@ -167,7 +166,7 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
         kind: 'deny',
         reason: REASON_POLICY_APPLY_PROTECTION,
         intent: 'hard_stop',
-        evidence: [{ kind: 'command', command: displayCommand, segment: policyApplyTarget.target }],
+        evidence: { command: displayCommand, segment: policyApplyTarget.target },
       },
     };
   }
@@ -183,7 +182,7 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
         kind: 'deny',
         reason: REASON_GIT_METADATA_PROTECTION,
         intent: 'hard_stop',
-        evidence: [{ kind: 'command', command: displayCommand, segment: gitMetadataTarget.target }],
+        evidence: { command: displayCommand, segment: gitMetadataTarget.target },
       },
     };
   }
@@ -225,7 +224,7 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
         reason: REASON_SECRET_PROTECTION,
         intent: 'hard_stop',
         ruleId: secretTarget.ruleId,
-        evidence: [{ kind: 'command', command: displayCommand, segment: secretTarget.target }],
+        evidence: { command: displayCommand, segment: secretTarget.target },
       },
     };
   }
@@ -356,7 +355,7 @@ function failedClosedEvaluation(
       kind: 'deny',
       reason: isAnalysisLimit ? REASON_COMMAND_ANALYSIS_LIMIT : REASON_SAFETY_NET_FAILED_CLOSED,
       intent: 'stop_and_explain',
-      evidence: command ? [{ kind: 'command', command, segment: command }] : [],
+      ...(command ? { evidence: { command, segment: command } } : {}),
     },
   };
 }

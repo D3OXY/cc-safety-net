@@ -70,14 +70,16 @@ describe('resolving the OpenClaw state directory', () => {
 
     expect(
       (
-        await differential({
-          seed: {},
-          env,
-          ported: (environment) => ({
+        await differential(
+          {
+            seed: {},
+            env,
+          },
+          (environment) => ({
             config: getOpenClawConfigPath(environment),
             plugin: getOpenClawPluginDir(environment),
           }),
-        })
+        )
       ).outcome,
     ).toEqual({ kind: 'returned', value: { config, plugin: `${extensions}/cc-safety-net` } });
   });
@@ -86,10 +88,12 @@ describe('resolving the OpenClaw state directory', () => {
 describe('guarding the extension directory before a --force command', () => {
   const guard = async (seed: TreeSpec) =>
     (
-      await differential({
-        seed,
-        ported: (environment) => describeOutcome(() => assertOpenClawPluginDirIsOurs(environment)),
-      })
+      await differential(
+        {
+          seed,
+        },
+        (environment) => describeOutcome(() => assertOpenClawPluginDirIsOurs(environment)),
+      )
     ).outcome;
 
   test.each([

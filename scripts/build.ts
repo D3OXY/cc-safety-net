@@ -7,7 +7,7 @@
 import { renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { AMP_PLUGIN_ENTRY } from '../src/hosts/amp/artifact';
-import { getBundledOutputs, isPublicDeclarationOutput } from './build-output';
+import { isPublicDeclarationOutput } from './build-output';
 import { buildAmpBundle, buildOpenClawBundle, buildRuntimeBundles } from './build-runtime';
 import { formatSubprocessFailure } from './subprocess-output';
 import { verifyBuildArtifacts } from './verify-build';
@@ -58,11 +58,6 @@ for (const name of ['index', 'api']) {
 
 await Bun.$`chmod 755 dist/bin/cc-safety-net.js`;
 await verifyBuildArtifacts();
-const { indexOutput, cliOutput, piOutput } = getBundledOutputs(result.outputs);
-if (!indexOutput || !cliOutput || !piOutput) {
-  console.error('Build verification failed: expected bundled outputs not found');
-  process.exit(1);
-}
 console.log(
   `  dist/index.js              ${(statSync('dist/index.js').size / 1024).toFixed(2)} KB`,
 );

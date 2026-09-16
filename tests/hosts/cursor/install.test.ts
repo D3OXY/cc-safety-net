@@ -21,13 +21,11 @@ const CONFIGURED = {
   configPath: CONFIG_PATH,
 } as const;
 
-const { row, detection } = hostRunner({
-  ported: (environment) => ({
-    install: () => installCursor(environment),
-    detect: () => detectCursor({ environment, cwd: environment.home }),
-    uninstall: () => uninstallCursor(environment),
-  }),
-});
+const { row, detection } = hostRunner((environment) => ({
+  install: () => installCursor(environment),
+  detect: () => detectCursor({ environment, cwd: environment.home }),
+  uninstall: () => uninstallCursor(environment),
+}));
 
 afterEach(removeTempRoots);
 

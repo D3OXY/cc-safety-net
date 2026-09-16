@@ -1,19 +1,9 @@
 import { describe, test } from 'bun:test';
 import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { writeTypeScriptConsumer } from '../../scripts/verify-package';
 import { withTempDir } from '../helpers';
 import { expectTypeScriptProjectCompiles } from '../helpers/typescript';
-
-const CONSUMER_TSCONFIG = JSON.stringify({
-  compilerOptions: {
-    module: 'ESNext',
-    moduleResolution: 'Bundler',
-    noEmit: true,
-    strict: true,
-    target: 'ES2022',
-  },
-  files: ['consumer.ts'],
-});
 
 const PACKAGE_MANIFEST = JSON.stringify({
   name: 'cc-safety-net',
@@ -49,8 +39,8 @@ describe('package public API', () => {
 export type Plugin = (input: PluginInput) => Promise<Record<string, unknown>>;
 `,
       );
-      writeFileSync(
-        join(dir, 'consumer.ts'),
+      const consumer = writeTypeScriptConsumer(
+        dir,
         `import { CCSafetyNetPlugin } from 'cc-safety-net';
 void CCSafetyNetPlugin;
 // @ts-expect-error Root helper exports were intentionally removed.
@@ -64,17 +54,16 @@ void rootCheckCommand;
 void analyzeCommand;
 `,
       );
-      writeFileSync(join(dir, 'tsconfig.json'), CONSUMER_TSCONFIG);
 
-      expectTypeScriptProjectCompiles(join(dir, 'tsconfig.json'));
+      expectTypeScriptProjectCompiles(consumer);
     });
   });
 
   test('api subpath types narrow by kind and need no OpenCode peer', async () => {
     await withTempDir('cc-safety-net-public-api-library-', (dir) => {
       writeInstalledPackage(dir);
-      writeFileSync(
-        join(dir, 'consumer.ts'),
+      const consumer = writeTypeScriptConsumer(
+        dir,
         `import { checkCommand, type CheckCommandInput, type CheckCommandResult } from 'cc-safety-net/api';
 const input: CheckCommandInput = { command: 'git status', cwd: '/tmp' };
 const result: CheckCommandResult = checkCommand(input);
@@ -86,9 +75,8 @@ if (result.kind === 'deny') {
 }
 `,
       );
-      writeFileSync(join(dir, 'tsconfig.json'), CONSUMER_TSCONFIG);
 
-      expectTypeScriptProjectCompiles(join(dir, 'tsconfig.json'));
+      expectTypeScriptProjectCompiles(consumer);
     });
   });
 });

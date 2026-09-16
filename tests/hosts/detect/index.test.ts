@@ -87,10 +87,12 @@ type Outputs = {
 
 const all = async (seed: TreeSpec, outputs: Outputs = {}) =>
   (
-    await differential({
-      seed,
-      ported: (environment) => detectAllHooks(environment, environment.home, outputs),
-    })
+    await differential(
+      {
+        seed,
+      },
+      (environment) => detectAllHooks(environment, environment.home, outputs),
+    )
   ).outcome;
 
 const summarize = (statuses: unknown) =>

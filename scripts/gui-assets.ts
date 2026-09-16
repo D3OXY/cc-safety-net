@@ -19,3 +19,24 @@ export async function guiAssetsPlugin(): Promise<BunPlugin> {
     },
   };
 }
+
+/**
+ * Freezes `src/hosts/templates/cc-safety-net.ts` into the bundle: the module
+ * reads the skill document beside the repository, which the published package
+ * does not ship, so the built bundle gets the body as a literal.
+ */
+export async function skillTemplatePlugin(): Promise<BunPlugin> {
+  const contents = Object.entries(await import('../src/hosts/templates/cc-safety-net'))
+    .map(([name, value]) => `export const ${name} = ${JSON.stringify(value)};`)
+    .join('\n');
+  return {
+    name: 'skill-template',
+    setup(build) {
+      // `args.path` is native, so the separator is a backslash on Windows.
+      build.onLoad({ filter: /src[\\/]hosts[\\/]templates[\\/]cc-safety-net\.ts$/ }, () => ({
+        contents,
+        loader: 'js',
+      }));
+    },
+  };
+}

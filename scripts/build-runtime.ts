@@ -9,7 +9,7 @@ import {
   OPENCLAW_PLUGIN_ENTRY_FILE,
   OPENCLAW_PLUGIN_ID,
 } from '../src/hosts/openclaw/artifact';
-import { guiAssetsPlugin } from './gui-assets';
+import { guiAssetsPlugin, skillTemplatePlugin } from './gui-assets';
 
 // Bun.build normally resolves the tsconfig `@/*` alias itself, but inside `bun test`
 // that implicit mapping is racy on Bun 1.4.0: the e2e-live beforeAll intermittently
@@ -51,7 +51,7 @@ export async function buildRuntimeBundles(outdir: string) {
     define: {
       __PKG_VERSION__: JSON.stringify(pkg.version),
     },
-    plugins: [aliasPlugin, await guiAssetsPlugin()],
+    plugins: [aliasPlugin, await guiAssetsPlugin(), await skillTemplatePlugin()],
   });
   if (!result.success) return result;
   // Bun names a split entry after its path below the entries' common root, so

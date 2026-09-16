@@ -1,7 +1,6 @@
 import { normalizeMsysDrivePath } from '@/core/paths/canonicalization';
 import {
   type DestructiveCommandRulePolicy,
-  destructiveCommandRuleIsEnabled,
   filterDestructiveCommandMatch,
 } from '@/core/policy/effective-rules';
 import type { EffectivePolicy } from '@/core/policy/types';
@@ -17,6 +16,8 @@ import {
   classifyRecursiveDeleteTarget,
   createRecursiveDeleteTargetContext,
   deleteTargetWordFacts,
+  matchRecursiveDeleteClassification,
+  type RecursiveDeleteRuleTable,
   type RecursiveDeleteTargetClassification,
   type RecursiveDeleteTargetClassificationOptions,
   type RecursiveDeleteTargetContext,
@@ -34,6 +35,19 @@ const REASON_RM_RF_ROOT_HOME =
   'rm -rf targeting root or home directory is extremely dangerous and always blocked.';
 const REASON_RM_HOME_CWD =
   'rm -rf in home directory is dangerous. Change to a project directory first.';
+
+const RM_RULES: RecursiveDeleteRuleTable = {
+  root_or_home_target: { id: 'rm.recursive-force-root-or-home', reason: REASON_RM_RF_ROOT_HOME },
+  git_metadata_target: { id: 'rm.git-metadata', reason: REASON_GIT_METADATA_PROTECTION },
+  dynamic_target: {
+    id: 'rm.recursive-force-dynamic-target',
+    reason: REASON_RM_RF_DYNAMIC_TARGET,
+  },
+  home_cwd_target: { id: 'rm.recursive-force-home-cwd', reason: REASON_RM_HOME_CWD },
+  cwd_self_target: { id: 'rm.recursive-force-cwd-self', reason: REASON_RM_RF },
+  within_anchored_cwd: { id: 'rm.recursive-force-paranoid', reason: REASON_RM_RF_POLICY },
+  outside_anchored_cwd: { id: 'rm.recursive-force-outside-cwd', reason: REASON_RM_RF },
+};
 
 export interface AnalyzeRmOptions extends RecursiveDeleteTargetOptions {
   policy?: DestructiveCommandRulePolicy &
@@ -58,7 +72,12 @@ export function analyzeRmMatch(
     const facts = deleteTargetWordFacts(target.word);
     if (recursiveForce && facts.unsafeBraceExpansion) {
       const match = filterDestructiveCommandMatch(
-        reasonForClassification({ kind: 'outside_anchored_cwd' }, ctx, options.policy),
+        matchRecursiveDeleteClassification(
+          { kind: 'outside_anchored_cwd' },
+          ctx,
+          options.policy,
+          RM_RULES,
+        ),
         options.policy,
       );
       if (match) return match;
@@ -105,7 +124,12 @@ export function analyzeRmMatch(
         ctx,
         classificationOptions,
       )) {
-        const candidate = reasonForClassification(classification, ctx, options.policy);
+        const candidate = matchRecursiveDeleteClassification(
+          classification,
+          ctx,
+          options.policy,
+          RM_RULES,
+        );
         const match = filterDestructiveCommandMatch(candidate, options.policy);
         if (match) return match;
       }
@@ -166,37 +190,4 @@ function extractTargets(words: readonly CommandWord[]): { text: string; word: Co
   }
 
   return targets;
-}
-
-function reasonForClassification(
-  classification: RecursiveDeleteTargetClassification,
-  ctx: RecursiveDeleteTargetContext,
-  policy: AnalyzeRmOptions['policy'],
-): DestructiveCommandRuleMatch | null {
-  switch (classification.kind) {
-    case 'root_or_home_target':
-      return destructiveCommandMatch('rm.recursive-force-root-or-home', REASON_RM_RF_ROOT_HOME);
-    case 'git_metadata_target':
-      return destructiveCommandMatch('rm.git-metadata', REASON_GIT_METADATA_PROTECTION);
-    case 'temp_target':
-      return null;
-    case 'dynamic_target':
-      if (!destructiveCommandRuleIsEnabled(policy, 'rm.recursive-force-dynamic-target', ctx.strict))
-        return null;
-      return destructiveCommandMatch(
-        'rm.recursive-force-dynamic-target',
-        REASON_RM_RF_DYNAMIC_TARGET,
-      );
-    case 'home_cwd_target':
-      return destructiveCommandMatch('rm.recursive-force-home-cwd', REASON_RM_HOME_CWD);
-    case 'cwd_self_target':
-      return destructiveCommandMatch('rm.recursive-force-cwd-self', REASON_RM_RF);
-    case 'within_anchored_cwd':
-      if (destructiveCommandRuleIsEnabled(policy, 'rm.recursive-force-paranoid', ctx.paranoid)) {
-        return destructiveCommandMatch('rm.recursive-force-paranoid', REASON_RM_RF_POLICY);
-      }
-      return null;
-    case 'outside_anchored_cwd':
-      return destructiveCommandMatch('rm.recursive-force-outside-cwd', REASON_RM_RF);
-  }
 }

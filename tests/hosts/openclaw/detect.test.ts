@@ -30,11 +30,13 @@ const ENABLING = { [CONFIG]: '{"plugins":{"entries":{"cc-safety-net":{"enabled":
 
 const detection = async (seed: TreeSpec, env?: Record<string, string>) =>
   (
-    await differential({
-      seed,
-      env,
-      ported: (environment) => detectOpenClaw({ environment, cwd: environment.home }),
-    })
+    await differential(
+      {
+        seed,
+        env,
+      },
+      (environment) => detectOpenClaw({ environment, cwd: environment.home }),
+    )
   ).outcome;
 
 const configured = (configPath: string, errors?: string[]) => ({
