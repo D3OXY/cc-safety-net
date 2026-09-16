@@ -481,6 +481,29 @@ describe('target identity', () => {
     });
   }
 
+  test('holds when the kernel reports a hard-linked file by its other name', () => {
+    // macOS resolves a file's canonical path from the vnode's last-looked-up name, so while
+    // another process touches a hard link the same file reports either of its paths.
+    linkSync(join(base, 'root', 'policy.json'), join(base, 'root', 'nested', 'hardlink.json'));
+    const real = fs.realpathSync;
+    const spy = spyOn(fs, 'realpathSync').mockImplementation(((
+      path: Parameters<typeof fs.realpathSync>[0],
+      options: Parameters<typeof fs.realpathSync>[1],
+    ) =>
+      path === join(base, 'root', 'policy.json')
+        ? join(real(join(base, 'root')), 'nested', 'hardlink.json')
+        : real(path, options)) as typeof fs.realpathSync);
+    const outcome = describeOutcome(() =>
+      isSamePolicyFilesystemTarget(
+        target('root', 'policy.json', 'project policy'),
+        target('alias', 'policy.json', 'project policy'),
+      ),
+    );
+    spy.mockRestore();
+
+    expect(outcome).toEqual({ ok: true, value: true });
+  });
+
   for (const [first, second] of [
     ['rules/link.json', 'policy.json'],
     ['policy.json', 'rules/link.json'],
