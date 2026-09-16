@@ -25,7 +25,7 @@ export const GIT_CONFIG_AFFECTING_ENV_NAMES: ReadonlySet<string> = new Set([
   'XDG_CONFIG_HOME',
 ]);
 
-export const GIT_SSH_ENV_NAMES: ReadonlySet<string> = new Set([
+const GIT_SSH_ENV_NAMES: ReadonlySet<string> = new Set([
   'GIT_SSH_COMMAND',
   'GIT_SSH',
   'GIT_SSH_VARIANT',

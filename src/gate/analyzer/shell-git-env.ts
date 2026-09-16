@@ -1,6 +1,5 @@
 import { isGitConfigEnvName } from '@/core/git/worktree';
 import {
-  GIT_SSH_ENV_NAMES,
   isGitContextEnvOverrideName,
   isTrackedGitEnvName,
   parseGitContextAppendEnvAssignment,
@@ -195,7 +194,7 @@ function getInitialEffectiveShellEnvAssignments(
   env: ReadonlyMap<string, string>,
   effectiveEnvAssignments?: ReadonlyMap<string, string>,
 ): ReadonlyMap<string, string> | undefined {
-  const inheritedAssignments = [...GIT_SSH_ENV_NAMES, TMPDIR_ENV_NAME, IFS_ENV_NAME]
+  const inheritedAssignments = [TMPDIR_ENV_NAME, IFS_ENV_NAME]
     .map((name) => {
       const value = env.get(name);
       return value === undefined ? null : ([name, value] as const);

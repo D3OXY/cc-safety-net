@@ -201,7 +201,7 @@ describe('the shell Git-context tracker', () => {
     shell: [...state.shellAssignments].sort(),
   });
 
-  test('the inherited environment seeds only the names Git reads', () => {
+  test('the inherited environment seeds only the names Git reads, never an SSH override', () => {
     expect(snapshot(createShellGitContextEnvState(new Map())).effective).toStrictEqual([]);
     expect(
       snapshot(
@@ -213,10 +213,7 @@ describe('the shell Git-context tracker', () => {
           ]),
         ),
       ).effective,
-    ).toStrictEqual([
-      ['GIT_SSH_COMMAND', 'ssh -i /key'],
-      ['TMPDIR', '/tmp'],
-    ]);
+    ).toStrictEqual([['TMPDIR', '/tmp']]);
   });
 
   test('a segment publishes the assignments that outlive it', () => {
