@@ -16,7 +16,11 @@ export function parseCoverageSummary(lcov: string): CoverageSummary {
   const sum = (key: 'LF' | 'LH' | 'FNF' | 'FNH') =>
     lines
       .filter((line) => line.startsWith(`${key}:`))
-      .reduce((total, line) => total + Number(line.slice(key.length + 1)), 0);
+      .reduce((total, line) => {
+        const value = line.slice(key.length + 1);
+        if (!/^\d+$/.test(value)) throw new Error(`Malformed LCOV ${key} value`);
+        return total + Number(value);
+      }, 0);
   return {
     lines: { hit: sum('LH'), total: sum('LF') },
     functions: { hit: sum('FNH'), total: sum('FNF') },

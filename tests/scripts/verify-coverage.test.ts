@@ -72,6 +72,16 @@ describe('coverage verification', () => {
     );
   });
 
+  test('rejects a malformed metric value instead of passing on NaN', () => {
+    expect(() =>
+      verifyCoverageSummary(
+        parseCoverageSummary(
+          ['SF:src/a.ts', 'FNF:x', 'FNH:9', 'LF:20', 'LH:18', 'end_of_record'].join('\n'),
+        ),
+      ),
+    ).toThrow('Malformed LCOV FNF value');
+  });
+
   test('rejects an empty report', () => {
     expect(() => parseCoverageSummary('')).toThrow('LCOV report is empty');
   });
