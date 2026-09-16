@@ -29,7 +29,6 @@ import {
 } from '@/gate/guards/policy-protection';
 import {
   createSemanticFacts,
-  type FactParserDependencies,
   getCommandSyntaxFact,
   StructuralShellSyntaxLimitError,
 } from '@/gate/guards/semantic-facts';
@@ -73,7 +72,6 @@ export type GuardOptions = {
   auditAllowed?: boolean;
   policyOptions?: Omit<PolicySnapshotOptions, 'cwd'>;
   dependencies?: Partial<GuardDependencies>;
-  factParserDependencies?: Partial<FactParserDependencies>;
 
   trace?: CommandTraceContext;
 };
@@ -105,9 +103,7 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
   const inputCommand = getInputCommandOrFail(invocation);
   const command = isCommandInvocation(invocation) ? invocation.command : inputCommand;
 
-  const facts = callDependency('policy-protection', command, () =>
-    createSemanticFacts(invocation, options.factParserDependencies),
-  );
+  const facts = callDependency('policy-protection', command, () => createSemanticFacts(invocation));
   const inputCandidate = getCommandSyntaxFact(facts, 'input-candidate');
   const declaredCommand = getCommandSyntaxFact(facts, 'declared-command');
   if (

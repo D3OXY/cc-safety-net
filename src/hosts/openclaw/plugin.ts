@@ -106,7 +106,7 @@ function handleOpenClawBeforeToolCall(
       },
       audit: { agent: 'openclaw', getSessionId },
     });
-    return blockOpenClawEvaluation(evaluation, true);
+    return blockOpenClawEvaluation(evaluation);
   } catch (error) {
     if (!(error instanceof GuardEvaluationError)) throw error;
     if (envTruthy(ENV_FLAGS.debug, environment.env)) {
@@ -114,7 +114,7 @@ function handleOpenClawBeforeToolCall(
         `CC Safety Net debug: openclaw before_tool_call analysis failed: ${formatIntegrationError(error.cause)}`,
       );
     }
-    return blockOpenClawEvaluation(error.evaluation, true);
+    return blockOpenClawEvaluation(error.evaluation);
   }
 }
 
@@ -212,9 +212,8 @@ function malformedOpenClawToolCall(
 
 function blockOpenClawEvaluation(
   evaluation: Parameters<typeof projectGuardDenial>[0],
-  includeEvidence: boolean,
 ): OpenClawBeforeToolCallResult {
-  const denial = projectGuardDenial(evaluation, { includeEvidence });
+  const denial = projectGuardDenial(evaluation, { includeEvidence: true });
   return denial ? blockOpenClawToolCall(denial) : undefined;
 }
 

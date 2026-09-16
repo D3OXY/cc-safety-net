@@ -8,12 +8,10 @@ import {
   memoizedPaths,
   portedVerdict,
 } from '../helpers/gate-differential';
-import { HARVESTED_LITERAL_COUNT, HARVESTED_LITERALS } from '../helpers/harvested-literals';
 import {
   type HarvestedRow,
   harvestedVerdictCell,
   loadHarvestedVerdicts,
-  writeHarvestedVerdicts,
 } from '../helpers/harvested-verdicts';
 import { policySnapshot } from '../helpers/policy';
 import { FUZZ_SAMPLE_COUNT, FUZZ_SEED, fuzzShellSources } from '../helpers/shell-inputs';
@@ -79,14 +77,12 @@ const folded = <T>(input: string, verdict: T): T =>
   normalize(verdict, [...folds, ...(input.includes(home) ? [] : [[home, '<home>'] as const])]);
 
 const recorded = loadHarvestedVerdicts();
-
-const RECORDING = recorded === null;
+const HARVESTED_LITERALS = recorded.map((row) => row.literal);
+const HARVESTED_LITERAL_COUNT = HARVESTED_LITERALS.length;
 
 const rows: HarvestedRow[] = [];
 
 afterAll(() => {
-  if (RECORDING && !process.env.CI && rows.length === HARVESTED_LITERAL_COUNT)
-    writeHarvestedVerdicts(rows);
   tree.remove();
 });
 
@@ -131,10 +127,7 @@ const WINDOWS_CELLS: Readonly<Record<string, string>> = {
 
 function mismatchesAgainstTable(row: HarvestedRow, index: number): string[] {
   const label = `literal ${index + 1} ${JSON.stringify(row.literal).slice(0, 120)}`;
-  const expected = recorded?.[index];
-  expect(expected?.literal, `${label} is not the literal recorded at that position`).toBe(
-    row.literal,
-  );
+  const expected = recorded[index];
   expect(Object.keys(expected ?? {}), `${label}: recorded cells`).toStrictEqual(Object.keys(row));
   const windows = process.platform === 'win32' ? WINDOWS_CELLS[row.literal] : undefined;
   return Object.keys(row)
@@ -145,13 +138,6 @@ function mismatchesAgainstTable(row: HarvestedRow, index: number): string[] {
 const BATCH_SIZE = 250;
 
 describe(`${HARVESTED_LITERAL_COUNT} literals harvested from the shipped test suite`, () => {
-  test('a recorded verdict table is present to compare against', () => {
-    expect(
-      RECORDING && process.env.CI !== undefined,
-      'no recorded verdict table; run without CI to record one',
-    ).toBeFalse();
-  });
-
   test('the harvest read whole files, not a fragment of them', () => {
     expect(HARVESTED_LITERAL_COUNT).toBeGreaterThan(5_000);
     for (const known of ['rm -rf /', 'git reset --hard', 'cat ~/.ssh/config', 'npm run build']) {
@@ -172,7 +158,6 @@ describe(`${HARVESTED_LITERAL_COUNT} literals harvested from the shipped test su
               .filter((entry) => entry.verdicts.some((verdict) => verdict.outcome === 'uncaught'))
               .map((entry) => entry.row.literal),
           ).toStrictEqual([]);
-          if (RECORDING) return;
           expect(
             decided.flatMap((entry, offset) => mismatchesAgainstTable(entry.row, start + offset)),
           ).toStrictEqual([]);

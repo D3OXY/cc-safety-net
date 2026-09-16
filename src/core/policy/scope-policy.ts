@@ -172,7 +172,7 @@ function getUnknownOverrideErrorsForScope(
     : [];
 }
 
-export function loadScopePolicy(
+function loadScopePolicy(
   config: RulesConfig,
   configDir: string,
   source: 'user' | 'project',

@@ -3,7 +3,6 @@ import type { ActiveRulebookSummary } from '@/core/policy/rules-config';
 
 export interface SyncRulesConfigOptions extends Partial<RulesPolicyOptions> {
   global?: boolean;
-  check?: boolean;
   only?: string;
   refresh?: boolean;
 }

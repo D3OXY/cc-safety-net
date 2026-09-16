@@ -1,5 +1,4 @@
-import type { CommandProgram, ShellKind } from '@/core/shell/model';
-import { parseCommand } from '@/core/shell/parse';
+import type { ShellKind } from '@/core/shell/model';
 import { getCommandFromToolInput } from '@/core/tool-input';
 import { behavioralContractCases } from '../gate/behavioral-contract-cases';
 import { pipelineContractCases } from '../gate/pipeline-contract-cases';
@@ -317,16 +316,4 @@ export function differentialSources(): readonly string[] {
     ...FIXED_COMMANDS,
     ...fuzzShellSources(FUZZ_SAMPLE_COUNT, FUZZ_SEED),
   ];
-}
-
-export type ProgramPair = {
-  readonly source: string;
-  readonly dialect: ShellKind;
-  readonly program: CommandProgram;
-};
-
-export function differentialProgramPairs(): readonly ProgramPair[] {
-  return differentialSources().flatMap((source) =>
-    SHELL_DIALECTS.map((dialect) => ({ source, dialect, program: parseCommand(source, dialect) })),
-  );
 }

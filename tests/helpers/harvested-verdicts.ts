@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { GateVerdict } from './gate-differential';
 
 const TABLE_FILE = join(import.meta.dir, '..', 'fixtures', 'gate', 'harvested-verdicts.jsonl');
@@ -18,15 +18,9 @@ export function harvestedVerdictCell(verdict: GateVerdict): string {
     .join(' ');
 }
 
-export function loadHarvestedVerdicts(): readonly HarvestedRow[] | null {
-  if (!existsSync(TABLE_FILE)) return null;
+export function loadHarvestedVerdicts(): readonly HarvestedRow[] {
   return readFileSync(TABLE_FILE, 'utf8')
     .split('\n')
     .filter((line) => line !== '')
     .map((line) => JSON.parse(line) as HarvestedRow);
-}
-
-export function writeHarvestedVerdicts(rows: readonly HarvestedRow[]): void {
-  mkdirSync(dirname(TABLE_FILE), { recursive: true });
-  writeFileSync(TABLE_FILE, rows.map((row) => `${JSON.stringify(row)}\n`).join(''));
 }

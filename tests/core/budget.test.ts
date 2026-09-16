@@ -9,8 +9,6 @@ const DERIVED_WORK =
   "Command analysis exceeds CC Safety Net's derived-command work limit. Reduce nested or embedded command complexity and retry.";
 const PARALLEL =
   "Parallel command expands beyond CC Safety Net's analysis limits. Reduce the template or explicit argument list and retry.";
-const FAILED_CLOSED =
-  'CC Safety Net failed closed because command analysis failed unexpectedly. This is not caused by your command. Report it to the user.';
 
 const CAPS: Readonly<Record<CountedKind, number>> = {
   realpathAttempts: 16_384,
@@ -25,20 +23,12 @@ const CAPS: Readonly<Record<CountedKind, number>> = {
   parallelDerivedTokens: 16_384,
   parallelDerivedBytes: 1024 * 1024,
   parallelPlaceholderReplacements: 16_384,
-  hookInputBytes: 8 * 1024 * 1024,
-  toolInputDepth: 64,
-  toolInputNodes: 10_000,
-  toolInputKeys: 10_000,
-  toolInputStringBytes: 1024 * 1024,
-  toolInputAggregateStringBytes: 4 * 1024 * 1024,
-  toolInputGitDiffCandidates: 64,
 };
 
 const REASONS: Readonly<Record<keyof typeof LIMITS, string>> = {
   realpathAttempts: ANALYSIS,
   processedCandidateBytes: ANALYSIS,
   pathEnvironmentExpansion: ANALYSIS,
-  structuralShellSyntax: ANALYSIS,
   recursionDepth: RECURSION,
   derivedTokens: DERIVED_WORK,
   trackedHeredocFiles: DERIVED_WORK,
@@ -49,14 +39,6 @@ const REASONS: Readonly<Record<keyof typeof LIMITS, string>> = {
   parallelDerivedTokens: PARALLEL,
   parallelDerivedBytes: PARALLEL,
   parallelPlaceholderReplacements: PARALLEL,
-  hookInputBytes: 'Failed to parse hook input JSON.',
-  toolInputDepth: FAILED_CLOSED,
-  toolInputNodes: FAILED_CLOSED,
-  toolInputKeys: FAILED_CLOSED,
-  toolInputStringBytes: FAILED_CLOSED,
-  toolInputAggregateStringBytes: FAILED_CLOSED,
-  toolInputGitDiffCandidates: FAILED_CLOSED,
-  toolInputShape: FAILED_CLOSED,
 };
 
 const COUNTED_KINDS: readonly CountedKind[] = [
@@ -72,13 +54,6 @@ const COUNTED_KINDS: readonly CountedKind[] = [
   'parallelDerivedTokens',
   'parallelDerivedBytes',
   'parallelPlaceholderReplacements',
-  'hookInputBytes',
-  'toolInputDepth',
-  'toolInputNodes',
-  'toolInputKeys',
-  'toolInputStringBytes',
-  'toolInputAggregateStringBytes',
-  'toolInputGitDiffCandidates',
 ];
 
 function limitThrownBy(call: () => void): AnalysisLimit | undefined {
@@ -118,12 +93,10 @@ describe('analysis budget', () => {
     expect(limitThrownBy(() => budget.charge('derivedTokens'))?.kind).toBe('derivedTokens');
   });
 
-  test('carries a kind for the refusals without a numeric cap', () => {
-    expect(new AnalysisLimit('structuralShellSyntax').message).toBe(ANALYSIS);
+  test('carries a kind for the refusal without a numeric cap', () => {
     expect(new AnalysisLimit('derivedCommandShape').message).toBe(DERIVED_WORK);
     expect(new AnalysisLimit('derivedCommandShape').kind).toBe('derivedCommandShape');
-    expect(new AnalysisLimit('toolInputShape').kind).toBe('toolInputShape');
-    expect(new AnalysisLimit('toolInputShape').name).toBe('AnalysisLimit');
+    expect(new AnalysisLimit('derivedCommandShape').name).toBe('AnalysisLimit');
   });
 
   test('every capped kind ships the cap this table names', () => {
@@ -150,7 +123,6 @@ describe('analysis budget', () => {
     expect([...codes].sort()).toEqual([
       'path-canonicalization-limit',
       'structural-shell-syntax-limit',
-      'tool-input-limit',
     ]);
   });
 });

@@ -101,7 +101,7 @@ export function createCCSafetyNetPlugin(guardDependencies: Partial<GuardDependen
               getSessionId: () => input.sessionID,
             },
           });
-          throwGuardDenial(evaluation, true);
+          throwGuardDenial(evaluation);
         } catch (error) {
           if (!(error instanceof GuardEvaluationError)) throw error;
           if (
@@ -111,7 +111,7 @@ export function createCCSafetyNetPlugin(guardDependencies: Partial<GuardDependen
           ) {
             throw error.cause;
           }
-          throwGuardDenial(error.evaluation, true);
+          throwGuardDenial(error.evaluation);
           return;
         }
       },
@@ -172,8 +172,8 @@ export function normalizeOpenCodeWindowsWorkdir(workdir: string): string {
   return normalized;
 }
 
-function throwGuardDenial(evaluation: GuardEvaluation, includeEvidence: boolean): void {
-  const denial = projectGuardDenial(evaluation, { includeEvidence });
+function throwGuardDenial(evaluation: GuardEvaluation): void {
+  const denial = projectGuardDenial(evaluation, { includeEvidence: true });
   if (denial) throwBlocked(denial);
 }
 

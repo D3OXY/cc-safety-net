@@ -11,7 +11,7 @@ interface CopilotCliHookInput {
 }
 
 interface CopilotCliHookOutput {
-  permissionDecision: 'allow' | 'deny' | 'ask';
+  permissionDecision: 'deny';
   permissionDecisionReason?: string;
 }
 

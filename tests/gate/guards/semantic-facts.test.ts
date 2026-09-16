@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test';
 import { createTestEnvironment, processPathResolver } from '@/core/environment';
-import { parseCommand } from '@/core/shell/parse';
 import {
   createSemanticFactStore,
   createSemanticFacts,
@@ -164,27 +163,16 @@ describe('gate/guards/semantic-facts', () => {
   });
 
   test('a source over the structural limit is never read, and reports the limit', () => {
+    const command = `echo ${'x'.repeat(131_072)}`;
     const limited = createSemanticFacts(
-      createToolInvocation(
-        'Bash',
-        { command: 'abcd' },
-        { kind: 'command', shell: 'posix' },
-        CONTEXT,
-        null,
-      ),
-      {
-        parseCommand: (source, dialect) =>
-          parseCommand(source, dialect, { maxInputLength: 3, maxWords: 10, maxDepth: 10 }),
-        readGuardSyntax: () => {
-          throw new Error('a limited program is never read');
-        },
-      },
+      createToolInvocation('Bash', { command }, { kind: 'command', shell: 'posix' }, CONTEXT, null),
     );
     const limitedProgram = limited.commands[0]?.program;
     if (limitedProgram === undefined) throw new Error('the limited command has no program');
+    expect(limitedProgram.status).toBe('limited');
     expect(limited.commands[0]?.shell).toStrictEqual({
       status: 'structural-limit',
-      source: 'abcd',
+      source: command,
       program: limitedProgram,
       assignmentFallbacks: [],
     });

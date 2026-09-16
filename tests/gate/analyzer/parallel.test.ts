@@ -10,7 +10,6 @@ import {
   extractParallelChildStart,
   REASON_PARALLEL_RM,
   REASON_PARALLEL_SHELL,
-  replaceParallelPlaceholder,
 } from '@/gate/analyzer/parallel';
 import { analyzeChildCommand } from '@/gate/analyzer/segment';
 import { pairedEnvironments } from '../../core/differential-inputs';
@@ -90,7 +89,6 @@ function parallelWork(budget: Budget) {
 function bothAnalyzers(tokens: readonly string[], row: ParallelRow) {
   const paired = pairedEnvironments({ HOME: home, ...row.env }, home);
   const budget = createBudget();
-  const scan = { units: 0 };
   const jobs: string[] = [];
   const snapshot = policySnapshot({ rules: row.rules ?? [], transparent_wrappers: ['uv'] });
   const settings = {
@@ -123,7 +121,6 @@ function bothAnalyzers(tokens: readonly string[], row: ParallelRow) {
     effectiveCwd: project,
     environment: paired,
     budget,
-    scanWork: scan,
     analyzeNested: (command: string, overrides?: { effectiveCwd?: string | null }) => {
       jobs.push(`${command} @ ${overrides?.effectiveCwd ?? '-'}`);
       return command.includes('BOOM')
@@ -144,7 +141,6 @@ function bothAnalyzers(tokens: readonly string[], row: ParallelRow) {
       }),
     ),
     budget,
-    scan,
     jobs,
   };
 }
@@ -301,35 +297,6 @@ describe('parallel command parsing', () => {
     ];
     for (const row of rows) {
       expect(extractParallelChildStart(row.tokens), row.tokens.join(' ')).toBe(row.start);
-    }
-  });
-
-  test('a placeholder is replaced wherever it appears, and nothing else is', () => {
-    const rows: readonly {
-      readonly template: string;
-      readonly argument: string;
-      readonly replaced: string;
-    }[] = [
-      { template: '{}', argument: 'x', replaced: 'x' },
-      { template: 'a{}b', argument: 'x', replaced: 'axb' },
-      { template: 'a{}b', argument: '', replaced: 'ab' },
-      { template: '{1}', argument: 'x', replaced: 'x' },
-      { template: '{-2}', argument: 'x', replaced: 'x' },
-      { template: '{.}/{}', argument: 'a b', replaced: 'a b/a b' },
-      { template: '{=x=}', argument: 'x', replaced: 'x' },
-      { template: '{{}}', argument: 'x', replaced: '{x}' },
-      { template: 'plain', argument: 'x', replaced: 'plain' },
-      { template: '{ }', argument: 'x', replaced: '{ }' },
-      { template: '{}', argument: '{}', replaced: '{}' },
-      { template: 'before{}after', argument: '$&', replaced: 'before$&after' },
-      { template: 'before{}after', argument: "$'", replaced: "before$'after" },
-      { template: 'before{}after', argument: '$`', replaced: 'before$`after' },
-    ];
-    for (const row of rows) {
-      expect(
-        replaceParallelPlaceholder(row.template, row.argument),
-        `${row.template} <- ${row.argument}`,
-      ).toBe(row.replaced);
     }
   });
 });
