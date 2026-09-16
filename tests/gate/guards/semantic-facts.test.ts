@@ -162,7 +162,7 @@ describe('gate/guards/semantic-facts', () => {
     );
   });
 
-  test('a source over the structural limit is never read, and reports the limit', () => {
+  test('a source over the structural limit reports the limit', () => {
     const command = `echo ${'x'.repeat(131_072)}`;
     const limited = createSemanticFacts(
       createToolInvocation('Bash', { command }, { kind: 'command', shell: 'posix' }, CONTEXT, null),

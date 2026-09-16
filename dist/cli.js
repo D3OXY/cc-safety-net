@@ -3191,6 +3191,7 @@ var commandSignature = (source) => {
 
 // src/core/policy/audit-retention-days.ts
 var DEFAULT_AUDIT_RETENTION_DAYS = 30;
+var MIN_AUDIT_RETENTION_DAYS = 1;
 var MAX_AUDIT_RETENTION_DAYS = 365;
 
 // src/core/policy/safety-level.ts
@@ -5314,10 +5315,10 @@ var saveRetentionDays = async (days) => {
   if (!saved)
     return;
   const current = saved.policy.audit.retention_days;
-  if (!Number.isInteger(days) || days < 1 || days > MAX_AUDIT_RETENTION_DAYS) {
+  if (!Number.isInteger(days) || days < MIN_AUDIT_RETENTION_DAYS || days > MAX_AUDIT_RETENTION_DAYS) {
     qs("retention-days").value = String(current);
     setAppStatus("Retention unchanged", "error");
-    setDetailStatus(\`Error: retention must be a whole number of days from 1 to \${MAX_AUDIT_RETENTION_DAYS}.\`, "error");
+    setDetailStatus(\`Error: retention must be a whole number of days from \${MIN_AUDIT_RETENTION_DAYS} to \${MAX_AUDIT_RETENTION_DAYS}.\`, "error");
     return;
   }
   if (days === current)

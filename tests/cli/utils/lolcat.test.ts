@@ -7,8 +7,6 @@ const BEGIN_SYNC = '\x1b[?2026h';
 const END_SYNC = '\x1b[?2026l';
 
 const ANSI_STYLE = new RegExp(`${'\x1b'}\\[[\\d;]*m`, 'g');
-const TRUE_COLOR = new RegExp(`${'\x1b'}\\[38;2;\\d+;\\d+;\\d+m`, 'g');
-
 const plain = (frame: string) => frame.replace(ANSI_STYLE, '');
 
 function captureAnimation(isTTY: boolean, signal?: AbortSignal, seed = 5) {
@@ -25,7 +23,7 @@ function captureAnimation(isTTY: boolean, signal?: AbortSignal, seed = 5) {
 describe('cli/utils/lolcat', () => {
   test('the settled frame paints one distinct colour per character, deterministically by seed', async () => {
     const settled = (await captureAnimation(true)).at(-4) ?? '';
-    const colours = settled.match(TRUE_COLOR) ?? [];
+    const colours = settled.match(new RegExp(`${'\x1b'}\\[38;2;\\d+;\\d+;\\d+m`, 'g')) ?? [];
     expect(colours).toHaveLength(TEXT.replace('\n', '').length);
     expect(new Set(colours).size).toBe(colours.length);
     expect(plain(settled)).toBe(`${BEGIN_SYNC}\x1b8ab\x1b8\x1b[1Bcd${END_SYNC}`);
