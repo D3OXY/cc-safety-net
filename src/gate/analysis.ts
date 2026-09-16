@@ -48,8 +48,6 @@ export interface AnalyzeOptions {
   allowTmpdirVar?: boolean;
 
   trace?: CommandTraceContext;
-
-  analyzePartialProgram?: boolean;
 }
 
 export type AnalyzeInput = AnalyzeOptions & {

@@ -118,24 +118,3 @@ function isGitRemotePrefixOption(token: string): boolean {
     matchesGitLongOption(token, '--no-verbose')
   );
 }
-
-/** @internal */
-export function getGitWorktreeRelaxation(
-  tokens: readonly string[],
-  options: GitAnalyzeOptions,
-): GitWorktreeRelaxation | null {
-  const aliasResolution = resolveGitCommandLineAliases(
-    tokens,
-    options.environment.env,
-    options.envAssignments,
-  );
-  if (aliasResolution.blockedReason || aliasResolution.expanded) {
-    return null;
-  }
-
-  const match = analyzeGitRule(aliasResolution.tokens);
-  if (!match) {
-    return null;
-  }
-  return getGitWorktreeRelaxationForMatch(tokens, match, options);
-}

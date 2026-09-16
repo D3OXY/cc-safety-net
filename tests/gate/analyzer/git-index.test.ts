@@ -4,7 +4,7 @@ import type { DestructiveCommandRulePolicy } from '@/core/policy/effective-rules
 import { resolveEffectiveDestructiveCommandRules } from '@/core/policy/effective-rules';
 import type { EffectiveSafetyCapabilities } from '@/core/policy/types';
 import { textCommandWords } from '@/gate/analyzer/command-words';
-import { analyzeGitDetailed, analyzeGitMatch, getGitWorktreeRelaxation } from '@/gate/analyzer/git';
+import { analyzeGitDetailed, analyzeGitMatch } from '@/gate/analyzer/git';
 import { createLinkedWorktreeFixture, withLinkedWorktreeFixture } from '../../helpers';
 import { runGit } from '../../helpers/git-worktree';
 import { corpusCommands } from '../../helpers/shell-inputs';
@@ -161,13 +161,6 @@ describe('gate/analyzer/git', () => {
                   policy,
                 });
                 expect(detailed.match).toStrictEqual(match);
-
-                const relaxation = getGitWorktreeRelaxation(tokens, {
-                  ...shared,
-                  environment,
-                  policy,
-                });
-                expect(relaxation, tokens.join(' ')).toStrictEqual(detailed.relaxation);
 
                 if (match) matches++;
                 if (detailed.relaxation) relaxations++;

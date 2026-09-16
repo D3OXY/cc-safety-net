@@ -14,15 +14,10 @@ import {
 import { writeJsonAtomic } from '@/core/policy/config-file';
 import { getLocalRulebookPath } from '@/core/policy/paths';
 import { RULE_SOURCE_LIMIT, RULE_SOURCE_LIMIT_ERROR } from '@/core/policy/resource-limits';
-import {
-  type ActiveRulebookSummary,
-  type RulesConfig,
-  readRulesConfig,
-} from '@/core/policy/rules-config';
+import { type ActiveRulebookSummary, readRulesConfig } from '@/core/policy/rules-config';
 import {
   getRulebookNameForSpec,
   getRulesConfigRuntimeErrorsForConfig,
-  loadScopePolicy,
   validateRulebookContent,
 } from '@/core/policy/scope-policy';
 import {
@@ -139,9 +134,6 @@ async function syncRulesConfigInternal(
     if (!scopeConfig.ok) return scopeConfig.result;
     const config = scopeConfig.config;
 
-    if (options.check) {
-      return checkRulesConfig(config, scope, options);
-    }
     const selectedSpecs = options.only
       ? getSelectedUpdateSpecs(config, options.only)
       : { ok: true as const, specs: config.rules };
@@ -522,7 +514,6 @@ function projectSyncOptions(options: SyncRulesConfigOptions): SyncRulesConfigOpt
     userConfigPath: options.userConfigPath,
     projectConfigPath: options.projectConfigPath,
     global: options.global,
-    check: options.check,
     only: options.only,
     refresh: options.refresh,
   };
@@ -647,24 +638,6 @@ async function removeRulebookSourceInternal(
     return deleteResult.result;
   }
   return result;
-}
-
-async function checkRulesConfig(
-  config: RulesConfig,
-  scope: ScopePaths,
-  options: SyncRulesConfigOptions,
-): Promise<SyncRulesConfigResult> {
-  const result = loadScopePolicy(
-    config,
-    scope.configDir,
-    options.global ? 'user' : 'project',
-    scope.filesystemScope,
-  );
-  return {
-    ok: result.errors.length === 0 && result.warnings.length === 0,
-    errors: [...result.errors, ...result.warnings],
-    entries: result.entries,
-  };
 }
 
 function getLocalSourceDirsForDelete(

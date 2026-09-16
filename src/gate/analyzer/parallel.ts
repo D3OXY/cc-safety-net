@@ -120,11 +120,8 @@ function firstMatch<T>(
   return null;
 }
 
-function dangerousParallelEnvValue(
-  values: Iterable<string>,
-  context: ParallelAnalyzeContext,
-): DestructiveCommandRuleMatch | null {
-  return firstMatch([...values], (value) => dangerousInTextMatch(value, context.scanWork));
+function dangerousParallelEnvValue(values: Iterable<string>): DestructiveCommandRuleMatch | null {
+  return firstMatch([...values], (value) => dangerousInTextMatch(value));
 }
 
 export function analyzeParallel(
@@ -151,10 +148,7 @@ export function analyzeParallel(
   if (unsupported) {
     const reason = parallelUnsupportedReason(context);
     if (reason) return reason;
-    const dangerousEnvValue = dangerousParallelEnvValue(
-      context.envAssignments?.values() ?? [],
-      context,
-    );
+    const dangerousEnvValue = dangerousParallelEnvValue(context.envAssignments?.values() ?? []);
     if (dangerousEnvValue) return dangerousEnvValue;
   }
 
@@ -223,7 +217,7 @@ function analyzeParallelChildCommand(
     const reason = parallelUnsupportedReason(context);
     if (reason) return reason;
   }
-  const dangerousChildEnvValue = dangerousParallelEnvValue(childEnvValues, context);
+  const dangerousChildEnvValue = dangerousParallelEnvValue(childEnvValues);
   if (dangerousChildEnvValue) return dangerousChildEnvValue;
   const envHasPlaceholder = childEnvValues.some(hasParallelPlaceholder);
   const hasPlaceholder = templateHasPlaceholder || envHasPlaceholder;
@@ -1037,11 +1031,6 @@ interface ParallelParseResult {
   unsupported: boolean;
   workdir: string | undefined;
   dryRun: boolean;
-}
-
-/** @internal */
-export function replaceParallelPlaceholder(token: string, arg: string): string {
-  return token.replace(/\{[^{}\s]*\}/g, () => arg);
 }
 
 function replaceParallelJobPlaceholder(token: string, job: ParallelJob): string {

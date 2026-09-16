@@ -640,16 +640,6 @@ describe('the post-change runtime reload', () => {
   const UNKNOWN_OVERRIDE =
     'unknown override key "ghost/rule" in <root>/project/.cc-safety-net/rules/rule.json; only that override is ignored and other overrides and rules keep their configured state; correct or remove it in that file';
 
-  test('--check reports what the guard would refuse, not just what each source validates', async () => {
-    const { results, side } = await syncRow(withUnknownOverride, { check: true });
-    expect(results).toStrictEqual({
-      ok: false,
-      errors: [UNKNOWN_OVERRIDE],
-      entries: [{ spec: 'local', name: 'local', version: '1.0.0', ruleCount: 1 }],
-    });
-    expectGateView(side, 'project', results);
-  });
-
   test('an add leaves the reload to the update that follows it', async () => {
     const { results, tree, side } = await runManagerDifferential(
       withUnknownOverride,

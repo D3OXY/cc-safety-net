@@ -20,9 +20,6 @@ interface GeminiHookOutput {
   decision: 'deny';
   reason: string;
   systemMessage: string;
-  continue?: boolean;
-  stopReason?: string;
-  suppressOutput?: boolean;
 }
 
 const GEMINI_CLI_COMMAND_TOOLS = new Map<string, CommandToolKind>([['run_shell_command', 'auto']]);

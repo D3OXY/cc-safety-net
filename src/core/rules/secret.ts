@@ -497,6 +497,6 @@ export const SECRET_DEFAULT_OFF_RULE_ID_SET = new Set<string>(
   ),
 );
 
-/** @internal */
-export const SECRET_PROTECTION_RULE_IDS = SECRET_PROTECTION_RULE_METADATA.map((rule) => rule.id);
-export const SECRET_PROTECTION_RULE_ID_SET = new Set<string>(SECRET_PROTECTION_RULE_IDS);
+export const SECRET_PROTECTION_RULE_ID_SET = new Set<string>(
+  SECRET_PROTECTION_RULE_METADATA.map((rule) => rule.id),
+);

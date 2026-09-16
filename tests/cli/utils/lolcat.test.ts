@@ -1,49 +1,34 @@
 import { describe, expect, test } from 'bun:test';
-import {
-  createLolcatAnimationFrames as portedCreateFrames,
-  renderLolcat as portedRender,
-  writeAnimatedLolcat as portedWriteAnimated,
-} from '@/cli/utils/lolcat';
+import { writeAnimatedLolcat as portedWriteAnimated } from '@/cli/utils/lolcat';
 import { createFakeOutput } from '../../helpers/fake-tty';
 
 const TEXT = 'ab\ncd';
-const RENDER_OPTIONS = { seed: 5, frequency: 0.2, spread: 2 };
 const BEGIN_SYNC = '\x1b[?2026h';
 const END_SYNC = '\x1b[?2026l';
 
 const ANSI_STYLE = new RegExp(`${'\x1b'}\\[[\\d;]*m`, 'g');
-
 const plain = (frame: string) => frame.replace(ANSI_STYLE, '');
 
-function captureAnimation(isTTY: boolean, signal?: AbortSignal) {
+function captureAnimation(isTTY: boolean, signal?: AbortSignal, seed = 5) {
   const output = createFakeOutput({ isTTY });
   return portedWriteAnimated(TEXT, {
     duration: 2,
     output,
-    seed: 5,
+    seed,
     signal,
     sleep: async () => {},
   }).then(() => output.chunks);
 }
 
 describe('cli/utils/lolcat', () => {
-  test('renderLolcat paints one colour per character and resets at the end', () => {
-    expect(portedRender(TEXT, RENDER_OPTIONS)).toBe(
-      '\x1b[38;2;233;137;54ma\x1b[38;2;229;141;42mb\x1b[22m\x1b[39m\n' +
-        '\x1b[38;2;224;144;29mc\x1b[38;2;219;148;13md\x1b[22m\x1b[39m\x1b[0m',
-    );
-    expect(portedRender('', RENDER_OPTIONS)).toBe('');
-  });
-
-  test('createLolcatAnimationFrames walks the seed the same way on both implementations', () => {
-    const options = { duration: 3, seed: 5, speed: 2 };
-    const frames = portedCreateFrames(TEXT, options);
-    expect(frames).toHaveLength(3);
-    expect(new Set(frames).size).toBe(3);
-    expect(new Set(frames.map(plain))).toEqual(new Set([TEXT]));
-    expect(frames).toEqual(
-      [1, 2, 3].map((step) => portedRender(TEXT, { seed: 5 + step * 3, spread: 3 })),
-    );
+  test('the settled frame paints one distinct colour per character, deterministically by seed', async () => {
+    const settled = (await captureAnimation(true)).at(-4) ?? '';
+    const colours = settled.match(new RegExp(`${'\x1b'}\\[38;2;\\d+;\\d+;\\d+m`, 'g')) ?? [];
+    expect(colours).toHaveLength(TEXT.replace('\n', '').length);
+    expect(new Set(colours).size).toBe(colours.length);
+    expect(plain(settled)).toBe(`${BEGIN_SYNC}\x1b8ab\x1b8\x1b[1Bcd${END_SYNC}`);
+    expect((await captureAnimation(true)).at(-4)).toBe(settled);
+    expect((await captureAnimation(true, undefined, 6)).at(-4)).not.toBe(settled);
   });
 
   test('writeAnimatedLolcat writes the same frames to a TTY on both implementations', async () => {

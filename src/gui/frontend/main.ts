@@ -1,4 +1,9 @@
 import { commandSignature, formatRelativeTime } from '@/audit/display';
+import {
+  DEFAULT_AUDIT_RETENTION_DAYS,
+  MAX_AUDIT_RETENTION_DAYS,
+  MIN_AUDIT_RETENTION_DAYS,
+} from '@/core/policy/audit-retention-days';
 import { SAFETY_LEVEL_CAPABILITIES, type SafetyLevelCapability } from '@/core/policy/safety-level';
 import { integrationDisplayNames } from '@/hosts/catalog';
 
@@ -221,8 +226,6 @@ let previewRequestId = 0;
 let dirty = false;
 let searchActive = false;
 const OVERVIEW_DAYS = 7;
-const DEFAULT_RETENTION_DAYS = 30;
-const MAX_RETENTION_DAYS = 365;
 let overview: ActivityFeed | null = null;
 let activity: ActivityFeed | null = null;
 let knownRuleIds = new Set<string>();
@@ -683,7 +686,7 @@ const renderOverviewActivity = () => {
     tile(overview.totalInWindow, 'Analyzed', sparkline(overview.counts.analyzedByDay, 'analyzed')),
   ].join('');
 };
-const retentionDays = () => state?.policy?.audit?.retention_days ?? DEFAULT_RETENTION_DAYS;
+const retentionDays = () => state?.policy?.audit?.retention_days ?? DEFAULT_AUDIT_RETENTION_DAYS;
 
 const overviewDays = () => Math.min(OVERVIEW_DAYS, retentionDays());
 const renderRetention = (loaded: PolicyState) => {
@@ -2517,11 +2520,15 @@ const saveRetentionDays = async (days: number) => {
   const saved = state;
   if (!saved) return;
   const current = saved.policy.audit.retention_days;
-  if (!Number.isInteger(days) || days < 1 || days > MAX_RETENTION_DAYS) {
+  if (
+    !Number.isInteger(days) ||
+    days < MIN_AUDIT_RETENTION_DAYS ||
+    days > MAX_AUDIT_RETENTION_DAYS
+  ) {
     qs<HTMLInputElement>('retention-days').value = String(current);
     setAppStatus('Retention unchanged', 'error');
     setDetailStatus(
-      `Error: retention must be a whole number of days from 1 to ${MAX_RETENTION_DAYS}.`,
+      `Error: retention must be a whole number of days from ${MIN_AUDIT_RETENTION_DAYS} to ${MAX_AUDIT_RETENTION_DAYS}.`,
       'error',
     );
     return;

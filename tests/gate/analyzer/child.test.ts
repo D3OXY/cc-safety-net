@@ -3,13 +3,19 @@ import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PolicyRule } from '@/core/rules/types';
 import {
+  type ChildCommandContext,
   collectCommandTemplate,
-  normalizeChildCommand,
   normalizeChildCommands,
 } from '@/gate/analyzer/child-command';
 import { pairedEnvironments } from '../../core/differential-inputs';
 import { writeTree } from '../../helpers/fixture-tree';
 import { createTempRoot, removeTempRoots } from '../../helpers/temp-home';
+
+const normalizeChildCommand = (tokens: readonly string[], context: ChildCommandContext) => {
+  const childCommand = normalizeChildCommands(tokens, context).next().value;
+  if (!childCommand) throw new Error('no child command');
+  return childCommand;
+};
 
 let root = '';
 let home = '';

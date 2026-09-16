@@ -5,8 +5,7 @@ export type LolcatOutput = {
 
 export type LolcatSleep = (milliseconds: number) => Promise<void>;
 
-/** @internal Exported for deterministic renderer tests. */
-export type LolcatRenderOptions = {
+type LolcatRenderOptions = {
   frequency?: number;
   seed?: number;
   spread?: number;
@@ -253,36 +252,6 @@ function buildFrame(cellsPerLine: readonly (readonly FrameCell[])[]) {
         `${RESTORE_CURSOR}${lineIndex > 0 ? CURSOR_DOWN(lineIndex) : ''}${buildLine(cells)}`,
     )
     .join('')}${SYNC_END}`;
-}
-
-/** @internal Exported for deterministic renderer tests. */
-export function renderLolcat(text: string, options: LolcatRenderOptions = {}) {
-  if (!text) return '';
-
-  const frequency = positiveOrDefault(options.frequency, DEFAULT_FREQUENCY);
-  const seed = options.seed ?? 0;
-  const spread = positiveOrDefault(options.spread, DEFAULT_SPREAD);
-
-  return `${text
-    .split('\n')
-    .map((line, lineIndex) =>
-      buildLine(settledLineCells(Array.from(line), lineIndex, frequency, seed, spread)),
-    )
-    .join('\n')}${ANSI_RESET}`;
-}
-
-/** @internal Exported for deterministic animation tests. */
-export function createLolcatAnimationFrames(text: string, options: LolcatAnimationOptions = {}) {
-  const duration = Math.max(1, Math.floor(positiveOrDefault(options.duration, DEFAULT_DURATION)));
-  const spread = positiveOrDefault(options.spread, DEFAULT_SPREAD);
-
-  return Array.from({ length: duration }, (_value, index) =>
-    renderLolcat(text, {
-      frequency: options.frequency,
-      seed: (options.seed ?? 0) + (index + 1) * spread,
-      spread,
-    }),
-  );
 }
 
 export async function writeAnimatedLolcat(text: string, options: LolcatAnimationOptions = {}) {

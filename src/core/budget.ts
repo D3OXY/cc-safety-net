@@ -7,8 +7,6 @@ export const REASON_RECURSION_LIMIT =
 export const REASON_SAFETY_NET_FAILED_CLOSED =
   'CC Safety Net failed closed because command analysis failed unexpectedly. This is not caused by your command. Report it to the user.';
 
-const REASON_HOOK_INPUT_UNREADABLE = 'Failed to parse hook input JSON.';
-
 /** @internal */
 export const REASON_DERIVED_COMMAND_WORK_LIMIT =
   "Command analysis exceeds CC Safety Net's derived-command work limit. Reduce nested or embedded command complexity and retry.";
@@ -28,14 +26,6 @@ const PATH = {
   errorCode: 'path-canonicalization-limit',
   reason: REASON_COMMAND_ANALYSIS_LIMIT,
 } as const;
-const STRUCTURAL = {
-  errorCode: 'structural-shell-syntax-limit',
-  reason: REASON_COMMAND_ANALYSIS_LIMIT,
-} as const;
-const TOOL_INPUT = {
-  errorCode: 'tool-input-limit',
-  reason: REASON_SAFETY_NET_FAILED_CLOSED,
-} as const;
 const DERIVED = {
   errorCode: 'structural-shell-syntax-limit',
   reason: REASON_DERIVED_COMMAND_WORK_LIMIT,
@@ -50,8 +40,6 @@ export const LIMITS = Object.freeze({
   processedCandidateBytes: { cap: 4 * 1024 * 1024, ...PATH },
 
   pathEnvironmentExpansion: { cap: 64, ...PATH },
-
-  structuralShellSyntax: STRUCTURAL,
 
   recursionDepth: {
     cap: 10,
@@ -71,21 +59,6 @@ export const LIMITS = Object.freeze({
   parallelDerivedTokens: { cap: 16_384, ...PARALLEL },
   parallelDerivedBytes: { cap: 1024 * 1024, ...PARALLEL },
   parallelPlaceholderReplacements: { cap: 16_384, ...PARALLEL },
-  hookInputBytes: {
-    cap: 8 * 1024 * 1024,
-    errorCode: 'tool-input-limit',
-    reason: REASON_HOOK_INPUT_UNREADABLE,
-  },
-
-  toolInputDepth: { cap: 64, ...TOOL_INPUT },
-  toolInputNodes: { cap: 10_000, ...TOOL_INPUT },
-  toolInputKeys: { cap: 10_000, ...TOOL_INPUT },
-
-  toolInputStringBytes: { cap: 1024 * 1024, ...TOOL_INPUT },
-  toolInputAggregateStringBytes: { cap: 4 * 1024 * 1024, ...TOOL_INPUT },
-  toolInputGitDiffCandidates: { cap: 64, ...TOOL_INPUT },
-
-  toolInputShape: TOOL_INPUT,
 } satisfies Record<string, Limit>);
 
 export type LimitKind = keyof typeof LIMITS;

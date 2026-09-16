@@ -22,7 +22,6 @@ export interface NestedCommandAnalyzeContext extends ChildCommandContext {
   paranoidInterpreters?: boolean;
   allowTmpdirVar: boolean;
   worktreeMode?: boolean;
-  scanWork?: { units: number };
   protectedGitMetadata: ProtectedGitMetadata | null;
 }
 
@@ -55,16 +54,6 @@ export interface ChildProvenance {
   readonly shellDynamicMatch?: DestructiveCommandRuleMatch;
   readonly dynamicSourceMatch?: DestructiveCommandRuleMatch;
   readonly rmDynamicMatch?: DestructiveCommandRuleMatch;
-}
-
-/** @internal */
-export function normalizeChildCommand(
-  tokens: readonly string[],
-  context: ChildCommandContext,
-): NormalizedChildCommand {
-  const childCommand = normalizeChildCommands(tokens, context).next().value;
-  if (!childCommand) throw new AnalysisLimit('derivedCommandShape');
-  return childCommand;
 }
 
 export function normalizeChildCommands(

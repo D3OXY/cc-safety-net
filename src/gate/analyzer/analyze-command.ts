@@ -59,7 +59,6 @@ export type InternalOptions = AnalyzeInput & {
   policy: CommandAnalysisPolicy;
   factStore?: SemanticFactStore;
   budget: Budget;
-  scanWork?: { units: number };
   literalHeredocFiles?: ReadonlyMap<string, string>;
   functionDefinitions?: ReadonlyMap<string, CommandProgram>;
   rootProgram?: CommandProgram;
@@ -109,7 +108,7 @@ export function analyzeCommandInternal(
   }
 
   const hasUnclosedQuote = program.issues.some((issue) => issue.code.includes('quote'));
-  if (hasUnclosedQuote && !options.analyzePartialProgram) {
+  if (hasUnclosedQuote) {
     return analyzeUnparseableCommand(command, options);
   }
 
@@ -656,13 +655,13 @@ function analyzeCommandView(
     !isDynamicExecutable(commandView.dialect, commandView.words)
   ) {
     const textMatch = filterDestructiveCommandMatch(
-      dangerousInTextMatch(segment[0], options.scanWork),
+      dangerousInTextMatch(segment[0]),
       options.policy,
     );
     const deferredToUseTime =
       textMatch !== null &&
       !options.strict &&
-      isDataOnlyQuotedAssignment(commandView, options.rootProgram, options.scanWork);
+      isDataOnlyQuotedAssignment(commandView, options.rootProgram);
     if (textMatch && !deferredToUseTime) {
       options.trace?.recordSegment({
         type: 'dangerous-text',
@@ -1088,7 +1087,7 @@ function analyzeInterpreterHeredocMatch(
     );
     if (filteredParanoidMatch) return filteredParanoidMatch;
   }
-  if (!containsDangerousCode(body, options.scanWork)) return null;
+  if (!containsDangerousCode(body)) return null;
   const match = filterDestructiveCommandMatch(
     destructiveCommandMatch('interpreter.dangerous-command', REASON_INTERPRETER_DANGEROUS),
     options.policy,
@@ -1250,10 +1249,7 @@ function analyzeUnparseableCommand(
   command: string,
   options: InternalOptions,
 ): AnalyzeResult | null {
-  const textMatch = filterDestructiveCommandMatch(
-    dangerousInTextMatch(command, options.scanWork),
-    options.policy,
-  );
+  const textMatch = filterDestructiveCommandMatch(dangerousInTextMatch(command), options.policy);
   const segmentIndex = options.trace?.currentSegmentIndex ?? options.trace?.allocateSegment();
   const step = {
     type: 'dangerous-text' as const,

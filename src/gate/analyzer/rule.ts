@@ -24,7 +24,6 @@ export type InternalOptions = AnalyzeInput & {
   ) => Omit<AnalyzeResult, 'segment'> | null;
   commandView?: CommandView;
   budget: Budget;
-  scanWork?: { units: number };
   hasPipelineInput?: boolean;
   literalShellInput?: string;
   literalHeredocFiles?: ReadonlyMap<string, string>;
@@ -153,7 +152,6 @@ function nestedCommandAnalyzeContext(context: AnalyzerRuleContext): NestedComman
     envAssignments: context.envAssignments,
     worktreeMode: context.options.worktreeMode,
     policy: context.options.policy,
-    scanWork: context.options.scanWork,
   };
 }
 

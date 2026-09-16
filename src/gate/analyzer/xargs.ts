@@ -97,7 +97,6 @@ export function analyzeXargs(
           replacementToken,
           childCommand.wrapperEnvAssignments,
           dynamicInput,
-          context.scanWork,
           context.environment,
         ),
       dynamicRmInput,
@@ -212,7 +211,6 @@ function xargsInputCanChangeExecutedSource(
   replacementToken: string | null,
   wrapperEnvAssignments: ReadonlyMap<string, string>,
   dynamicInput: boolean,
-  scanWork: { units: number } | undefined,
   environment: EnvironmentContext,
 ): boolean {
   if (SHELL_WRAPPERS.has(childHead)) {
@@ -232,7 +230,7 @@ function xargsInputCanChangeExecutedSource(
       return scriptSource.kind === 'none' && dynamicInput;
     }
     if (replacementToken !== null && source.includes(replacementToken)) return true;
-    if (dangerousInTextMatch(source, scanWork)) return true;
+    if (dangerousInTextMatch(source)) return true;
     return shellSourceExecutesDynamicInput(source, replacementToken, wrapperEnvAssignments);
   }
 
@@ -264,7 +262,7 @@ function xargsInputCanChangeExecutedSource(
   }
 
   if (childHead === 'find') {
-    return findInputCanChangeExecutedSource(childTokens, replacementToken, scanWork, environment);
+    return findInputCanChangeExecutedSource(childTokens, replacementToken, environment);
   }
 
   if (childHead === 'git') {
@@ -462,7 +460,6 @@ function isDynamicShellParameter(
 function findInputCanChangeExecutedSource(
   childTokens: readonly string[],
   replacementToken: string | null,
-  scanWork: { units: number } | undefined,
   environment: EnvironmentContext,
 ): boolean {
   if (replacementToken === null) return true;
@@ -506,7 +503,6 @@ function findInputCanChangeExecutedSource(
             replacementToken,
             childCommand.wrapperEnvAssignments,
             dynamicInput,
-            scanWork,
             environment,
           )
         ) {

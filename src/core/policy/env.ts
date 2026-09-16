@@ -168,8 +168,7 @@ export function envTruthy(flag: string | EnvFlag, env: ReadonlyMap<string, strin
   return value === '1' || value?.toLowerCase() === 'true';
 }
 
-/** @internal */
-export function getOwnEnvValue(name: string, env: ReadonlyMap<string, string>): string | undefined {
+function getOwnEnvValue(name: string, env: ReadonlyMap<string, string>): string | undefined {
   return env.get(name);
 }
 

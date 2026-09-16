@@ -118,7 +118,7 @@ export function analyzeSegment(
   const envSplitValues = prelude.envSplitValues ?? [];
   if (envSplitValues.length > 0) {
     const splitCommandText = [...envSplitValues, ...texts(prelude.words)].join(' ');
-    const dangerousSplitMatch = dangerousInTextMatch(splitCommandText, options.scanWork);
+    const dangerousSplitMatch = dangerousInTextMatch(splitCommandText);
     if (dangerousSplitMatch) {
       trace?.recordSegment({
         type: 'dangerous-text',
@@ -496,7 +496,7 @@ export function analyzeSegment(
       });
       if (innerReason && !isInterpreterShellParseNoise(innerReason, codeArg)) return innerReason;
 
-      if (containsDangerousCode(codeArg, options.scanWork)) {
+      if (containsDangerousCode(codeArg)) {
         const match = filterDestructiveCommandMatch(
           destructiveCommandMatch('interpreter.dangerous-command', REASON_INTERPRETER_DANGEROUS),
           options.policy,
@@ -774,7 +774,7 @@ function analyzeStreamInterpreterChild(
   }
   const nested = options.analyzeNested(codeArg, { effectiveCwd, envAssignments });
   if (nested && !isInterpreterShellParseNoise(nested, codeArg)) return nested;
-  if (containsDangerousCode(codeArg, options.scanWork)) {
+  if (containsDangerousCode(codeArg)) {
     const dangerous = filterDestructiveCommandMatch(
       destructiveCommandMatch('interpreter.dangerous-command', REASON_INTERPRETER_DANGEROUS),
       options.policy,
