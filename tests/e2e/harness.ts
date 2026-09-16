@@ -239,41 +239,53 @@ export function readHermesDirective(
   return { allowed: false, reason: String(directive.message) };
 }
 
+// A Hermes gate cold-starts the CLI install, python3, the fake npx, and the node hook in one test.
+// Bun's default 5s budget expired on a Windows runner (main run 35104050732).
+const HERMES_GATE_TIMEOUT_MS = 60_000;
+
 export function describeHermesGates(
   gates: readonly { name: string; gate: HermesGate; skip: boolean }[],
 ) {
   for (const { name, gate, skip } of gates) {
     describe.skipIf(skip)(`packaged Hermes Agent protection through ${name}`, () => {
-      test('allows git status and records the allowed decision', async () => {
-        await withHostWorkspace(async ({ cwd, home }) => {
-          const sessionId = `${SESSION_PREFIX}-hermes-${name.replaceAll(' ', '-')}-safe`;
-          await expectAllowedAction(cwd, home, sessionId, (action) =>
-            gate.run('git status', cwd, home, sessionId, action),
-          );
-        });
-      });
-
-      test('blocks git reset --hard before it can run and preserves the target', async () => {
-        await withHostWorkspace(async ({ cwd, home }) => {
-          const sessionId = `${SESSION_PREFIX}-hermes-${name.replaceAll(' ', '-')}-reset`;
-          const sentinel = join(cwd, 'hermes-sentinel');
-          writeFileSync(sentinel, 'preserve');
-
-          const result = await gate.run('git reset --hard', cwd, home, sessionId, () =>
-            rmSync(sentinel),
-          );
-
-          expect(result.allowed).toBe(false);
-          if (result.allowed) throw new Error('Expected the Hermes host to block the command');
-          expect(result.reason).toContain('git.reset-hard');
-          expect(readFileSync(sentinel, 'utf8')).toBe('preserve');
-          expectSingleAudit(home, sessionId, {
-            agent: gate.agent,
-            command: 'git reset --hard',
-            ruleId: 'git.reset-hard',
+      test(
+        'allows git status and records the allowed decision',
+        async () => {
+          await withHostWorkspace(async ({ cwd, home }) => {
+            const sessionId = `${SESSION_PREFIX}-hermes-${name.replaceAll(' ', '-')}-safe`;
+            await expectAllowedAction(cwd, home, sessionId, (action) =>
+              gate.run('git status', cwd, home, sessionId, action),
+            );
           });
-        });
-      });
+        },
+        HERMES_GATE_TIMEOUT_MS,
+      );
+
+      test(
+        'blocks git reset --hard before it can run and preserves the target',
+        async () => {
+          await withHostWorkspace(async ({ cwd, home }) => {
+            const sessionId = `${SESSION_PREFIX}-hermes-${name.replaceAll(' ', '-')}-reset`;
+            const sentinel = join(cwd, 'hermes-sentinel');
+            writeFileSync(sentinel, 'preserve');
+
+            const result = await gate.run('git reset --hard', cwd, home, sessionId, () =>
+              rmSync(sentinel),
+            );
+
+            expect(result.allowed).toBe(false);
+            if (result.allowed) throw new Error('Expected the Hermes host to block the command');
+            expect(result.reason).toContain('git.reset-hard');
+            expect(readFileSync(sentinel, 'utf8')).toBe('preserve');
+            expectSingleAudit(home, sessionId, {
+              agent: gate.agent,
+              command: 'git reset --hard',
+              ruleId: 'git.reset-hard',
+            });
+          });
+        },
+        HERMES_GATE_TIMEOUT_MS,
+      );
     });
   }
 }
