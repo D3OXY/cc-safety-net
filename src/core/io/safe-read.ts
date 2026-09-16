@@ -161,7 +161,10 @@ export function isSamePolicyFilesystemTarget(
   if (first.path === second.path) return true;
   return guarded(first.scope.label, () => {
     if (!validateTarget(first) || !validateTarget(second)) return false;
-    return realpathSync(first.path) === realpathSync(second.path);
+    // Canonicalize through the parent: a directory has one path, while macOS reports a
+    // hard-linked file by whichever of its names was looked up last.
+    const canonical = (path: string) => join(realpathSync(parse(path).dir), parse(path).base);
+    return canonical(first.path) === canonical(second.path);
   });
 }
 
