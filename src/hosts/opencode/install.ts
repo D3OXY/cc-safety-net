@@ -5,7 +5,6 @@ import type { Environment } from '@/core/environment';
 import { atomicWriteFile } from '@/core/io/atomic-write';
 import {
   findJsonArrayProperty,
-  findJsonStringItems,
   removeArrayRangeItem,
   stripJsonComments,
   type TextRange,
@@ -165,11 +164,6 @@ function removeManagedPlugins(content: string, configPath: string) {
   const ranges = ['plugin', 'plugins'].flatMap((key) => {
     const array = findJsonArrayProperty(content, key, OPENCODE_JSON_ERRORS);
     if (!array) return [];
-    if (key === 'plugin') {
-      return findJsonStringItems(content, array, OPENCODE_JSON_ERRORS.stringError)
-        .filter((item) => isManagedPlugin(item.value))
-        .map((item) => item.range);
-    }
     const items: TextRange[] = [];
     let depth = 0;
     let start = array.start + 1;
