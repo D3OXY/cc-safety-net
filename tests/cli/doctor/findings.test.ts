@@ -39,7 +39,6 @@ const BASE: DoctorFacts = {
   projectConfig: absentConfig('/p/rules/rule.json'),
   configState: { state: 'ready' },
   effectiveRules: [],
-  shadowedRules: [],
   environment: [],
   effectiveSafety: SAFETY,
   posture: { directories: [] },

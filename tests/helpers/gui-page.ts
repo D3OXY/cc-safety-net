@@ -1,9 +1,3 @@
-import { renderPolicyGuiHtml as renderPortedPage } from '@/gui/page';
-
-export function renderPages(token: string) {
-  return { ported: renderPortedPage(token) };
-}
-
 const MODULE_LABEL = /^\/\/ (?:src|next)\/[^\n]*\.ts\n/m;
 
 export function normalizePage(html: string, token: string) {

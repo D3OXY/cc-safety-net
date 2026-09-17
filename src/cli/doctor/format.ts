@@ -169,11 +169,6 @@ export function formatConfigSection(report: DoctorReport): string {
     lines.push('   Effective rules: (none - using built-in rules only)');
   }
 
-  for (const shadow of report.shadowedRules) {
-    lines.push('');
-    lines.push(`   Note: Project rule "${shadow.name}" shadows user rule with same name`);
-  }
-
   return lines.join('\n');
 }
 

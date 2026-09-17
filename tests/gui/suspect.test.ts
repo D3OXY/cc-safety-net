@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { renderPages, sliceBlock } from '../helpers/gui-page';
+import { renderPolicyGuiHtml } from '@/gui/page';
+import { sliceBlock } from '../helpers/gui-page';
 
 const TOKEN = Buffer.from('cc-safety-net gui suspect fixture').toString('base64url');
 
@@ -11,13 +12,12 @@ type Entry = {
   failureStage?: string;
 };
 
-const pages = renderPages(TOKEN);
-const block = (page: string) => sliceBlock(page, 'var commandSignature = (source) => {', '\n// ');
+const page = renderPolicyGuiHtml(TOKEN);
+const block = sliceBlock(page, 'var commandSignature = (source) => {', '\n// ');
 
-const findSuspects = new Function(
-  'entries',
-  `${block(pages.ported)}\nreturn findSuspectEntries(entries);`,
-) as (entries: readonly Entry[]) => Set<Entry>;
+const findSuspects = new Function('entries', `${block}\nreturn findSuspectEntries(entries);`) as (
+  entries: readonly Entry[],
+) => Set<Entry>;
 
 const suspectCommands = (entries: readonly Entry[]) =>
   [...findSuspects(entries)].map((entry) => entry.command);

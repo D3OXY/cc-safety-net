@@ -16,42 +16,12 @@ import {
   removeTempRoots,
 } from '../helpers/temp-home';
 
-const STARTER_PROJECT_RULEBOOK = `{
-  "rulebook_version": 1,
-  "name": "project-rules",
-  "version": "1.0.0",
-  "description": "Project-specific CC Safety Net rules.",
-  "author": "project",
-  "allowed_commands": [
-    "docker"
-  ],
-  "rules": [
-    {
-      "name": "block-docker-system-prune",
-      "command": "docker",
-      "subcommand": "system",
-      "block_args": [
-        "prune"
-      ],
-      "reason": "Use targeted cleanup instead."
-    }
-  ],
-  "tests": [
-    {
-      "command": "docker system prune",
-      "expect": "blocked",
-      "rule": "block-docker-system-prune"
-    }
-  ]
-}
-`;
-
 const STARTER_EXAMPLE_RULEBOOK = `{
   "rulebook_version": 1,
   "name": "example-rules",
   "version": "1.0.0",
-  "description": "User-specific CC Safety Net rules.",
-  "author": "user",
+  "description": "Project-specific CC Safety Net rules.",
+  "author": "project",
   "allowed_commands": [
     "docker"
   ],
@@ -123,17 +93,10 @@ describe('the manager limits that outlive the differentials', () => {
 });
 
 describe('the starter rulebook bytes', () => {
-  test.each([
-    ['the project starter', (path: string) => writeStarterRulebook(path), STARTER_PROJECT_RULEBOOK],
-    [
-      'the example starter',
-      (path: string) => writeStarterRulebook(path, 'example-rules'),
-      STARTER_EXAMPLE_RULEBOOK,
-    ],
-  ] as const)('%s is written verbatim', (_label, write, expected) => {
+  test('the starter `rule init --example` writes is written verbatim', () => {
     const path = join(createTempRoot('starter-rulebook-'), 'rules', 'rulebook.json');
-    write(path);
-    expect(readFileSync(path, 'utf-8')).toBe(expected);
+    writeStarterRulebook(path);
+    expect(readFileSync(path, 'utf-8')).toBe(STARTER_EXAMPLE_RULEBOOK);
   });
 });
 

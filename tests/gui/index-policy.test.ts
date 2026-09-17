@@ -199,10 +199,7 @@ describe('the policy GUI server', () => {
           targets: [],
           system: { version: 'dev', nodeVersion: null, platform: 'linux' },
         }),
-        fetchHealth: async () => ({
-          hooks: [],
-          update: { currentVersion: 'dev', latestVersion: null, updateAvailable: false },
-        }),
+        fetchHealth: async () => ({ update: { latestVersion: null, updateAvailable: false } }),
         runIntegration: async () => ({ ok: true, output: '' }),
       }),
       requests: [

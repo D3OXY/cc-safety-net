@@ -129,7 +129,7 @@ const usageErrors: [readonly string[], string][] = [
   [['bogus'], 'Unknown rule subcommand: bogus'],
   [['--delete-source'], "--delete-source is only valid with 'rule remove'"],
   [['init', '--delete-source'], 'Unknown option for rule init: --delete-source'],
-  [['update', '--check'], 'Unknown option for rule update: --check'],
+  [['update', '--check'], 'Unknown option for rule: --check'],
   [['init', '--cleanup'], 'Unknown option for rule init: --cleanup'],
   [['add', '--example'], 'Unknown option for rule add: --example'],
   [['list', '--ref', 'v1'], 'Unknown option for rule list: --ref'],
@@ -171,13 +171,6 @@ describe('usage errors', () => {
       expect(holds(outcome, 'rule.json')).toBeFalse();
     }, 60_000);
   }
-
-  test('`rule --check` with no subcommand answers with the tree', async () => {
-    const outcome = await rule(['--check']);
-    expect(outcome.exitCode).toBe(1);
-    expect(outcome.stdout).toBe('');
-    expect(outcome.stderr).toStartWith('cc-safety-net rule\n');
-  }, 60_000);
 });
 
 describe('init', () => {

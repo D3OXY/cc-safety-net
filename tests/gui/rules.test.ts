@@ -1,11 +1,15 @@
 import { describe, expect, test } from 'bun:test';
-import { renderPages, sliceBlock } from '../helpers/gui-page';
+import { renderPolicyGuiHtml } from '@/gui/page';
+import { sliceBlock } from '../helpers/gui-page';
 
 const TOKEN = Buffer.from('cc-safety-net gui rules fixture').toString('base64url');
 
-const pages = renderPages(TOKEN);
-const block = (page: string) =>
-  sliceBlock(page, 'var rulePromptText = () => {', 'var copyRulePrompt = async () => {');
+const page = renderPolicyGuiHtml(TOKEN);
+const block = sliceBlock(
+  page,
+  'var rulePromptText = () => {',
+  'var copyRulePrompt = async () => {',
+);
 
 const promptFor = (state: {
   rulesData: { projectPath: string; rulebooks: { spec: string; name: string }[] } | null;
@@ -17,7 +21,7 @@ const promptFor = (state: {
       'rulesData',
       'rulesScope',
       'fields',
-      `const qs = (id) => ({ value: fields[id] });\n${block(pages.ported)}\nreturn rulePromptText();`,
+      `const qs = (id) => ({ value: fields[id] });\n${block}\nreturn rulePromptText();`,
     ) as (rulesData: unknown, rulesScope: string, fields: Record<string, string>) => string
   )(state.rulesData, state.rulesScope, state.fields);
 

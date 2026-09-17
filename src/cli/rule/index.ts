@@ -27,7 +27,6 @@ import { addRulebookSource, removeRulebookSource, syncRulesConfig } from '@/rule
 
 interface RuleFlags {
   global: boolean;
-  check: boolean;
   cleanup: boolean;
   deleteSource: boolean;
   example: boolean;
@@ -98,7 +97,7 @@ async function runRuleCommandInternal(
     const rulebookPath = join(scope.configDir, 'example-rules', 'rulebook.json');
     const rulebookTarget = getPolicyFilesystemTargetForPath(scope.filesystemScope, rulebookPath);
     if (flags.example && readPolicyFile(rulebookTarget) === null)
-      writeStarterRulebook(rulebookTarget, 'example-rules');
+      writeStarterRulebook(rulebookTarget);
 
     const errors = getRulesConfigRuntimeErrorsForConfig(scope.configPath, scope.filesystemScope);
     for (const error of errors) console.error(error);
@@ -216,7 +215,6 @@ function parseRuleFlags(args: readonly string[]): RuleFlags {
       label: 'rule',
       booleans: {
         global: ['-g', '--global'],
-        check: ['--check'],
         cleanup: ['--cleanup'],
         deleteSource: ['--delete-source'],
         example: ['--example'],
@@ -253,9 +251,6 @@ function validateRuleFlags(flags: RuleFlags): void {
     }
   }
 
-  if (flags.check && subcommand) {
-    flags.errors.push(unknownRuleOption(subcommand, '--check'));
-  }
   if (flags.cleanup && subcommand !== 'migrate') {
     flags.errors.push(unknownRuleOption(subcommand, '--cleanup'));
   }

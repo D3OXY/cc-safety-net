@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { listAuditLogFiles } from '@/audit/reader';
 import type { AuditLogEntry } from '@/core/audit';
 import type { VersionFetcher } from '@/hosts/system-info';
+import { withProcessEnv } from './helpers/temp-home';
 
 export function readAuditLogEntriesForSession(homeDir: string, sessionId: string): AuditLogEntry[] {
   return listAuditLogFiles(join(homeDir, '.cc-safety-net', 'logs'))
@@ -18,38 +19,13 @@ export function readAuditLogEntriesForSession(homeDir: string, sessionId: string
     .filter((entry) => entry.sessionId === sessionId);
 }
 
-function setEnvValue(key: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[key];
-    return;
-  }
-  process.env[key] = value;
-}
-
 export function withEnv<T>(env: Record<string, string | undefined>, fn: () => T): T {
-  const effectiveEnv =
+  return withProcessEnv(
     env.HOME !== undefined && env.CC_SAFETY_NET_AUDIT_HOME === undefined
       ? { ...env, CC_SAFETY_NET_AUDIT_HOME: env.HOME }
-      : env;
-  const original: Record<string, string | undefined> = {};
-  for (const key of Object.keys(effectiveEnv)) {
-    original[key] = process.env[key];
-    setEnvValue(key, effectiveEnv[key]);
-  }
-
-  const restore = () => {
-    for (const key of Object.keys(effectiveEnv)) setEnvValue(key, original[key]);
-  };
-
-  try {
-    const result = fn();
-    if (result instanceof Promise) return result.finally(restore) as T;
-    restore();
-    return result;
-  } catch (error) {
-    restore();
-    throw error;
-  }
+      : env,
+    fn,
+  );
 }
 
 export function createSpawnEnv(overrides: Record<string, string>) {
@@ -145,7 +121,7 @@ export interface LinkedWorktreeFixture {
   cleanup: () => void;
 }
 
-function runGit(args: readonly string[], cwd: string): void {
+export function runGit(args: readonly string[], cwd: string): void {
   execFileSync('git', [...args], {
     cwd,
     stdio: 'ignore',

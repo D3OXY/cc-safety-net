@@ -83,8 +83,7 @@ interface IntegrationsStatus {
 }
 
 interface HealthStatus {
-  hooks: { platform: string; label: string; configured: boolean }[];
-  update: { currentVersion: string; latestVersion: string | null; updateAvailable: boolean };
+  update: { latestVersion: string | null; updateAvailable: boolean };
 }
 
 /** @internal */
@@ -436,7 +435,7 @@ async function handleRequest(
   }
 
   if (request.method === 'GET' && url.pathname === '/api/health') {
-    sendJson(response, 200, await (options.fetchHealth ?? (() => fetchHealth(environment)))());
+    sendJson(response, 200, await (options.fetchHealth ?? fetchHealth)());
     return;
   }
 
@@ -726,33 +725,16 @@ function detectHooksFromSystemInfo(environment: Environment, systemInfo: SystemI
 }
 
 /**
- * Health for the Overview strip, from the same getSystemInfo batch the Integrations tab
- * uses. Runtimes whose hook state can only be read by writing into their config directory
- * are reported as not inspected, so they are absent from this list rather than listed as
- * inactive; the Integrations tab shows that state per runtime.
+ * The update check for the Overview strip. Its own route so refreshing the Integrations tab
+ * does not fire the network check; the strip's hook rows come from /api/integrations.
  * @internal
  */
 export async function fetchHealth(
-  environment: Environment,
-  probe: {
-    fetcher?: VersionFetcher;
-    checkUpdates?: () => Promise<UpdateInfo>;
-  } = {},
+  probe: { checkUpdates?: () => Promise<UpdateInfo> } = {},
 ): Promise<HealthStatus> {
-  const [systemInfo, update] = await Promise.all([
-    getSystemInfo(probe.fetcher),
-    (probe.checkUpdates ?? checkForUpdates)(),
-  ]);
+  const update = await (probe.checkUpdates ?? checkForUpdates)();
   return {
-    hooks: detectHooksFromSystemInfo(environment, systemInfo)
-      .filter((hook) => hook.detected)
-      .map((hook) => ({
-        platform: hook.platform,
-        label: getIntegrationDisplayName(hook.platform),
-        configured: hook.configured,
-      })),
     update: {
-      currentVersion: update.currentVersion,
       latestVersion: update.latestVersion ?? null,
       updateAvailable: update.updateAvailable,
     },

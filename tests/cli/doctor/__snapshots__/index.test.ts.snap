@@ -136,7 +136,6 @@ exports[`doctor --json a fresh home reports no configured integration and exits 
     "state": "ready"
   },
   "effectiveRules": [],
-  "shadowedRules": [],
   "environment": [
     {
       "name": "CC_SAFETY_NET_LEVEL",
@@ -444,7 +443,6 @@ exports[`doctor --json an installed Cursor hook clears the none-configured findi
     "state": "ready"
   },
   "effectiveRules": [],
-  "shadowedRules": [],
   "environment": [
     {
       "name": "CC_SAFETY_NET_LEVEL",
@@ -750,7 +748,6 @@ exports[`doctor --json both scopes report their own invalid rule config: invalid
     "reason": "<root>/home/.cc-safety-net/rules/rule.json: version must be 1; <root>/project/.cc-safety-net/rules/rule.json: Invalid JSON. Those rule sources are not active; every other rule and all built-in protections still apply."
   },
   "effectiveRules": [],
-  "shadowedRules": [],
   "environment": [
     {
       "name": "CC_SAFETY_NET_LEVEL",
@@ -1080,7 +1077,6 @@ exports[`doctor --json a v2 lock and cache are reported once, naming both scopes
     "state": "ready"
   },
   "effectiveRules": [],
-  "shadowedRules": [],
   "environment": [
     {
       "name": "CC_SAFETY_NET_LEVEL",
@@ -1402,7 +1398,6 @@ exports[`doctor --json a regular file where the config directory belongs is an u
     "reason": "Unable to access user policy filesystem safely. Those rule sources are not active; every other rule and all built-in protections still apply."
   },
   "effectiveRules": [],
-  "shadowedRules": [],
   "environment": [
     {
       "name": "CC_SAFETY_NET_LEVEL",
@@ -1734,7 +1729,6 @@ exports[`doctor --json a seeded audit tree is summarised over the denials alone:
     "state": "ready"
   },
   "effectiveRules": [],
-  "shadowedRules": [],
   "environment": [
     {
       "name": "CC_SAFETY_NET_LEVEL",
@@ -2062,7 +2056,6 @@ exports[`doctor --json an invalid audit scope and a legacy flag are both reporte
     "state": "ready"
   },
   "effectiveRules": [],
-  "shadowedRules": [],
   "environment": [
     {
       "name": "CC_SAFETY_NET_LEVEL",

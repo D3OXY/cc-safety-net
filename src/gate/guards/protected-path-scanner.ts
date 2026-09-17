@@ -26,7 +26,6 @@ export function findProtectedPathMutationInCommand(
   if (syntax.status === 'structural-limit') throw new StructuralShellSyntaxLimitError();
   if (syntax.status !== 'complete') return scanner.findMalformedTarget(syntax.source);
   return walkGuardSyntax(syntax, cwd, environment, budget, {
-    word: (text) => text,
     segment: (tokens, state) => scanner.findSegmentTarget(tokens, state),
     redirection: (redirection, state) =>
       redirection.role === 'file-write' &&

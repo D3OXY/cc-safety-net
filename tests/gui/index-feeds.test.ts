@@ -309,10 +309,7 @@ describe('the GUI star, integrations and install endpoints', () => {
     ],
     system: { version: 'dev', nodeVersion: null, platform: 'linux' },
   };
-  const HEALTH = {
-    hooks: [{ platform: 'cursor', label: 'Cursor', configured: true }],
-    update: { currentVersion: 'dev', latestVersion: '9.9.9', updateAvailable: true },
-  };
+  const HEALTH = { update: { latestVersion: '9.9.9', updateAvailable: true } };
 
   test('answers the star context and the star request from the injected hooks', async () => {
     const starred = await runGuiRow({

@@ -1,10 +1,9 @@
-import type { CommandHeredoc, CommandIssue, CommandSpan } from './model';
+import type { CommandHeredoc, CommandIssue } from './model';
 
 export type HeredocDelimiter = {
   readonly delimiter: string;
   readonly quoted: boolean;
   readonly next: number;
-  readonly span: CommandSpan;
   readonly ambiguous: boolean;
 };
 
@@ -12,7 +11,6 @@ export type PendingHeredoc = {
   readonly delimiter: string;
   readonly quotedDelimiter: boolean;
   readonly stripTabs: boolean;
-  readonly declarationSpan: CommandSpan;
   attach(heredoc: CommandHeredoc): void;
 };
 
@@ -67,7 +65,7 @@ export function readHeredocDelimiter(
     delimiter += char;
     i++;
   }
-  return { delimiter, quoted, next: i, span: { start, end: i }, ambiguous };
+  return { delimiter, quoted, next: i, ambiguous };
 }
 
 export function consumeHeredocBodies(

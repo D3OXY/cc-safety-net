@@ -260,5 +260,5 @@ export const integrationDisplayNames = Object.fromEntries(
 ) as Record<IntegrationId, string>;
 
 export function getIntegrationDisplayName(id: IntegrationId): string {
-  return catalog.find((integration) => integration.id === id)?.displayName ?? id;
+  return integrationDisplayNames[id];
 }

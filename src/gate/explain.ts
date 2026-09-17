@@ -230,8 +230,6 @@ interface GetConfigSourceOptions {
   cwd: string;
 
   userConfigDir?: string;
-
-  userConfigPath?: string;
 }
 
 /**
@@ -248,11 +246,10 @@ export function getConfigSource(
   configValid: boolean;
 } {
   const projectPath = getProjectRulesConfigPath(options.cwd);
-  const userPath = options.userConfigPath ?? getUserRulesConfigPath(environment, options);
+  const userPath = getUserRulesConfigPath(environment, options);
   const paths = getPolicyPaths(environment, {
     cwd: options.cwd,
     userConfigDir: options.userConfigDir,
-    userConfigPath: options.userConfigPath,
   });
 
   try {

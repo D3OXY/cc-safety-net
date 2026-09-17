@@ -35,6 +35,7 @@ export type RulesPolicyOptions = {
 
 export type UserScopeOptions = Pick<RulesPolicyOptions, 'userConfigDir' | 'userConfigPath'>;
 
+/** @internal */
 export function getProjectRulesDir(cwd: string): string {
   return resolve(cwd, RULES_DIR);
 }

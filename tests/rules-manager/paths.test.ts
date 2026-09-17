@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test';
 import { join } from 'node:path';
-import {
-  getLegacyProjectRulesConfigPath,
-  getProjectRulesLockPath,
-  getScopePaths,
-  getUserRulesLockPath,
-} from '@/rules-manager/paths';
+import { getLegacyProjectRulesConfigPath, getScopePaths } from '@/rules-manager/paths';
 import type { SyncRulesConfigOptions } from '@/rules-manager/types';
 import {
   createTempRoot,
@@ -151,29 +146,6 @@ describe('getScopePaths resolves the scope the shipped module resolves', () => {
 });
 
 describe('the retired lock and legacy paths resolve where the shipped ones resolve', () => {
-  test('the user lockfile follows the relocated safety-net home', () => {
-    const { ported } = sides('lock-user');
-    expect(getUserRulesLockPath(environmentFor(ported.home, ported.values))).toBe(
-      join(ported.home, '.cc-safety-net', 'rules', 'rule.lock'),
-    );
-  });
-
-  test('an explicit user config directory moves the user lockfile', () => {
-    const { ported } = sides('lock-user-dir');
-    expect(
-      getUserRulesLockPath(environmentFor(ported.home, ported.values), {
-        userConfigDir: join(ported.root, 'elsewhere', 'rules'),
-      }),
-    ).toBe(join(ported.root, 'elsewhere', 'rules', 'rule.lock'));
-  });
-
-  test('the project lockfile sits beside the project rule config', () => {
-    const root = createTempRoot('lock-project-');
-    expect(getProjectRulesLockPath(join(root, 'project'))).toBe(
-      join(root, 'project', '.cc-safety-net', 'rules', 'rule.lock'),
-    );
-  });
-
   test('the legacy project config sits at the working directory root', () => {
     const root = createTempRoot('legacy-project-');
     expect(getLegacyProjectRulesConfigPath({ cwd: join(root, 'project') })).toBe(

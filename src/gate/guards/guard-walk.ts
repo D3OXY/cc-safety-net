@@ -41,7 +41,7 @@ type GuardRedirection = Readonly<{
 export const ADOPT_AS_OPERAND: unique symbol = Symbol('adopt-as-operand');
 
 export type GuardWalkVisitor = Readonly<{
-  word: (text: string) => string;
+  word?: (text: string) => string;
   segment: (
     tokens: readonly string[],
     state: ProtectedPathShellState,
@@ -168,6 +168,7 @@ export function walkGuardSyntax(
   budget: Budget,
   visitor: GuardWalkVisitor,
 ): string | null {
+  const mapWord = visitor.word ?? ((text: string) => text);
   let state: ProtectedPathShellState = { cwd, variables: new Map(), previous: null };
   let segment: string[] = [];
   let shellWords = new Set<number>();
@@ -224,13 +225,13 @@ export function walkGuardSyntax(
       );
       if (outcome === ADOPT_AS_OPERAND) {
         shellWords.add(segment.length);
-        segment.push(visitor.word(event.target));
+        segment.push(mapWord(event.target));
         continue;
       }
       if (outcome) return outcome;
       continue;
     }
-    segment.push(visitor.word(event.text));
+    segment.push(mapWord(event.text));
   }
   return visitor.segment(segment, state, pipeProducer, null, shellWords);
 }

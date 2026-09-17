@@ -347,16 +347,27 @@ describe('xargs analysis', () => {
     );
   });
 
-  test('a custom rule can be completed by appended input or by a replacement', () => {
+  test('a custom rule can be completed by appended input', () => {
     for (const tokens of [
       ['xargs', 'kubectl', 'drain'],
       ['xargs', 'kubectl', 'drain', '--force'],
-      ['xargs', '-I', '{}', 'kubectl', 'drain', '{}'],
     ]) {
       expect(ruleIdFor(tokens, 'custom rules'), tokens.join(' ')).toBe('custom.no-cluster-drain');
       expect(ruleIdFor(tokens, 'defaults'), tokens.join(' ')).not.toBe('custom.no-cluster-drain');
     }
     expect(ruleIdFor(['xargs', 'skopeo', 'copy'], 'custom rules')).toBe('custom.no-registry-push');
+  });
+
+  test('a replacement in a custom-rule command is dynamic input, not a solved rule', () => {
+    for (const tokens of [
+      ['xargs', '-I', '{}', 'kubectl', 'drain', '{}'],
+      ['xargs', '-I', '{}', 'kubectl', '{}'],
+      ['xargs', '-I', '{}', 'skopeo', 'inspect', '{}'],
+    ]) {
+      expect(ruleIdFor(tokens, 'custom rules'), tokens.join(' ')).toBe('xargs.shell-dynamic');
+      expect(ruleIdFor(tokens, 'defaults'), tokens.join(' ')).toBeNull();
+      expect(ruleIdFor(tokens, 'dynamic rule off'), tokens.join(' ')).toBeNull();
+    }
   });
 
   test('the nested sources handed back are the child command bodies', () => {

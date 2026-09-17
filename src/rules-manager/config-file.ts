@@ -13,26 +13,17 @@ export function readScopeRulesConfig(
   return { ok: true, config: loaded.config ?? DEFAULT_CONFIG };
 }
 
-export function writeDefaultRulesConfig(
-  path: string | PolicyFilesystemTarget,
-  rules: string[] = [],
-): void {
-  writeJsonAtomic(path, { version: 1, rules, overrides: {}, transparent_wrappers: [] });
+export function writeDefaultRulesConfig(path: string | PolicyFilesystemTarget): void {
+  writeJsonAtomic(path, { version: 1, rules: [], overrides: {}, transparent_wrappers: [] });
 }
 
-export function writeStarterRulebook(
-  path: string | PolicyFilesystemTarget,
-  name = 'project-rules',
-): void {
+export function writeStarterRulebook(path: string | PolicyFilesystemTarget): void {
   writeJsonAtomic(path, {
     rulebook_version: 1,
-    name,
+    name: 'example-rules',
     version: '1.0.0',
-    description:
-      name === 'project-rules'
-        ? 'Project-specific CC Safety Net rules.'
-        : 'User-specific CC Safety Net rules.',
-    author: name === 'project-rules' ? 'project' : 'user',
+    description: 'Project-specific CC Safety Net rules.',
+    author: 'project',
     allowed_commands: ['docker'],
     rules: [
       {

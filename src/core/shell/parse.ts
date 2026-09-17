@@ -16,7 +16,8 @@ export function parseCommand(
 ): CommandProgram {
   if (
     dialect === 'powershell' ||
-    (dialect === 'auto' && shouldUsePowerShellParser(source.slice(0, limits.maxInputLength)))
+    (dialect === 'auto' &&
+      shouldUsePowerShellParser(source.slice(0, limits.maxInputLength), limits))
   ) {
     return parsePowerShellCommand(source, limits);
   }

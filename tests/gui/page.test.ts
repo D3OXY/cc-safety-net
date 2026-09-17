@@ -2,7 +2,8 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { guiDocument } from '@/gui/assets';
-import { normalizePage, renderPages } from '../helpers/gui-page';
+import { renderPolicyGuiHtml } from '@/gui/page';
+import { normalizePage } from '../helpers/gui-page';
 
 const FRONTEND = join(import.meta.dir, '..', '..', 'src', 'gui', 'frontend');
 const asset = (name: string) => readFileSync(join(FRONTEND, name), 'utf-8');
@@ -16,7 +17,7 @@ const dataPayload = (html: string) => {
 
 describe('the served GUI page', () => {
   test('is the packaged document with the session token folded in', () => {
-    const rendered = renderPages(TOKEN).ported;
+    const rendered = renderPolicyGuiHtml(TOKEN);
 
     expect(rendered.replace(`{"token":"${TOKEN}"}`, '')).toBe(guiDocument);
     const ported = normalizePage(rendered, TOKEN);
@@ -28,10 +29,10 @@ describe('the served GUI page', () => {
 
   test('a token that closes the data tag parses back to itself on both sides', () => {
     const hostile = `${Buffer.from('hostile').toString('base64url')}</script><script>alert(1)`;
-    const pages = renderPages(hostile);
+    const page = renderPolicyGuiHtml(hostile);
 
-    expect(pages.ported).not.toContain(`${hostile}</script>`);
-    expect(dataPayload(pages.ported)).toStrictEqual({ token: hostile });
+    expect(page).not.toContain(`${hostile}</script>`);
+    expect(dataPayload(page)).toStrictEqual({ token: hostile });
   });
 
   test('carries the stylesheet, the icon and the logo inline and links nothing', () => {

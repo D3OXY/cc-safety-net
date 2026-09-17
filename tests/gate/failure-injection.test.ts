@@ -7,7 +7,6 @@ import {
   LIMITS,
   type LimitKind,
   REASON_DERIVED_COMMAND_WORK_LIMIT,
-  REASON_PARALLEL_ANALYSIS_LIMIT,
   REASON_SAFETY_NET_FAILED_CLOSED,
 } from '@/core/budget';
 import { createProcessEnvironment } from '@/core/environment';
@@ -230,11 +229,11 @@ const CAP_BREACHES = [
     audited: null,
   },
   {
-    kind: 'parallelChildAnalyses',
-    name: 'parallel child analyses',
-    breaching: `parallel rm -rf {} ::: ${repeated(1025, (index) => `arg${index}`)}`,
-    below: `parallel rm -rf {} ::: ${repeated(1023, (index) => `arg${index}`)}`,
-    reason: REASON_PARALLEL_ANALYSIS_LIMIT,
+    kind: 'derivedTokens',
+    name: 'parallel expansion',
+    breaching: `parallel echo ${repeated(149, () => 'w')} {} ::: ${repeated(120, (index) => `arg${index}`)}`,
+    below: `parallel echo ${repeated(149, () => 'w')} {} ::: ${repeated(100, (index) => `arg${index}`)}`,
+    reason: REASON_DERIVED_COMMAND_WORK_LIMIT,
     audited: null,
   },
   {
@@ -327,7 +326,7 @@ describe('every cap a command can still reach', () => {
         wordingMatchesTable: true,
       },
       {
-        kind: 'parallelChildAnalyses',
+        kind: 'derivedTokens',
         reported: null,
         table: 'structural-shell-syntax-limit',
         wordingMatchesTable: true,

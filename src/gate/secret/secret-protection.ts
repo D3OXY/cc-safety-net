@@ -385,21 +385,8 @@ function extractToolPathTargets(
   options: PathExtractionOptions = {},
 ): SecretCandidate[] {
   const cwd = facts.invocation.context.executionCwd;
-  if (facts.invocation.route.kind === 'command') {
-    const command = getCommandSyntaxFact(facts, 'input-candidate');
-    return command
-      ? extractCommandPathTargets(
-          command.shell,
-          facts.store,
-          options,
-          environment,
-          cwd,
-          budget,
-          isPowerShell(command),
-        )
-      : [];
-  }
-  if (facts.invocation.route.kind !== 'unknown') {
+  const route = facts.invocation.route.kind;
+  if (route !== 'command' && route !== 'unknown') {
     return facts.paths.map((target) => ({ target, cwd }));
   }
 
@@ -416,7 +403,7 @@ function extractToolPathTargets(
           isPowerShell(command),
         )
       : []),
-    ...facts.paths.map((target) => ({ target, cwd })),
+    ...(route === 'unknown' ? facts.paths.map((target) => ({ target, cwd })) : []),
   ];
 }
 
@@ -1174,12 +1161,11 @@ function extractPathLiteralsFromCode(code: string): string[] {
   const quoted = Array.from(code.matchAll(/(['"`])((?:\\.|(?!\1).)*)\1/g))
     .map((match) => match[2])
     .filter((value): value is string => value !== undefined && value !== '');
-  const bare = (code.match(BARE_PATH_PATTERN) ?? []).filter(
-    (candidate) =>
-      candidate !== 'process.versions.sqlite' ||
-      quoted.some((literal) => literal.includes(candidate)),
-  );
-  return [...quoted, ...quoted.flatMap(decodeBase64PathCandidate), ...bare];
+  return [
+    ...quoted,
+    ...quoted.flatMap(decodeBase64PathCandidate),
+    ...(code.match(BARE_PATH_PATTERN) ?? []),
+  ];
 }
 
 function extractInlineCodePathTargets(
@@ -1222,7 +1208,6 @@ function extractInlineCodePathTargets(
       ? []
       : masked.literals
           .flatMap((literal) => literal.text.match(BARE_PATH_PATTERN) ?? [])
-          .filter((candidate) => candidate !== 'process.versions.sqlite')
           .map(here)),
     ...(shellExec
       ? masked.literals.flatMap(
@@ -1249,9 +1234,7 @@ function extractInlineCodePathTargets(
           ),
         )
       : []),
-    ...(masked.masked.match(BARE_PATH_PATTERN) ?? [])
-      .filter((candidate) => candidate !== 'process.versions.sqlite')
-      .map(here),
+    ...(masked.masked.match(BARE_PATH_PATTERN) ?? []).map(here),
   ];
 }
 

@@ -10,7 +10,6 @@ import {
   type CommandWordPart,
   createCommandAccumulator,
   createCommandWordParts,
-  DEFAULT_COMMAND_PARSER_LIMITS,
   freezeCommandProgram,
   freezeCommandWord,
   freezeParsedCommandWord,
@@ -54,7 +53,7 @@ const AUTO_POWERSHELL_PARAMETERS = ['-rec', '-for', '-path', '-literalpath', '-w
 const POWERSHELL_ENV_VARIABLE = /^\$env:\w/i;
 const POWERSHELL_SEPARATED_VARIABLE = /^(?:\$\{?\w+\}?|~)\\./;
 
-export function shouldUsePowerShellParser(source: string): boolean {
+export function shouldUsePowerShellParser(source: string, limits: CommandParserLimits): boolean {
   const candidate = source.toLowerCase().replaceAll('`', '');
   if (
     ![...AUTO_POWERSHELL_HEADS].some((head) => candidate.includes(head)) &&
@@ -67,9 +66,21 @@ export function shouldUsePowerShellParser(source: string): boolean {
   ) {
     return false;
   }
-  const selector = scanSelectorCommands(source);
-  if (selector.posixHeredoc) return false;
-  return selector.invalidComment || selector.commands.some(isPowerShellSelectorCommand);
+  const program = parsePowerShellCommand(source, limits);
+  if (hasPosixHeredoc(program)) return false;
+  return (
+    program.issues.some(
+      (issue) => issue.code === 'unclosed-block-comment' || issue.code === 'comment-depth-limit',
+    ) || selectorCommandsFromProgram(program).some(isPowerShellSelectorCommand)
+  );
+}
+
+function hasPosixHeredoc(program: CommandProgram): boolean {
+  return program.nodes.some((node) => {
+    if (node.kind === 'group') return hasPosixHeredoc(node.body);
+    if (node.kind !== 'command') return false;
+    return node.redirections.some((redirection) => redirection.operator === '<<');
+  });
 }
 
 function hasPathExpressionSignal(candidate: string): boolean {
@@ -615,81 +626,20 @@ function depthLimitIssue(limit: number): CommandIssue {
   };
 }
 
-function scanSelectorCommands(source: string): {
-  commands: string[][];
-  invalidComment: boolean;
-  posixHeredoc: boolean;
-} {
-  const commands: string[][] = [];
-  let words: string[] = [];
-  let i = 0;
-  let wordCount = 0;
-  let invalidComment = false;
-  let posixHeredoc = false;
-  const flush = () => {
-    if (words.length > 0) commands.push(words);
-    words = [];
-  };
-  while (
-    i < source.length &&
-    i < DEFAULT_COMMAND_PARSER_LIMITS.maxInputLength &&
-    wordCount < DEFAULT_COMMAND_PARSER_LIMITS.maxWords
-  ) {
-    const char = source[i];
-    if (char === '\r' || char === '\n') {
-      flush();
-      i += char === '\r' && source[i + 1] === '\n' ? 2 : 1;
-      continue;
-    }
-    if (/\s/.test(char ?? '')) {
-      i++;
-      continue;
-    }
-    const comment = readPowerShellComment(
-      source,
-      i,
-      Math.min(source.length, DEFAULT_COMMAND_PARSER_LIMITS.maxInputLength),
-      DEFAULT_COMMAND_PARSER_LIMITS.maxDepth,
-    );
-    if (comment) {
-      invalidComment ||= !!comment.issue || comment.limited;
-      i = comment.next;
-      continue;
-    }
-    const operator = readOperator(source, i);
-    if (operator) {
-      flush();
-      i += operator.length;
-      continue;
-    }
-    if (char === '{' || char === '}') {
-      flush();
-      i++;
-      continue;
-    }
-    posixHeredoc ||= source.startsWith('<<', i);
-    const result = readPowerShellWord(
-      source,
-      i,
-      Math.min(source.length, DEFAULT_COMMAND_PARSER_LIMITS.maxInputLength),
-      DEFAULT_COMMAND_PARSER_LIMITS,
-      0,
-    );
-    if (result.word.text) words.push(result.word.text);
-    for (const nested of result.nested) commands.push(...selectorCommandsFromProgram(nested));
-    wordCount++;
-    i = result.next > i ? result.next : i + 1;
-  }
-  flush();
-  return { commands, invalidComment, posixHeredoc };
-}
-
 function selectorCommandsFromProgram(program: CommandProgram): string[][] {
   return program.nodes.flatMap((node) => {
     if (node.kind === 'group') return selectorCommandsFromProgram(node.body);
     if (node.kind !== 'command') return [];
     return [
-      node.words.map((word) => word.text),
+      [
+        ...node.words,
+        ...node.redirections.flatMap((redirection) =>
+          redirection.target ? [redirection.target] : [],
+        ),
+      ]
+        .sort((left, right) => left.span.start - right.span.start)
+        .filter((word) => word.text !== '' && word.raw !== ',')
+        .map((word) => word.text),
       ...node.nested.flatMap(selectorCommandsFromProgram),
     ];
   });

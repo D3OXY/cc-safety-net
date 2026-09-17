@@ -7,8 +7,6 @@ const RECURSION =
   'Command exceeds maximum recursion depth and cannot be safely analyzed. Flatten the nesting and retry.';
 const DERIVED_WORK =
   "Command analysis exceeds CC Safety Net's derived-command work limit. Reduce nested or embedded command complexity and retry.";
-const PARALLEL =
-  "Parallel command expands beyond CC Safety Net's analysis limits. Reduce the template or explicit argument list and retry.";
 
 const CAPS: Readonly<Record<CountedKind, number>> = {
   realpathAttempts: 16_384,
@@ -19,10 +17,6 @@ const CAPS: Readonly<Record<CountedKind, number>> = {
   trackedHeredocFiles: 64,
   controlFlowStates: 64,
   wrapperPeelIterations: 20,
-  parallelChildAnalyses: 1_024,
-  parallelDerivedTokens: 16_384,
-  parallelDerivedBytes: 1024 * 1024,
-  parallelPlaceholderReplacements: 16_384,
 };
 
 const REASONS: Readonly<Record<keyof typeof LIMITS, string>> = {
@@ -35,10 +29,6 @@ const REASONS: Readonly<Record<keyof typeof LIMITS, string>> = {
   controlFlowStates: DERIVED_WORK,
   wrapperPeelIterations: DERIVED_WORK,
   derivedCommandShape: DERIVED_WORK,
-  parallelChildAnalyses: PARALLEL,
-  parallelDerivedTokens: PARALLEL,
-  parallelDerivedBytes: PARALLEL,
-  parallelPlaceholderReplacements: PARALLEL,
 };
 
 const COUNTED_KINDS: readonly CountedKind[] = [
@@ -50,10 +40,6 @@ const COUNTED_KINDS: readonly CountedKind[] = [
   'trackedHeredocFiles',
   'controlFlowStates',
   'wrapperPeelIterations',
-  'parallelChildAnalyses',
-  'parallelDerivedTokens',
-  'parallelDerivedBytes',
-  'parallelPlaceholderReplacements',
 ];
 
 function limitThrownBy(call: () => void): AnalysisLimit | undefined {

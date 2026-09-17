@@ -65,11 +65,6 @@ export interface EffectiveRule {
   reason: string;
 }
 
-export interface ShadowedRule {
-  name: string;
-  shadowedBy: 'project';
-}
-
 export interface EnvVarInfo {
   name: string;
   value: string | undefined;
@@ -145,7 +140,6 @@ export interface DoctorReport {
 
   configState: ConfigStateInfo;
   effectiveRules: EffectiveRule[];
-  shadowedRules: ShadowedRule[];
   environment: EnvVarInfo[];
   effectiveSafety: EffectiveSafetyInfo;
 

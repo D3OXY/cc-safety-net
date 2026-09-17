@@ -245,7 +245,6 @@ let renderedFeedEntries: FeedEntry[] = [];
 let suspects = new Set<FeedEntry>();
 let activeStarContext: StarContext = { starred: null, starCount: null, blockedTotal: 0 };
 let integrations: Integrations | null = null;
-let integrationsRequested = false;
 const integrationBusy = new Set<string>();
 let rulesData: RulesData | null = null;
 let rulesRequested = false;
@@ -605,10 +604,6 @@ const applyView = () => {
   });
   qs('dirty-chip').hidden = !dirty || view === 'policy';
   if (view === 'activity') applyFeedClamps(qs('activity-feed'));
-  if (view === 'integrations' && !integrationsRequested) {
-    integrationsRequested = true;
-    void loadIntegrations();
-  }
   if (view === 'rules' && !rulesRequested) {
     rulesRequested = true;
     void loadRules();
@@ -965,20 +960,23 @@ const renderIntegrations = () => {
     })
     .join('');
 };
-const loadHealth = async () => {
-  const result = await requestJson('/api/health');
-  if (!result.ok || !Array.isArray(result.data?.hooks)) return;
-  const active = result.data.hooks.filter((hook: { configured: boolean }) => hook.configured);
-  const inactive = result.data.hooks.filter((hook: { configured: boolean }) => !hook.configured);
+const renderHealthStrip = (health: RequestResult) => {
+  const loaded = integrations;
+  if (!loaded || !health.ok) return;
+  const detected = loaded.targets.filter(
+    (row) => row.status === 'active' || row.status === 'disabled',
+  );
+  const active = detected.filter((row) => row.status === 'active');
+  const inactive = detected.filter((row) => row.status === 'disabled');
   const attention = inactive.length > 0 || active.length === 0;
   const parts: string[] = [];
-  const labelHtml = (hook: { label: string }) => `<strong>${escapeHtml(hook.label)}</strong>`;
+  const labelHtml = (row: IntegrationRow) => `<strong>${escapeHtml(row.label)}</strong>`;
   if (active.length) parts.push(`Hook active in ${active.map(labelHtml).join(', ')}`);
   if (inactive.length)
     parts.push(`${inactive.map(labelHtml).join(', ')} detected without an active hook`);
   if (!parts.length) parts.push('No agent hooks detected');
-  if (result.data.update?.updateAvailable)
-    parts.push(`v${escapeHtml(result.data.update.latestVersion)} available`);
+  if (health.data?.update?.updateAvailable)
+    parts.push(`v${escapeHtml(health.data.update.latestVersion)} available`);
   const link = attention
     ? ' <a class="view-all-link" href="#integrations">Fix in Integrations</a>'
     : '';
@@ -992,7 +990,6 @@ const loadIntegrations = async () => {
   if (!result.ok || !Array.isArray(result.data?.targets)) {
     qs('integrations-list').innerHTML =
       `<p class="empty">Could not load integrations: ${escapeHtml(errorText(result))}</p>`;
-    integrationsRequested = false;
     return;
   }
   integrations = result.data;
@@ -1002,11 +999,7 @@ const loadIntegrations = async () => {
   qs('integrations-platform').textContent = result.data.system.platform;
   qs('integrations-system').hidden = false;
 };
-const refreshIntegrations = () =>
-  runRefresh('integrations-refresh', () => {
-    integrationsRequested = true;
-    return loadIntegrations();
-  });
+const refreshIntegrations = () => runRefresh('integrations-refresh', loadIntegrations);
 const renderRules = () => {
   const loaded = rulesData;
   if (!loaded) return;
@@ -3116,7 +3109,9 @@ window.addEventListener('beforeunload', (event) => {
 });
 window.addEventListener('hashchange', applyView);
 applyView();
-void loadHealth();
+void Promise.all([loadIntegrations(), requestJson('/api/health')]).then(([, health]) =>
+  renderHealthStrip(health),
+);
 load()
   .then((loaded) => {
     if (loaded) void loadStarContext();
