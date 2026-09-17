@@ -972,24 +972,26 @@ function expandParallelJobs(argumentGroups: readonly (readonly string[])[]): Par
     return [];
   }
   let jobs: string[][] = [[]];
-  const cellsExceedCap = (width: number) => jobs.length * width > LIMITS.derivedTokens.cap;
   for (const [index, group] of argumentGroups.entries()) {
     if (group.length === 1) {
       const arg = group[0];
       if (arg === undefined) return [];
       for (const job of jobs) job.push(arg);
-      if (cellsExceedCap(index + 1)) throw new AnalysisLimit('derivedTokens');
+      if (jobs.length * (index + 1) > LIMITS.derivedTokens.cap) {
+        throw new AnalysisLimit('derivedTokens');
+      }
       continue;
     }
     const expanded: string[][] = [];
     for (const job of jobs) {
       for (const arg of group) {
+        if ((expanded.length + 1) * (index + 1) > LIMITS.derivedTokens.cap) {
+          throw new AnalysisLimit('derivedTokens');
+        }
         expanded.push([...job, arg]);
-        if (expanded.length > LIMITS.derivedTokens.cap) throw new AnalysisLimit('derivedTokens');
       }
     }
     jobs = expanded;
-    if (cellsExceedCap(index + 1)) throw new AnalysisLimit('derivedTokens');
   }
   return jobs;
 }

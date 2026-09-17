@@ -534,6 +534,14 @@ describe('parallel analysis', () => {
     });
     const within = bothAnalyzers(['parallel', ':::', ...group(128), ':::', ...group(64)], off);
     expect(within.match).toStrictEqual({ ok: true, value: null });
+    const wideThenProduct = bothAnalyzers(
+      ['parallel', ...group(4096).flatMap((arg) => [':::', arg]), ':::', ...group(8)],
+      off,
+    );
+    expect(wideThenProduct.match).toStrictEqual({
+      ok: false,
+      error: { name: 'AnalysisLimit', message: REASON_DERIVED_COMMAND_WORK_LIMIT },
+    });
   });
 
   test('a workdir still re-roots the child when the command-stream rule is off', () => {
