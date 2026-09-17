@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { AMP_MANAGED_HEADER } from '@/hosts/amp/artifact';
 import type { InstallTarget } from '@/hosts/install/targets';
-import { type FlowSpec, runSide } from '../../helpers/command-flow';
+import { type FlowSpec, openCodeV2Script, runSide } from '../../helpers/command-flow';
 import { type TreeSpec, writeTree } from '../../helpers/fixture-tree';
 import { fileAt } from '../../helpers/host-differential';
 import { createTempRoot, removeTempRoots } from '../../helpers/temp-home';
@@ -523,6 +523,7 @@ const opencodePackage = (body: string) =>
     'node_modules/cc-safety-net/index.mjs': body,
   });
 const opencodeScript = (seedDir: string) => [
+  { command: 'opencode', args: ['--version'], stdout: '1.18.29\n' },
   {
     command: 'opencode',
     args: ['plugin', '-g', '-f', 'cc-safety-net@latest'],
@@ -541,7 +542,7 @@ test('OpenCode installs only when the cached plugin actually exports a factory',
   expect(loaded).toMatchObject({
     exitCode: 0,
     lines: ['Installed OpenCode integration', ''],
-    log: ['opencode plugin -g -f cc-safety-net@latest\t<root>'],
+    log: ['opencode --version\t<root>', 'opencode plugin -g -f cc-safety-net@latest\t<root>'],
   });
 
   const inert = await flow({
@@ -556,6 +557,59 @@ test('OpenCode installs only when the cached plugin actually exports a factory',
       `The cached OpenCode plugin at <home>/${OPENCODE_CACHE}/node_modules/cc-safety-net/index.mjs does not export a callable CCSafetyNetPlugin, so OpenCode would load nothing and fail open.`,
     ],
   });
+});
+
+test.each([
+  ['cc-safety-net  2.4.2  cc-safety-net@latest', 0],
+  ['-  2.4.2  cc-safety-net@latest', 1],
+  ['cc-safety-net  2.4.2  other-package@latest', 1],
+])('OpenCode v2 verifies the loaded plugin row %s', async (row, exitCode) => {
+  const result = await flow({
+    invoke: 'install',
+    args: ['--opencode'],
+    script: openCodeV2Script(row),
+  });
+  expect(result.exitCode).toBe(exitCode);
+  expect(result.log).toEqual([
+    'opencode --version\t<root>',
+    'opencode plugin add cc-safety-net@latest\t<root>',
+    'opencode plugin list\t<root>',
+    'opencode plugin update cc-safety-net@latest\t<root>',
+  ]);
+});
+
+test.each([
+  '"cc-safety-net"',
+  '{"package":"cc-safety-net@2.4.2","options":{"shell":"powershell"}}',
+])('OpenCode v2 refuses a conflicting package spec before mutation: %s', async (entry) => {
+  const config = '.config/opencode/opencode.jsonc';
+  const content = `{\n// preserve options and comments\n"plugins":[${entry}]\n}`;
+  const result = await flow({
+    invoke: 'install',
+    args: ['--opencode'],
+    seed: { [config]: content },
+    script: openCodeV2Script('cc-safety-net  2.4.2  cc-safety-net@latest'),
+  });
+  expect(result.exitCode).toBe(1);
+  expect(result.log).toEqual(['opencode --version\t<root>']);
+  expect(result.errors.join('\n')).toContain(config);
+  expect(result.errors.join('\n')).toContain('preserving its options');
+  expect(fileAt(result.tree, config)).toBe(content);
+});
+
+test.each([
+  '1.18.28',
+  '2.0.5',
+  'unknown',
+])('rejects unsupported OpenCode %s before installing', async (version) => {
+  const result = await flow({
+    invoke: 'install',
+    args: ['--opencode'],
+    script: [{ command: 'opencode', args: ['--version'], stdout: version }],
+  });
+  expect(result.exitCode).toBe(1);
+  expect(result.log).toEqual(['opencode --version\t<root>']);
+  expect(result.errors.join('\n')).toContain('OpenCode 1.18.29+ or 2.0.6+');
 });
 
 test('uninstalling OpenCode drops our entry and leaves the JSONC comments alone', async () => {

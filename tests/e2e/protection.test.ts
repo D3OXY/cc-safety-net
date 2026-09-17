@@ -706,7 +706,7 @@ describe('built OpenCode plugin protection contract', () => {
 
       expect(results).toHaveLength(9);
       expect(hostResult(results, 0)).toMatchObject({
-        exportNames: ['CCSafetyNetPlugin'],
+        exportNames: ['CCSafetyNetPlugin', 'default'],
         pluginCount: 1,
         commandNames: expect.arrayContaining(['cc-safety-net', 'existing']),
         existingCommand: { description: 'Existing command', template: 'keep' },

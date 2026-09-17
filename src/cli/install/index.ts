@@ -73,11 +73,7 @@ import {
   getOpenClawInstallCommands,
   verifyOpenClawPluginRuntime,
 } from '@/hosts/openclaw/install';
-import {
-  clearOpenCodeCache,
-  uninstallOpenCode,
-  verifyOpenCodePluginRuntime,
-} from '@/hosts/opencode/install';
+import { getOpenCodeInstallPlan, uninstallOpenCode } from '@/hosts/opencode/install';
 import { getPiSettingsPath, isPiSafetyNetPackageSource } from '@/hosts/pi/detect';
 import { defaultVersionFetcher, type VersionFetcher } from '@/hosts/system-info';
 
@@ -92,6 +88,7 @@ type NativeInstallPlan = {
   commands: readonly NativeCommand[];
 
   cleanupCommands?: readonly NativeCommand[];
+  afterInstall?: () => Promise<void>;
   update?: boolean;
 };
 type InstallTargetSelection = readonly InstallTarget[] | null | 'update';
@@ -304,8 +301,7 @@ const NATIVE_INSTALLS: Record<NativeInstallTarget, NativeInstallDefinition> = {
     ].join('\n'),
   },
   opencode: {
-    beforeInstall: clearOpenCodeCache,
-    installCommands: [['opencode', 'plugin', '-g', '-f', 'cc-safety-net@latest']],
+    installCommands: getOpenCodeInstallPlan,
   },
   pi: {
     installCommands: [['pi', 'install', 'npm:cc-safety-net']],
@@ -497,6 +493,7 @@ async function installNativeTarget(
       : { commands: definition.installCommands };
   await runNativeCommands(plan.commands);
   await runNativeCleanupCommands(plan.cleanupCommands ?? []);
+  await plan.afterInstall?.();
   return [
     `${plan.update || updating ? 'Updated' : 'Installed'} ${getIntegrationDisplayName(target)} integration`,
     definition.postInstallMessage,
@@ -650,12 +647,6 @@ const INSTALL_EXTRAS: Partial<
       return undefined;
     },
     beforeUninstall: assertOpenClawPluginDirIsOurs,
-  },
-  opencode: {
-    afterInstall: async (environment) => {
-      await verifyOpenCodePluginRuntime(environment);
-      return undefined;
-    },
   },
   pi: { afterInstall: removePiExtensionsFilter },
 };

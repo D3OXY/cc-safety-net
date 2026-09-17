@@ -76,6 +76,7 @@ export async function verifyBuildArtifacts(): Promise<string[]> {
     'dist/bin/package.json',
     'dist/cli.js',
     'dist/index.d.ts',
+    'dist/opencode-v2.d.ts',
     'dist/index.js',
     'dist/pi/index.js',
   ];

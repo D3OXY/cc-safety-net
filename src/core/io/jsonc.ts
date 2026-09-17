@@ -232,6 +232,7 @@ export function findJsonArrayProperty(
   return undefined;
 }
 
+/** @internal */
 export function findJsonStringItems(
   content: string,
   array: TextRange,

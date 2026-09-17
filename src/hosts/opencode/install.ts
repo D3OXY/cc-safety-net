@@ -5,11 +5,12 @@ import type { Environment } from '@/core/environment';
 import { atomicWriteFile } from '@/core/io/atomic-write';
 import {
   findJsonArrayProperty,
-  findJsonStringItems,
   removeArrayRangeItem,
   stripJsonComments,
+  type TextRange,
 } from '@/core/io/jsonc';
 import { readRecord } from '@/hosts/detect/context';
+import { runNativeCommand } from '@/hosts/install/native';
 import type { InstallResult } from '@/hosts/install/types';
 
 const OPENCODE_PACKAGE = 'cc-safety-net';
@@ -23,9 +24,9 @@ const OPENCODE_JSON_ERRORS = {
 };
 
 export function getOpenCodeConfigDir(environment: Environment) {
-  return join(
-    environment.env.get('XDG_CONFIG_HOME') || join(environment.home, '.config'),
-    'opencode',
+  return (
+    environment.env.get('OPENCODE_CONFIG_DIR') ??
+    join(environment.env.get('XDG_CONFIG_HOME') || join(environment.home, '.config'), 'opencode')
   );
 }
 
@@ -46,10 +47,71 @@ function getOpenCodeCachePath(environment: Environment) {
   );
 }
 
+/** @internal */
 export function clearOpenCodeCache(environment: Environment): void {
   rmSync(getOpenCodeCachePath(environment), { recursive: true, force: true });
 }
 
+export async function getOpenCodeInstallPlan(environment: Environment) {
+  const version = (await runNativeCommand(['opencode', '--version'], { stdoutOnly: true })).trim();
+  const match = /^(?:opencode\s+)?v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(version);
+  const major = Number(match?.[1]);
+  const minor = Number(match?.[2]);
+  const patch = Number(match?.[3]);
+  if (
+    !match ||
+    (major !== 1 && major !== 2) ||
+    (major === 1 && (minor < 18 || (minor === 18 && patch < 29))) ||
+    (major === 2 && minor === 0 && patch < 6)
+  ) {
+    throw new Error(
+      `OpenCode 1.18.29+ or 2.0.6+ is required; found ${version || 'an unknown version'}.`,
+    );
+  }
+  if (major === 2) {
+    for (const configPath of getOpenCodeConfigPaths(environment)) {
+      if (!existsSync(configPath)) continue;
+      const config = parseOpenCodeConfig(readFileSync(configPath, 'utf-8'), configPath);
+      const conflicting = ['plugin', 'plugins'].some((key) => {
+        const plugins = readRecord(config, key);
+        return (
+          Array.isArray(plugins) &&
+          plugins.some(
+            (plugin) =>
+              isManagedPlugin(plugin) &&
+              (typeof plugin === 'string' ? plugin : readRecord(plugin, 'package')) !==
+                OPENCODE_CACHE_PACKAGE,
+          )
+        );
+      });
+      if (conflicting) {
+        throw new Error(
+          `Change the cc-safety-net package spec in ${configPath} to ${OPENCODE_CACHE_PACKAGE}, preserving its options, then retry. Adding another spec would create a duplicate plugin ID.`,
+        );
+      }
+    }
+    return {
+      commands: [
+        ['opencode', 'plugin', 'add', OPENCODE_CACHE_PACKAGE],
+        ['opencode', 'plugin', 'update', OPENCODE_CACHE_PACKAGE],
+      ] as const,
+      afterInstall: async () => {
+        const output = await runNativeCommand(['opencode', 'plugin', 'list'], { stdoutOnly: true });
+        if (/^cc-safety-net\s+\S+\s+cc-safety-net@latest\s*$/m.test(output)) return;
+        throw new Error(
+          'OpenCode did not load cc-safety-net from cc-safety-net@latest. Run `opencode plugin list` for details.',
+        );
+      },
+    };
+  }
+  clearOpenCodeCache(environment);
+  return {
+    commands: [['opencode', 'plugin', '-g', '-f', OPENCODE_CACHE_PACKAGE]] as const,
+    afterInstall: () => verifyOpenCodePluginRuntime(environment),
+  };
+}
+
+/** @internal */
 export async function verifyOpenCodePluginRuntime(environment: Environment): Promise<void> {
   const packageDir = join(getOpenCodeCachePath(environment), 'node_modules', OPENCODE_PACKAGE);
   const packageJsonPath = join(packageDir, 'package.json');
@@ -83,22 +145,56 @@ function parseOpenCodeConfig(content: string, configPath: string) {
   }
 }
 
-function hasManagedPlugin(config: unknown) {
-  if (!config || typeof config !== 'object' || Array.isArray(config)) return false;
-  const plugins = (config as { plugin?: unknown }).plugin;
-  if (!Array.isArray(plugins)) return false;
-  return plugins.some((plugin) => typeof plugin === 'string' && plugin.includes(OPENCODE_PACKAGE));
+function isManagedPlugin(plugin: unknown) {
+  const spec = typeof plugin === 'string' ? plugin : readRecord(plugin, 'package');
+  return (
+    typeof spec === 'string' &&
+    (spec === OPENCODE_PACKAGE || spec.startsWith(`${OPENCODE_PACKAGE}@`))
+  );
+}
+
+export function hasOpenCodePlugin(config: unknown) {
+  return ['plugin', 'plugins'].some((key) => {
+    const plugins = readRecord(config, key);
+    return Array.isArray(plugins) && plugins.some(isManagedPlugin);
+  });
 }
 
 function removeManagedPlugins(content: string, configPath: string) {
-  const pluginArray = findJsonArrayProperty(content, 'plugin', OPENCODE_JSON_ERRORS);
-  if (!pluginArray) throw new Error(`Failed to locate OpenCode plugin array in ${configPath}`);
-
-  const updated = findJsonStringItems(content, pluginArray, OPENCODE_JSON_ERRORS.stringError)
-    .filter((item) => item.value.includes(OPENCODE_PACKAGE))
-    .map((item) => item.range)
+  const ranges = ['plugin', 'plugins'].flatMap((key) => {
+    const array = findJsonArrayProperty(content, key, OPENCODE_JSON_ERRORS);
+    if (!array) return [];
+    const items: TextRange[] = [];
+    let depth = 0;
+    let start = array.start + 1;
+    const tokens = content
+      .slice(array.start + 1, array.end)
+      .matchAll(/\/\/[^\n]*|\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|[^"\s{}[\],/]+|[{}[\],]/g);
+    for (const token of tokens) {
+      if (token[0].startsWith('//') || token[0].startsWith('/*')) continue;
+      const index = array.start + 1 + token.index;
+      if (depth === 0) start = index;
+      if (token[0] === '{' || token[0] === '[') depth++;
+      if (token[0] === '}' || token[0] === ']') depth--;
+      if (depth !== 0 || token[0] === ',') continue;
+      const end = index + token[0].length;
+      if (isManagedPlugin(JSON.parse(stripJsonComments(content.slice(start, end))))) {
+        items.push({ start, end });
+      }
+    }
+    return items;
+  });
+  const updated = ranges
+    .sort((a, b) => a.start - b.start)
     .reverse()
-    .reduce(removeArrayRangeItem, content);
+    .reduce((text, item) => {
+      const trivia = /^(?:\s|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*,/.exec(text.slice(item.end));
+      if (trivia?.[0].includes('/')) {
+        const comma = item.end + trivia[0].length - 1;
+        return text.slice(0, item.start) + text.slice(item.end, comma) + text.slice(comma + 1);
+      }
+      return removeArrayRangeItem(text, item);
+    }, content);
 
   parseOpenCodeConfig(updated, configPath);
   return updated;
@@ -110,16 +206,17 @@ export function uninstallOpenCode(environment: Environment): InstallResult {
   const configPaths = getOpenCodeConfigPaths(environment);
   const existingConfigPath = configPaths.find((configPath) => existsSync(configPath));
   const errors: string[] = [];
+  const changedPaths: string[] = [];
 
   for (const configPath of configPaths) {
     if (!existsSync(configPath)) continue;
 
     try {
       const content = readFileSync(configPath, 'utf-8');
-      if (!hasManagedPlugin(parseOpenCodeConfig(content, configPath))) continue;
+      if (!hasOpenCodePlugin(parseOpenCodeConfig(content, configPath))) continue;
 
       atomicWriteFile(configPath, removeManagedPlugins(content, configPath));
-      return { path: configPath, alreadyInstalled: true };
+      changedPaths.push(configPath);
     } catch (error) {
       errors.push(error instanceof Error ? error.message : String(error));
     }
@@ -127,7 +224,7 @@ export function uninstallOpenCode(environment: Environment): InstallResult {
 
   if (errors.length > 0) throw new Error(errors.join('\n'));
   return {
-    path: existingConfigPath ?? getDefaultOpenCodeConfigPath(environment),
-    alreadyInstalled: false,
+    path: changedPaths[0] ?? existingConfigPath ?? getDefaultOpenCodeConfigPath(environment),
+    alreadyInstalled: changedPaths.length > 0,
   };
 }

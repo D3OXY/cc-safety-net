@@ -6,9 +6,20 @@ const SOURCE_ROOT = join(import.meta.dir, '..', 'src');
 
 const THIRD_PARTY_ALLOWANCES: Record<string, readonly string[]> = {
   'hosts/opencode/plugin.ts': ['@opencode-ai/plugin'],
-  'entries/index.ts': ['@opencode-ai/plugin'],
+  'hosts/opencode/v2.ts': [
+    '@opencode/plugin/effect/plugin',
+    '@opencode/plugin/effect/tool',
+    '@opencode/schema/tool',
+    'effect',
+  ],
+  'entries/index.ts': ['@opencode-ai/plugin', '@opencode/plugin/effect/plugin'],
+  'entries/opencode-v2.ts': ['@opencode/plugin/effect/plugin'],
   'hosts/amp/tool-call.ts': ['@ampcode/plugin'],
   'entries/amp.ts': ['@ampcode/plugin'],
+};
+
+const VALUE_THIRD_PARTY_ALLOWANCES: Record<string, readonly string[]> = {
+  'hosts/opencode/v2.ts': ['@opencode/schema/tool', 'effect'],
 };
 
 const HOST_LAYERS = ['core', 'gate', 'audit', 'hosts'];
@@ -125,6 +136,7 @@ function layeringViolations(file: string, source: string): string[] {
         (specifier) =>
           (layer === 'hosts' || layer === 'entries') &&
           specifiers.includes(specifier) &&
+          !(VALUE_THIRD_PARTY_ALLOWANCES[path] ?? []).includes(specifier) &&
           !typeOnlyImports(source).includes(specifier),
       )
       .map((specifier) => `${path} imports ${specifier} as a value`),

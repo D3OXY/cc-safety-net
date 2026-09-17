@@ -22,6 +22,17 @@ const cachedPackage = (main: unknown, entry?: string): TreeSpec => ({
 afterEach(removeTempRoots);
 
 describe('where OpenCode keeps its config and cache', () => {
+  test('the native config override takes precedence over XDG', async () => {
+    const result = await differential(
+      {
+        seed: {},
+        env: { OPENCODE_CONFIG_DIR: '<home>/native-config', XDG_CONFIG_HOME: '<home>/xdg' },
+      },
+      (environment) => getOpenCodeConfigDir(environment),
+    );
+    expect(result.outcome).toEqual({ kind: 'returned', value: '<home>/native-config' });
+  });
+
   test.each([
     ['the XDG default', undefined, '<home>/.config/opencode'],
     ['an XDG_CONFIG_HOME the user moved', '<home>/xdg', '<home>/xdg/opencode'],
@@ -185,5 +196,29 @@ describe('taking the plugin back out of the config', () => {
       message: `Failed to parse OpenCode config <home>/${CONFIG}: JSON Parse error: Expected '}'`,
     });
     expect(fileAt(result.tree, CONFIG)).toBe('{ not json');
+  });
+
+  test('removes package objects under the singular key without touching other options', async () => {
+    const result = await uninstall({
+      [CONFIG_C]:
+        '{/* keep */"plugin":[{"package":"cc-safety-net@latest","options":{"shell":"powershell"}},{"package":"other","options":{"note":"cc-safety-net"}}]}',
+    });
+    expect(result.outcome.kind).toBe('returned');
+    expect(fileAt(result.tree, CONFIG_C)).toBe(
+      '{/* keep */"plugin":[{"package":"other","options":{"note":"cc-safety-net"}}]}',
+    );
+  });
+
+  test('removes both generations from both files without changing unrelated objects or comments', async () => {
+    const result = await uninstall({
+      [CONFIG]: '{"plugin":["cc-safety-net"],"plugins":["cc-safety-net@latest","other"]}',
+      [CONFIG_C]:
+        '{\n// keep\n"plugins": [\n{"package":"other","options":{"note":"cc-safety-net"}},\n/* before */ {"package":"cc-safety-net@latest","options":{"nested":[1,{"x":"}"}]}} /* after */,\n"other-cc-safety-net"\n]}',
+    });
+    expect(result.outcome.kind).toBe('returned');
+    expect(fileAt(result.tree, CONFIG)).toBe('{"plugin":[],"plugins":["other"]}');
+    expect(fileAt(result.tree, CONFIG_C)).toBe(
+      '{\n// keep\n"plugins": [\n{"package":"other","options":{"note":"cc-safety-net"}},\n/* before */  /* after */\n"other-cc-safety-net"\n]}',
+    );
   });
 });

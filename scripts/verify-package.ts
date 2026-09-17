@@ -15,6 +15,7 @@ import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AMP_PLUGIN_ENTRY } from '../src/hosts/amp/artifact';
 import { AMP_HOST_SCRIPT, OPENCODE_HOST_SCRIPT, PI_HOST_SCRIPT } from './integration-host-scripts';
+import { OPENCODE_V2_HOST_SCRIPT } from './opencode-v2-host';
 import { verifyBuildArtifacts } from './verify-build';
 
 const PACKAGE_ROOT_FILES = [
@@ -122,8 +123,12 @@ export async function verifyPackage(): Promise<void> {
         '--no-audit',
         '--no-fund',
         tarball,
-        '@opencode-ai/plugin@1.18.3',
+        '@opencode-ai/plugin@1.18.29',
+        '@opencode/plugin@2.0.6',
+        '@opencode/core@2.0.6',
+        '@effect/platform-node@4.0.0-rc.112',
         '@types/node@18',
+        '@types/json-schema',
         'typescript@5',
       ],
       directory,
@@ -150,6 +155,14 @@ export async function verifyPackage(): Promise<void> {
       amp: join(packageRoot, 'dist', 'amp', AMP_PLUGIN_ENTRY),
       env: packageVerificationEnv,
     });
+    const v2 = run(
+      [process.execPath, '--eval', OPENCODE_V2_HOST_SCRIPT, join(packageRoot, 'dist', 'index.js')],
+      directory,
+      [0],
+      undefined,
+      packageVerificationEnv,
+    );
+    console.log(v2.stdout.toString().trim());
     const overLimitRulebook = join(
       directory,
       '.cc-safety-net',
@@ -289,7 +302,10 @@ export async function verifyPackage(): Promise<void> {
     const evalModule = (source: string, expected = 0) =>
       run(['node', '--input-type=module', '--eval', source], directory, [expected]);
     evalModule(
-      "import * as api from 'cc-safety-net'; if (Object.keys(api).join() !== 'CCSafetyNetPlugin') process.exit(2)",
+      "import * as api from 'cc-safety-net'; if (Object.keys(api).join() !== 'CCSafetyNetPlugin,default') process.exit(2)",
+    );
+    evalModule(
+      "import root from 'cc-safety-net'; import v2 from 'cc-safety-net/opencode/v2'; if (v2 !== root || typeof v2.effect !== 'function' || typeof v2.server !== 'function') process.exit(2)",
     );
     run(['node', '--eval', "require('cc-safety-net')"], directory, [1]);
     evalModule("import 'cc-safety-net/dist/index.js'", 1);
@@ -301,7 +317,7 @@ export async function verifyPackage(): Promise<void> {
       const packageRoot = dirname(require.resolve('cc-safety-net/package.json'));
       const manifest = require(resolve(packageRoot, 'package.json'));
       if (manifest.dependencies !== undefined) process.exit(4);
-      if (manifest.peerDependencies['@opencode-ai/plugin'] !== '^1.18.3') process.exit(5);
+      if (manifest.peerDependencies['@opencode-ai/plugin'] !== '^1.18.29') process.exit(5);
       if (!manifest.peerDependenciesMeta['@opencode-ai/plugin'].optional) process.exit(6);
       const extension = manifest.pi.extensions[0];
       if (extension !== './dist/pi/index.js') process.exit(2);
@@ -341,42 +357,61 @@ export async function verifyPackage(): Promise<void> {
     if (existsSync(apiAuditHome)) {
       throw new Error('Packed library API wrote audit data');
     }
-    verifyLibraryOnlyConsumer(tarball);
+    verifyIsolatedConsumers(tarball);
     console.log(`Verified ${basename(tarball)} (${result.size} bytes)`);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 }
 
-// The peer-installed fixture above cannot prove type isolation: with the peer
-// present, a declaration that leaked its types would still compile. This fixture
-// omits optional packages so the api subpath must compile from dist/api.d.ts alone.
-function verifyLibraryOnlyConsumer(tarball: string): void {
-  const directory = mkdtempSync(join(tmpdir(), 'cc-safety-net-library-'));
-  try {
-    run(['npm', 'init', '--yes'], directory);
-    run(
-      [
-        'npm',
-        'install',
-        '--ignore-scripts',
-        '--no-audit',
-        '--no-fund',
-        '--omit=optional',
-        tarball,
-        '@types/node@18',
-        'typescript@5',
-      ],
-      directory,
-    );
-    run(['node', '--eval', "require.resolve('@opencode-ai/plugin')"], directory, [1]);
-    const apiConsumer = writeTypeScriptConsumer(
-      directory,
-      "import { checkCommand, type CheckCommandResult } from 'cc-safety-net/api';\nconst result: CheckCommandResult = checkCommand({ command: 'git status', cwd: '/tmp' });\nvoid result;\n",
-    );
-    run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', apiConsumer], directory);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
+// Installing both peers masks declarations that leak the other generation's types.
+function verifyIsolatedConsumers(tarball: string): void {
+  for (const fixture of [
+    {
+      peers: [],
+      absent: ['@opencode-ai/plugin', '@opencode/plugin'],
+      source:
+        "import { checkCommand, type CheckCommandResult } from 'cc-safety-net/api';\nconst result: CheckCommandResult = checkCommand({ command: 'git status', cwd: '/tmp' });\nvoid result;\n",
+    },
+    {
+      peers: ['@opencode-ai/plugin@1.18.29'],
+      absent: ['@opencode/plugin'],
+      source:
+        "import plugin, { CCSafetyNetPlugin } from 'cc-safety-net';\nimport type { Plugin } from '@opencode-ai/plugin';\nconst named: Plugin = CCSafetyNetPlugin;\nconst server: Plugin = plugin.server;\nvoid named; void server;\n",
+    },
+    {
+      peers: ['@opencode/plugin@2.0.6', '@types/json-schema'],
+      absent: ['@opencode-ai/plugin'],
+      source:
+        "import plugin from 'cc-safety-net/opencode/v2';\nimport type { Plugin } from '@opencode/plugin/effect/plugin';\nconst registered: Plugin = plugin;\nvoid registered;\n",
+    },
+  ]) {
+    const directory = mkdtempSync(join(tmpdir(), 'cc-safety-net-consumer-'));
+    try {
+      run(['npm', 'init', '--yes'], directory);
+      run(
+        [
+          'npm',
+          'install',
+          '--ignore-scripts',
+          '--no-audit',
+          '--no-fund',
+          '--omit=optional',
+          tarball,
+          '@types/node@18',
+          'typescript@5',
+          ...fixture.peers,
+        ],
+        directory,
+      );
+      for (const peer of fixture.absent) {
+        run(['node', '--eval', `require.resolve('${peer}')`], directory, [1]);
+      }
+      const consumer = writeTypeScriptConsumer(directory, fixture.source);
+      run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', consumer], directory);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   }
 }
 

@@ -30,6 +30,12 @@ afterEach(removeTempRoots);
 test.each([
   ['a plain opencode.json', { [JSON_FILE]: plugins('cc-safety-net') }, JSON_FILE],
   ['a versioned entry', { [JSON_FILE]: plugins('other', 'cc-safety-net@1.2.3') }, JSON_FILE],
+  ['a v2 string', { [JSON_FILE]: '{"plugins":["cc-safety-net@latest"]}' }, JSON_FILE],
+  [
+    'a v2 object',
+    { [JSON_FILE]: '{"plugins":[{"package":"cc-safety-net@latest","options":{}}]}' },
+    JSON_FILE,
+  ],
   [
     'a commented opencode.jsonc',
     { [JSONC_FILE]: '{\n  // ours\n  "plugin": ["cc-safety-net"]\n}\n' },
@@ -60,6 +66,10 @@ test.each([
   ['nothing is configured', {} as TreeSpec],
   ['the plugin array holds someone else', { [JSON_FILE]: plugins('other') } as TreeSpec],
   ['there is no plugin array at all', { [JSON_FILE]: '{}' } as TreeSpec],
+  [
+    'a similarly named package is configured',
+    { [JSON_FILE]: plugins('other-cc-safety-net') } as TreeSpec,
+  ],
 ])('reports OpenCode absent when %s', async (_case, seed) => {
   expect(await detection(seed)).toEqual({
     kind: 'returned' as const,

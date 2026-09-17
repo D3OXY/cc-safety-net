@@ -36,6 +36,15 @@ export type FlowSpec = {
   options?: (home: string) => FlowOptions;
 };
 
+export function openCodeV2Script(row = 'cc-safety-net  2.4.2  cc-safety-net@latest') {
+  return [
+    { command: 'opencode', args: ['--version'], stdout: '2.0.6\n' },
+    { command: 'opencode', args: ['plugin', 'add', 'cc-safety-net@latest'] },
+    { command: 'opencode', args: ['plugin', 'update', 'cc-safety-net@latest'] },
+    { command: 'opencode', args: ['plugin', 'list'], stdout: `ID  VERSION  SOURCE\n${row}\n` },
+  ];
+}
+
 export async function runSide(spec: FlowSpec) {
   const root = createTempRoot('cc-safety-net-ported-flow-');
   const home = join(root, 'home');
