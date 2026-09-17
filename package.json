@@ -62,18 +62,25 @@
   "devDependencies": {
     "@ampcode/plugin": "0.0.0-20260724002649-ga3413e7",
     "@biomejs/biome": "2.3.10",
-    "@opencode-ai/plugin": "^1.18.3",
+    "@opencode-ai/plugin": "^1.18.29",
+    "@opencode/plugin": "2.0.6",
+    "@opencode/schema": "2.0.6",
     "@types/bun": "latest",
+    "effect": "4.0.0-rc.112",
     "jscpd": "^5.0.14",
     "knip": "^6.32.0",
     "lefthook": "^2.1.10",
     "typescript": "7.0.2"
   },
   "peerDependencies": {
-    "@opencode-ai/plugin": "^1.18.3"
+    "@opencode-ai/plugin": "^1.18.29",
+    "@opencode/plugin": "^2.0.6"
   },
   "peerDependenciesMeta": {
     "@opencode-ai/plugin": {
+      "optional": true
+    },
+    "@opencode/plugin": {
       "optional": true
     }
   },

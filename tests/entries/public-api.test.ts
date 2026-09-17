@@ -39,6 +39,12 @@ describe('package public API', () => {
 export type Plugin = (input: PluginInput) => Promise<Record<string, unknown>>;
 `,
       );
+      const v2PeerDir = join(dir, 'node_modules', '@opencode', 'plugin', 'effect');
+      mkdirSync(v2PeerDir, { recursive: true });
+      writeFileSync(
+        join(v2PeerDir, 'plugin.d.ts'),
+        'export interface Plugin { id: string; effect: (context: unknown) => unknown }\n',
+      );
       const consumer = writeTypeScriptConsumer(
         dir,
         `import { CCSafetyNetPlugin } from 'cc-safety-net';

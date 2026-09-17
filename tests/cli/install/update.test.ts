@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { type FlowSpec, runSide } from '../../helpers/command-flow';
+import { type FlowSpec, openCodeV2Script, runSide } from '../../helpers/command-flow';
 import { fileAt } from '../../helpers/host-differential';
 import { removeTempRoots } from '../../helpers/temp-home';
 
@@ -38,6 +38,21 @@ test('an empty home has nothing to update and still gets the nudge', async () =>
     errors: [],
     log: [],
   });
+});
+
+test('updates a v2 OpenCode package object through the native package manager', async () => {
+  const result = await flow({
+    invoke: 'update',
+    seed: {
+      '.config/opencode/opencode.jsonc':
+        '{"plugins":[{"package":"cc-safety-net@latest","options":{}}]}',
+    },
+    script: openCodeV2Script(),
+    options: () => versions(),
+  });
+  expect(result.exitCode).toBe(0);
+  expect(result.lines).toContain('Updated OpenCode integration');
+  expect(result.log).toContain('opencode plugin update cc-safety-net@latest\t<root>');
 });
 
 test('an unparseable argument fails before anything is detected', async () => {

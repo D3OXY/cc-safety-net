@@ -87,6 +87,8 @@ npx -y cc-safety-net@latest update
 
 Keep the `@latest` qualifier. A bare `cc-safety-net` spec can run an older copy from the npx cache. To uninstall, run `npx -y cc-safety-net uninstall`. `npm install -g cc-safety-net` also installs the `ccsn` alias.
 
+OpenCode integration supports v1.18.29+ and v2.0.6+. Run `npx -y cc-safety-net@latest install --opencode`; the installer selects the host's plugin commands. See [OpenCode compatibility](docs/opencode-compatibility.md) for v2 shell configuration and host limitations.
+
 ## Safety presets
 
 To set a preset, run `npx cc-safety-net gui` and open Policy.

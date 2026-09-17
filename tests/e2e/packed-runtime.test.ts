@@ -122,7 +122,7 @@ const JOURNEYS: readonly Journey[] = [
     name: 'the index entry exports the OpenCode plugin',
     args: (side) => ['--input-type=module', '--eval', INDEX_SCRIPT, join(side.outdir, 'index.js')],
     check: (outcome) => {
-      expect(outcome.stdout).toBe('CCSafetyNetPlugin\n');
+      expect(outcome.stdout).toBe('CCSafetyNetPlugin,default\n');
     },
   },
 ];

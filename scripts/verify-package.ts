@@ -15,6 +15,7 @@ import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { AMP_PLUGIN_ENTRY } from '../src/hosts/amp/artifact';
 import { AMP_HOST_SCRIPT, OPENCODE_HOST_SCRIPT, PI_HOST_SCRIPT } from './integration-host-scripts';
+import { OPENCODE_V2_HOST_SCRIPT } from './opencode-v2-host';
 import { verifyBuildArtifacts } from './verify-build';
 
 const PACKAGE_ROOT_FILES = [
@@ -122,8 +123,12 @@ export async function verifyPackage(): Promise<void> {
         '--no-audit',
         '--no-fund',
         tarball,
-        '@opencode-ai/plugin@1.18.3',
+        '@opencode-ai/plugin@1.18.29',
+        '@opencode/plugin@2.0.6',
+        '@opencode/core@2.0.6',
+        '@effect/platform-node@4.0.0-rc.112',
         '@types/node@18',
+        '@types/json-schema',
         'typescript@5',
       ],
       directory,
@@ -150,6 +155,14 @@ export async function verifyPackage(): Promise<void> {
       amp: join(packageRoot, 'dist', 'amp', AMP_PLUGIN_ENTRY),
       env: packageVerificationEnv,
     });
+    const v2 = run(
+      [process.execPath, '--eval', OPENCODE_V2_HOST_SCRIPT, join(packageRoot, 'dist', 'index.js')],
+      directory,
+      [0],
+      undefined,
+      packageVerificationEnv,
+    );
+    console.log(v2.stdout.toString().trim());
     const overLimitRulebook = join(
       directory,
       '.cc-safety-net',
@@ -289,7 +302,7 @@ export async function verifyPackage(): Promise<void> {
     const evalModule = (source: string, expected = 0) =>
       run(['node', '--input-type=module', '--eval', source], directory, [expected]);
     evalModule(
-      "import * as api from 'cc-safety-net'; if (Object.keys(api).join() !== 'CCSafetyNetPlugin') process.exit(2)",
+      "import * as api from 'cc-safety-net'; if (Object.keys(api).join() !== 'CCSafetyNetPlugin,default') process.exit(2)",
     );
     run(['node', '--eval', "require('cc-safety-net')"], directory, [1]);
     evalModule("import 'cc-safety-net/dist/index.js'", 1);
@@ -301,7 +314,7 @@ export async function verifyPackage(): Promise<void> {
       const packageRoot = dirname(require.resolve('cc-safety-net/package.json'));
       const manifest = require(resolve(packageRoot, 'package.json'));
       if (manifest.dependencies !== undefined) process.exit(4);
-      if (manifest.peerDependencies['@opencode-ai/plugin'] !== '^1.18.3') process.exit(5);
+      if (manifest.peerDependencies['@opencode-ai/plugin'] !== '^1.18.29') process.exit(5);
       if (!manifest.peerDependenciesMeta['@opencode-ai/plugin'].optional) process.exit(6);
       const extension = manifest.pi.extensions[0];
       if (extension !== './dist/pi/index.js') process.exit(2);

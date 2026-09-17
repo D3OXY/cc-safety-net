@@ -125,7 +125,8 @@ for await (const chunk of process.stdin) input += chunk;
 const parsed = JSON.parse(input);
 const requests = Array.isArray(parsed) ? parsed : [parsed];
 const pluginModule = await import(pathToFileURL(process.argv[1]).href);
-const factories = Object.values(pluginModule).filter((value) => typeof value === 'function');
+// OpenCode >=1.18.29 prefers the object entrypoint, without also invoking named exports.
+const factories = [pluginModule.default.server];
 const pluginInput = {
   client: {},
   project: {},

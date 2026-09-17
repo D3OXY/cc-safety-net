@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripJsonComments } from '@/core/io/jsonc';
 import type { DetectContext, HookDetection } from '@/hosts/detect/context';
-import { getOpenCodeConfigDir } from '@/hosts/opencode/install';
+import { getOpenCodeConfigDir, hasOpenCodePlugin } from '@/hosts/opencode/install';
 
 export function detect(context: DetectContext): HookDetection {
   const errors: string[] = [];
@@ -15,12 +15,9 @@ export function detect(context: DetectContext): HookDetection {
       try {
         const content = readFileSync(configPath, 'utf-8');
         const json = stripJsonComments(content);
-        const config = JSON.parse(json) as { plugin?: string[] };
+        const config: unknown = JSON.parse(json);
 
-        const plugins = config.plugin ?? [];
-        const hasSafetyNet = plugins.some((p) => p.includes('cc-safety-net'));
-
-        if (hasSafetyNet) {
+        if (hasOpenCodePlugin(config)) {
           return {
             platform: 'opencode',
             status: 'configured',

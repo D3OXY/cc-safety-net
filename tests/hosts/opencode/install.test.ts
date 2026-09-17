@@ -186,4 +186,17 @@ describe('taking the plugin back out of the config', () => {
     });
     expect(fileAt(result.tree, CONFIG)).toBe('{ not json');
   });
+
+  test('removes both generations from both files without changing unrelated objects or comments', async () => {
+    const result = await uninstall({
+      [CONFIG]: '{"plugin":["cc-safety-net"],"plugins":["cc-safety-net@latest","other"]}',
+      [CONFIG_C]:
+        '{\n// keep\n"plugins": [\n{"package":"other","options":{"note":"cc-safety-net"}},\n/* before */ {"package":"cc-safety-net@latest","options":{"nested":[1,{"x":"}"}]}} /* after */,\n"other-cc-safety-net"\n]}',
+    });
+    expect(result.outcome.kind).toBe('returned');
+    expect(fileAt(result.tree, CONFIG)).toBe('{"plugin":[],"plugins":["other"]}');
+    expect(fileAt(result.tree, CONFIG_C)).toBe(
+      '{\n// keep\n"plugins": [\n{"package":"other","options":{"note":"cc-safety-net"}},\n/* before */  /* after */\n"other-cc-safety-net"\n]}',
+    );
+  });
 });

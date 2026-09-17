@@ -34,11 +34,17 @@ describe('published runtime contract', () => {
     expect(pkg.dependencies).toBeUndefined();
     expect(pkg.devDependencies).toMatchObject({
       '@ampcode/plugin': '0.0.0-20260724002649-ga3413e7',
-      '@opencode-ai/plugin': '^1.18.3',
+      '@opencode-ai/plugin': '^1.18.29',
+      '@opencode/plugin': '2.0.6',
+      effect: '4.0.0-rc.112',
     });
-    expect(pkg.peerDependencies).toEqual({ '@opencode-ai/plugin': '^1.18.3' });
+    expect(pkg.peerDependencies).toEqual({
+      '@opencode-ai/plugin': '^1.18.29',
+      '@opencode/plugin': '^2.0.6',
+    });
     expect(pkg.peerDependenciesMeta).toEqual({
       '@opencode-ai/plugin': { optional: true },
+      '@opencode/plugin': { optional: true },
     });
     expect((pkg.scripts as Record<string, string>)['audit:dependencies']).toBe('bun audit');
     expect(pkg.gitHead).toBeUndefined();

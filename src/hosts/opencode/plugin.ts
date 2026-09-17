@@ -54,81 +54,97 @@ export function createCCSafetyNetPlugin(guardDependencies: Partial<GuardDependen
       },
 
       'tool.execute.before': async (input, output) => {
-        const environment =
-          homeDir === undefined
-            ? createProcessEnvironment()
-            : { ...createProcessEnvironment(), home: homeDir };
-        const throwPreflightDenial = (
-          denial: IntegrationDenial,
-          toolName?: string,
-          cwd: string | null = configCwd,
-        ): never => {
-          writeIntegrationDenialAudit(environment, denial, () => input.sessionID, {
-            agent: 'opencode',
-            toolName,
-            cwd,
-          });
-          throwBlocked(denial);
-        };
-        if (typeof input.tool !== 'string' || input.tool.trim() === '') {
-          throwPreflightDenial(createFailedClosedDenial());
-        }
-
-        const toolInput = output.args;
-        let command: string | undefined;
-        try {
-          command = getCommandFromToolInput(toolInput);
-        } catch (error) {
-          if (!(error instanceof ToolInputLimitError)) throw error;
-          throwPreflightDenial(createFailedClosedDenial({ toolName: input.tool }), input.tool);
-        }
-        const shellRoute = resolveOpenCodeShellRoute(currentConfig?.shell);
-        const route = getOpenCodeToolRoute(input.tool, shellRoute);
-        const executionCwd = resolveOpenCodeExecutionCwd(configCwd, toolInput);
-        if (!isUsableDirectory(configCwd) || !executionCwd) {
-          return throwPreflightDenial(
-            createFailedClosedDenial({ command, toolName: input.tool }),
-            input.tool,
-          );
-        }
-        const context: ToolCallContext = { configCwd, executionCwd };
-        const invocation = createToolInvocation(
-          input.tool,
-          toolInput,
-          route,
-          context,
-          command ?? null,
-        );
-        try {
-          const evaluation = evaluateRuntimeGuard(environment, invocation, {
-            guard: {
-              auditAllowed: shouldRecordAllowedCommands(environment.env),
-              dependencies: guardDependencies,
-            },
-            audit: {
-              agent: 'opencode',
-              getSessionId: () => input.sessionID,
-            },
-          });
-          throwGuardDenial(evaluation);
-        } catch (error) {
-          if (!(error instanceof GuardEvaluationError)) throw error;
-          if (
-            error.stage === 'policy-protection' ||
-            error.stage === 'config-load' ||
-            error.stage === 'secret-protection'
-          ) {
-            throw error.cause;
-          }
-          throwGuardDenial(error.evaluation);
-          return;
-        }
+        evaluateOpenCodeTool({
+          configCwd,
+          homeDir,
+          tool: input.tool,
+          sessionID: input.sessionID,
+          toolInput: output.args,
+          route: getOpenCodeToolRoute(input.tool, resolveOpenCodeShellRoute(currentConfig?.shell)),
+          guardDependencies,
+        });
       },
     };
   }) satisfies Plugin;
 }
 
-/** @internal */
+export function evaluateOpenCodeTool({
+  configCwd,
+  homeDir,
+  tool,
+  sessionID,
+  toolInput,
+  route,
+  guardDependencies = {},
+}: {
+  configCwd: string;
+  homeDir?: string;
+  tool: string;
+  sessionID: string;
+  toolInput: unknown;
+  route: ToolRoute;
+  guardDependencies?: Partial<GuardDependencies>;
+}): void {
+  const environment =
+    homeDir === undefined
+      ? createProcessEnvironment()
+      : { ...createProcessEnvironment(), home: homeDir };
+  const throwPreflightDenial = (
+    denial: IntegrationDenial,
+    toolName?: string,
+    cwd: string | null = configCwd,
+  ): never => {
+    writeIntegrationDenialAudit(environment, denial, () => sessionID, {
+      agent: 'opencode',
+      toolName,
+      cwd,
+    });
+    throwBlocked(denial);
+  };
+  if (typeof tool !== 'string' || tool.trim() === '') {
+    throwPreflightDenial(createFailedClosedDenial());
+  }
+
+  let command: string | undefined;
+  try {
+    command = getCommandFromToolInput(toolInput);
+  } catch (error) {
+    if (!(error instanceof ToolInputLimitError)) throw error;
+    throwPreflightDenial(createFailedClosedDenial({ toolName: tool }), tool);
+  }
+  const executionCwd = resolveOpenCodeExecutionCwd(configCwd, toolInput);
+  if (!isUsableDirectory(configCwd) || !executionCwd) {
+    throwPreflightDenial(createFailedClosedDenial({ command, toolName: tool }), tool);
+    return;
+  }
+  const context: ToolCallContext = { configCwd, executionCwd };
+  const invocation = createToolInvocation(tool, toolInput, route, context, command ?? null);
+  try {
+    const evaluation = evaluateRuntimeGuard(environment, invocation, {
+      guard: {
+        auditAllowed: shouldRecordAllowedCommands(environment.env),
+        dependencies: guardDependencies,
+      },
+      audit: {
+        agent: 'opencode',
+        getSessionId: () => sessionID,
+      },
+    });
+    throwGuardDenial(evaluation);
+  } catch (error) {
+    if (!(error instanceof GuardEvaluationError)) throw error;
+    if (
+      error.stage === 'policy-protection' ||
+      error.stage === 'config-load' ||
+      error.stage === 'secret-protection'
+    ) {
+      throw error.cause;
+    }
+    throwGuardDenial(error.evaluation);
+    return;
+  }
+}
+
 export function resolveOpenCodeShellRoute(
   configuredShell: unknown,
   platform = process.platform,
