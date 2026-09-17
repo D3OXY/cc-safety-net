@@ -24,9 +24,9 @@ const OPENCODE_JSON_ERRORS = {
 };
 
 export function getOpenCodeConfigDir(environment: Environment) {
-  return join(
-    environment.env.get('XDG_CONFIG_HOME') || join(environment.home, '.config'),
-    'opencode',
+  return (
+    environment.env.get('OPENCODE_CONFIG_DIR') ??
+    join(environment.env.get('XDG_CONFIG_HOME') || join(environment.home, '.config'), 'opencode')
   );
 }
 

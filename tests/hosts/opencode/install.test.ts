@@ -22,6 +22,17 @@ const cachedPackage = (main: unknown, entry?: string): TreeSpec => ({
 afterEach(removeTempRoots);
 
 describe('where OpenCode keeps its config and cache', () => {
+  test('the native config override takes precedence over XDG', async () => {
+    const result = await differential(
+      {
+        seed: {},
+        env: { OPENCODE_CONFIG_DIR: '<home>/native-config', XDG_CONFIG_HOME: '<home>/xdg' },
+      },
+      (environment) => getOpenCodeConfigDir(environment),
+    );
+    expect(result.outcome).toEqual({ kind: 'returned', value: '<home>/native-config' });
+  });
+
   test.each([
     ['the XDG default', undefined, '<home>/.config/opencode'],
     ['an XDG_CONFIG_HOME the user moved', '<home>/xdg', '<home>/xdg/opencode'],
