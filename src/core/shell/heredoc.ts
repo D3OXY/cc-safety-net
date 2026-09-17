@@ -105,7 +105,6 @@ export function consumeHeredocBodies(
     issues.push({
       code: 'unterminated-heredoc',
       message: `heredoc delimiter ${declaration.delimiter} was not found`,
-      span: declaration.declarationSpan,
     });
     return { next: end, issues, terminated: false };
   }

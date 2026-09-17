@@ -28,11 +28,13 @@ describe('where OpenCode keeps its config and cache', () => {
   ])('derives the config directory from %s', async (_case, xdg, expected) => {
     expect(
       (
-        await differential({
-          seed: {},
-          env: xdg === undefined ? {} : { XDG_CONFIG_HOME: xdg },
-          ported: (environment) => getOpenCodeConfigDir(environment),
-        })
+        await differential(
+          {
+            seed: {},
+            env: xdg === undefined ? {} : { XDG_CONFIG_HOME: xdg },
+          },
+          (environment) => getOpenCodeConfigDir(environment),
+        )
       ).outcome,
     ).toEqual({ kind: 'returned', value: expected });
   });
@@ -46,11 +48,13 @@ describe('where OpenCode keeps its config and cache', () => {
     ],
   ])('clears the cached package under %s', async (_case, env, cache) => {
     const seed = { [`${cache}/node_modules/cc-safety-net/package.json`]: '{}', 'keep.txt': 'kept' };
-    const result = await differential({
-      seed,
-      env,
-      ported: (environment) => clearOpenCodeCache(environment),
-    });
+    const result = await differential(
+      {
+        seed,
+        env,
+      },
+      (environment) => clearOpenCodeCache(environment),
+    );
 
     const paths = result.tree.map((entry) => entry.path);
     expect(paths.filter((path) => path.startsWith(cache))).toEqual([]);
@@ -61,10 +65,12 @@ describe('where OpenCode keeps its config and cache', () => {
 describe('proving the cached plugin would load', () => {
   const verify = async (seed: TreeSpec) =>
     (
-      await differential({
-        seed,
-        ported: (environment) => verifyOpenCodePluginRuntime(environment),
-      })
+      await differential(
+        {
+          seed,
+        },
+        (environment) => verifyOpenCodePluginRuntime(environment),
+      )
     ).outcome;
 
   test('accepts a package whose main exports a callable plugin factory', async () => {
@@ -102,10 +108,12 @@ describe('proving the cached plugin would load', () => {
 
 describe('taking the plugin back out of the config', () => {
   const uninstall = async (seed: TreeSpec) => {
-    const result = await differential({
-      seed,
-      ported: (environment) => uninstallOpenCode(environment),
-    });
+    const result = await differential(
+      {
+        seed,
+      },
+      (environment) => uninstallOpenCode(environment),
+    );
     return { outcome: result.outcome, tree: result.tree };
   };
 

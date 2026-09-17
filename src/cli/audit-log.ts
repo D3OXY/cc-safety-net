@@ -1,6 +1,7 @@
 import { readdirSync, statSync, unlinkSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { findSuspectEntries, listAuditLogFiles, readAuditLogEntries } from '@/audit/reader';
+import { findSuspectEntries } from '@/audit/display';
+import { listAuditLogFiles, readAuditLogEntries } from '@/audit/reader';
 import { pruneExpiredAuditLogs } from '@/audit/retention';
 import { getAuditLogsDir } from '@/audit/writer';
 import { parseCommandArgs, reportCommandArgErrors } from '@/cli/args';

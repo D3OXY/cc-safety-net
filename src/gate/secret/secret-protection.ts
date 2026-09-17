@@ -15,7 +15,7 @@ import {
   SECRET_VARIANT_DOT_SUFFIX_RULES,
   SECRET_VARIANT_SEPARATOR_RULES,
 } from '@/core/rules/secret';
-import { advanceQuoteScanState, getShellCommandString } from '@/core/shell/tokens';
+import { advanceQuoteScanState, parseShellArgv } from '@/core/shell/tokens';
 import type { EnvironmentContext } from '@/gate/analysis';
 import { extractAwkSystemCommands } from '@/gate/analyzer/awk';
 import { extractXargsChildCommandWithInfo } from '@/gate/analyzer/xargs';
@@ -322,8 +322,9 @@ export function findSensitiveTargetInSemanticFacts(
     environment,
     budget,
   );
+  if (target === null) return null;
   const refined =
-    target?.ruleId !== 'secret.deny-path' && options.strict === false
+    target.ruleId !== 'secret.deny-path' && options.strict === false
       ? extractToolPathTargets(facts, environment, budget, { refineInlineData: true })
       : candidates;
   const refinedTarget =
@@ -621,18 +622,18 @@ function extractSegmentPathTargets(
     ];
   }
   if (isCodeInterpreter(command)) {
-    const body = SHELL_STDIN_INTERPRETERS.has(command)
-      ? getShellCommandString(command, post)
+    const shellArgv = SHELL_STDIN_INTERPRETERS.has(command)
+      ? parseShellArgv([command, ...post])
       : null;
-    if (body !== null) {
-      const syntax = store.getShellSyntax(body);
+    if (shellArgv !== null && shellArgv.command !== null && shellArgv.commandIndex !== null) {
+      const syntax = store.getShellSyntax(shellArgv.command);
       if (syntax.status === 'structural-limit') throw new StructuralShellSyntaxLimitError();
       if (syntax.status === 'complete') {
         return [
           ...assignmentValues,
           ...extractCommandPathTargets(syntax, store, options, environment, cwd, budget),
           ...post
-            .slice(post.indexOf(body) + 1)
+            .slice(shellArgv.commandIndex)
             .filter((token) => !token.startsWith('-'))
             .map(here),
         ];

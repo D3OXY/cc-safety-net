@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
   type CommandTraceEvent,
-  type CommandTraceTerminal,
   createCommandTraceContext as createPortedContext,
   createCommandTraceRecorder as createPortedRecorder,
   type TraceStep,
@@ -71,12 +70,7 @@ const EVENTS: readonly CommandTraceEvent[] = [
   globalEvent({ type: 'transparent-wrapper', wrapper: 'env', output: ['rm', '-rf', '.'] }),
   globalEvent({ type: 'recurse', reason: 'shell-wrapper', innerCommand: 'rm -rf /', depth: 1 }),
   globalEvent({ type: 'recurse', reason: 'heredoc-file', innerCommand: 'cat <<EOF', depth: 4 }),
-  globalEvent({
-    type: 'tmpdir-check',
-    tmpdirValue: '/home/agent/not-temp',
-    isOverriddenToNonTemp: true,
-    allowTmpdirVar: false,
-  }),
+  globalEvent({ type: 'tmpdir-check', tmpdirValue: '/home/agent/not-temp', allowTmpdirVar: false }),
   globalEvent({
     type: 'strict-unparseable',
     rawCommand: 'echo "unclosed',
@@ -101,37 +95,14 @@ const EVENTS: readonly CommandTraceEvent[] = [
   undefined as never,
 ];
 
-const TERMINALS: readonly CommandTraceTerminal[] = [
-  { result: 'allowed' },
-  { result: 'blocked', reason: 'Blocked destructive command.', segment: 'rm -rf /' },
-  {
-    result: 'blocked',
-    reason: 'Blocked: PASSWORD=hunter2 leaked into the reason',
-    segment: 'curl -u admin:swordfish https://api.example.com',
-    ruleId: 'destructive-rm-rf',
-  },
-  { result: 'interrupted', reason: 'x', segment: 'y' } as never,
-  {
-    result: 'blocked',
-    reason: 'r'.repeat(9_000),
-    segment: 's'.repeat(9_000),
-    ruleId: '',
-    extra: 'ignored',
-  } as never,
-];
-
-function recordAll(
-  createRecorder: typeof createPortedRecorder,
-  options: RecorderOptions,
-  terminal: CommandTraceTerminal,
-) {
+function recordAll(createRecorder: typeof createPortedRecorder, options: RecorderOptions) {
   const recorder = createRecorder(options);
   EVENTS.forEach((event) => {
     recorder.record(event);
   });
-  const trace = recorder.finish(terminal);
+  const trace = recorder.finish();
   recorder.record(EVENTS[0] as CommandTraceEvent);
-  return { trace, afterFinish: recorder.finish({ result: 'allowed' }) };
+  return { trace, afterFinish: recorder.finish() };
 }
 
 function walkContext(module: typeof PORTED) {
@@ -150,7 +121,7 @@ function walkContext(module: typeof PORTED) {
     first,
     second,
     afterAllocation: context.getNextSegmentIndex(),
-    trace: recorder.finish({ result: 'blocked', reason: 'no', segment: 'id', ruleId: 'r' }),
+    trace: recorder.finish(),
   };
 }
 
@@ -180,41 +151,31 @@ const STEP_TYPES: TraceStep['type'][] = [
 ];
 
 describe('the command trace recorder', () => {
-  test('keeps every well-formed event and counts the two it cannot read', () => {
-    const recorded = recordAll(
-      createPortedRecorder,
-      undefined,
-      TERMINALS[0] as CommandTraceTerminal,
-    );
+  test('keeps every well-formed event and skips the two it cannot read', () => {
+    const recorded = recordAll(createPortedRecorder, undefined);
 
     expect(recorded.trace.events.map((event) => event.step.type)).toEqual(STEP_TYPES);
-    expect(recorded.trace.droppedEvents).toBe(2);
-    expect(recorded.trace.terminal).toEqual({ result: 'allowed' });
     expect(recorded.afterFinish).toBe(recorded.trace);
   });
 
-  test('stops at maxEvents and counts everything past it as dropped', () => {
-    const recorded = recordAll(
-      createPortedRecorder,
-      { maxEvents: 4 },
-      TERMINALS[0] as CommandTraceTerminal,
-    );
+  test('stops at maxEvents and keeps nothing past it', () => {
+    const recorded = recordAll(createPortedRecorder, { maxEvents: 4 });
 
     expect(recorded.trace.events.map((event) => event.step.type)).toEqual(STEP_TYPES.slice(0, 4));
-    expect(recorded.trace.droppedEvents).toBe(EVENTS.length - 4);
   });
 
   test('bounds the text, the lists and the properties of a step', () => {
-    const bounded = recordAll(
-      createPortedRecorder,
-      { maxTextLength: 10, maxListLength: 2, maxDepth: 2 },
-      TERMINALS[0] as CommandTraceTerminal,
-    ).trace;
-    const perProperty = recordAll(
-      createPortedRecorder,
-      { maxTextLength: 24, maxListLength: 1, maxObjectProperties: 1, maxDepth: 1 },
-      TERMINALS[0] as CommandTraceTerminal,
-    ).trace;
+    const bounded = recordAll(createPortedRecorder, {
+      maxTextLength: 10,
+      maxListLength: 2,
+      maxDepth: 2,
+    }).trace;
+    const perProperty = recordAll(createPortedRecorder, {
+      maxTextLength: 24,
+      maxListLength: 1,
+      maxObjectProperties: 1,
+      maxDepth: 1,
+    }).trace;
 
     expect(bounded.events[0]).toEqual({
       kind: 'step',
@@ -232,7 +193,7 @@ describe('the command trace recorder', () => {
     const stepAt = (options: RecorderOptions) => {
       const recorder = createPortedRecorder(options);
       recorder.record(cyclicEvent());
-      return recorder.finish({ result: 'allowed' }).events[0]?.step;
+      return recorder.finish().events[0]?.step;
     };
 
     expect(stepAt(undefined)).toEqual({
@@ -248,7 +209,7 @@ describe('the command trace recorder', () => {
   });
 
   test('redacts assignment, derived and provider secrets out of every recorded step', () => {
-    const trace = recordAll(createPortedRecorder, undefined, TERMINALS[2] as CommandTraceTerminal);
+    const trace = recordAll(createPortedRecorder, undefined);
     const serialized = JSON.stringify(trace.trace);
 
     expect(SECRETS.filter((secret) => serialized.includes(secret))).toEqual([]);
@@ -264,37 +225,14 @@ describe('the command trace recorder', () => {
     });
   });
 
-  test('normalizes the terminal it was finished with', () => {
-    const terminalOf = (terminal: CommandTraceTerminal, options?: RecorderOptions) =>
-      recordAll(createPortedRecorder, options, terminal).trace;
-
-    expect(terminalOf(TERMINALS[2] as CommandTraceTerminal).terminal).toEqual({
-      result: 'blocked',
-      reason: 'Blocked: PASSWORD=<redacted> leaked into the reason',
-      segment: 'curl -u <redacted>:<redacted> https://api.example.com',
-      ruleId: 'destructive-rm-rf',
-    });
-    const unreadable = terminalOf(TERMINALS[3] as CommandTraceTerminal);
-    expect(unreadable.terminal).toEqual({
-      result: 'blocked',
-      reason: 'trace unavailable',
-      segment: 'trace unavailable',
-    });
-    expect(unreadable.droppedEvents).toBe(3);
-    expect(
-      terminalOf(TERMINALS[4] as CommandTraceTerminal, { maxTextLength: 24 }).terminal,
-    ).toEqual({ result: 'blocked', reason: 'r'.repeat(24), segment: 's'.repeat(24) });
-  });
-
-  test('freezes the trace, its events and its terminal', () => {
-    const ported = recordAll(createPortedRecorder, {}, TERMINALS[1] as CommandTraceTerminal).trace;
+  test('freezes the trace and its events', () => {
+    const ported = recordAll(createPortedRecorder, {}).trace;
 
     expect([
       Object.isFrozen(ported),
       Object.isFrozen(ported.events),
       Object.isFrozen(ported.events[0]?.step),
-      Object.isFrozen(ported.terminal),
-    ]).toEqual([true, true, true, true]);
+    ]).toEqual([true, true, true]);
   });
 
   test('allocates segments in order and routes each step to one', () => {
@@ -304,7 +242,6 @@ describe('the command trace recorder', () => {
       second: 1,
       afterAllocation: 2,
       trace: {
-        droppedEvents: 0,
         events: [
           {
             kind: 'step',
@@ -324,7 +261,6 @@ describe('the command trace recorder', () => {
             step: { type: 'parse', input: 'PASSWORD=<redacted> id', segments: [['id']] },
           },
         ],
-        terminal: { result: 'blocked', reason: 'no', segment: 'id', ruleId: 'r' },
       },
     });
   });

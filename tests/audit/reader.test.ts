@@ -2,7 +2,8 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { findSuspectEntries, listAuditLogFiles, readAuditLogEntries } from '@/audit/reader';
+import { findSuspectEntries } from '@/audit/display';
+import { listAuditLogFiles, readAuditLogEntries } from '@/audit/reader';
 import type { AuditLogEntry } from '@/core/audit';
 import { writeAuditFixture } from '../helpers/audit-fixture';
 

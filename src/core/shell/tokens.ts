@@ -43,89 +43,116 @@ export function extractShortOpts(
   return opts;
 }
 
-const SHORT_VALUE_OPTIONS = new Map([
-  ['bash', new Set(['O', 'o'])],
-  ['dash', new Set(['o'])],
-  ['ksh', new Set(['o'])],
-  ['sh', new Set(['o'])],
-  ['zsh', new Set(['o'])],
-]);
-const ATTACHED_SHORT_VALUE_OPTIONS = new Map([['zsh', new Set(['o'])]]);
-const LONG_VALUE_OPTIONS = new Map([['bash', new Set(['--init-file', '--rcfile'])]]);
+const SHELL_SHORT_VALUE_OPTIONS: Readonly<Record<string, readonly string[]>> = {
+  bash: ['O', 'o'],
+  dash: ['o'],
+  ksh: ['o'],
+  sh: ['o'],
+  zsh: ['o'],
+};
+export const BASH_LONG_VALUE_OPTIONS = new Set(['--init-file', '--rcfile']);
 
-export function getShellCommandString(command: string, args: readonly string[]): string | null {
-  for (let index = 0; index < args.length; index++) {
-    const token = args[index];
-    if (
-      token === undefined ||
-      token === '--' ||
-      token === '-' ||
-      (token[0] !== '-' && token[0] !== '+')
-    ) {
-      return null;
-    }
-    if (token.startsWith('--')) {
-      const longValueOptions = LONG_VALUE_OPTIONS.get(command);
-      if (hasAttachedLongValue(token, longValueOptions)) continue;
-      if (!longValueOptions?.has(token)) continue;
-      if (args[index + 1] === undefined) return null;
-      index++;
-      continue;
-    }
-    const shortOptions = parseShortOptions(command, token);
-    if (shortOptions.commandSelected) {
-      return args[index + shortOptions.followingValues + 1] ?? null;
-    }
-    const next = args[index + 1];
-    if (
-      command === 'ksh' &&
-      (token === '-o' || token === '+o') &&
-      next !== undefined &&
-      next[0] !== '-' &&
-      next[0] !== '+'
-    ) {
-      index++;
-    }
-    index += shortOptions.followingValues;
-  }
-  return null;
-}
-
-function parseShortOptions(command: string, token: string) {
-  const valueOptions = SHORT_VALUE_OPTIONS.get(command);
-  const attachedValueOptions = ATTACHED_SHORT_VALUE_OPTIONS.get(command);
-  let commandSelected = false;
+export function scanShellShortOptions(
+  shell: string,
+  token: string,
+  nextToken: string | undefined,
+  mode: 'startup' | 'argv',
+): {
+  interactive: boolean;
+  followingValues: number;
+  commandSelected: boolean;
+  stdinMode: boolean;
+  syntaxCheck: boolean;
+} {
+  let interactive = false;
   let followingValues = 0;
-  for (let index = 1; index < token.length; index++) {
-    const option = token[index];
+  let commandSelected = false;
+  let stdinMode = false;
+  let syntaxCheck = false;
+  for (let optionIndex = 1; optionIndex < token.length; optionIndex++) {
+    const option = token[optionIndex];
     if (option === undefined) break;
-    if (token[0] === '-' && option === 'c') commandSelected = true;
-    if (command === 'ksh' && option === 'o') {
-      if (index + 1 < token.length) {
-        const optionName = token.slice(index + 1);
-        if (!commandSelected && token[0] === '-' && optionName === 'c') continue;
+    if (shell === 'ksh' && option === 'o' && optionIndex + 1 < token.length) {
+      if (mode === 'argv') {
+        const optionName = token.slice(optionIndex + 1);
         if (
-          !commandSelected &&
           token[0] === '-' &&
-          optionName[0] === '-' &&
-          optionName.endsWith('c')
+          (optionName === 'c' || (optionName[0] === '-' && optionName.endsWith('c')))
         ) {
           commandSelected = true;
         }
-        break;
       }
-      if (commandSelected) followingValues++;
-      continue;
+      break;
     }
-    if (!valueOptions?.has(option)) continue;
-    if (attachedValueOptions?.has(option) && index + 1 < token.length) break;
-    followingValues++;
+    if (
+      shell === 'ksh' &&
+      option === 'o' &&
+      optionIndex + 1 === token.length &&
+      (nextToken?.startsWith('-') || nextToken?.startsWith('+'))
+    ) {
+      break;
+    }
+    if (shell === 'zsh' && option === 'o' && optionIndex + 1 < token.length) break;
+    if (mode === 'startup' && option === 'i') interactive = token[0] === '-';
+    if (mode === 'argv' && token[0] === '-' && option === 'c') commandSelected = true;
+    if (mode === 'argv' && option === 'n') syntaxCheck = token[0] === '-';
+    if (mode === 'argv' && option === 's') stdinMode = token[0] === '-';
+    if (!SHELL_SHORT_VALUE_OPTIONS[shell]?.includes(option)) continue;
+    if (optionIndex + 1 === token.length) followingValues++;
+    break;
   }
-  return { commandSelected, followingValues };
+  return { interactive, followingValues, commandSelected, stdinMode, syntaxCheck };
 }
 
-function hasAttachedLongValue(token: string, options: ReadonlySet<string> | undefined): boolean {
-  return options !== undefined && [...options].some((option) => token.startsWith(`${option}=`));
+export function parseShellArgv(tokens: readonly string[]) {
+  const shell = getBasename(tokens[0] ?? '').toLowerCase();
+  let commandSelected = false;
+  let stdinMode = false;
+  let syntaxCheck = false;
+
+  for (let index = 1; index < tokens.length; index++) {
+    const token = tokens[index];
+    if (token === undefined) break;
+    if (token === '--') {
+      const commandIndex = commandSelected && tokens[index + 1] !== undefined ? index + 1 : null;
+      return {
+        command: commandIndex === null ? null : (tokens[commandIndex] ?? null),
+        commandIndex,
+        scriptIndex:
+          !commandSelected && !stdinMode && tokens[index + 1] !== undefined ? index + 1 : null,
+        readsStdinAsCommands: !commandSelected && (stdinMode || tokens[index + 1] === undefined),
+        syntaxCheck,
+      };
+    }
+    if (token === '-' || (token[0] !== '-' && token[0] !== '+')) {
+      return {
+        command: commandSelected ? token : null,
+        commandIndex: commandSelected ? index : null,
+        scriptIndex: !commandSelected && !stdinMode && token !== '-' ? index : null,
+        readsStdinAsCommands: !commandSelected && (stdinMode || token === '-'),
+        syntaxCheck,
+      };
+    }
+    if (token.startsWith('--')) {
+      const option = token.split('=', 1)[0] ?? token;
+      if (shell === 'bash' && BASH_LONG_VALUE_OPTIONS.has(option) && !token.includes('=')) index++;
+      continue;
+    }
+
+    const shortScan = scanShellShortOptions(shell, token, tokens[index + 1], 'argv');
+    if (shortScan.commandSelected) commandSelected = true;
+    if (shortScan.syntaxCheck) syntaxCheck = true;
+    if (shortScan.stdinMode) stdinMode = true;
+    index += shortScan.followingValues;
+  }
+
+  return {
+    command: null,
+    commandIndex: null,
+    scriptIndex: null,
+    readsStdinAsCommands: !commandSelected,
+    syntaxCheck,
+  };
 }
 
 export type QuoteScanState = {

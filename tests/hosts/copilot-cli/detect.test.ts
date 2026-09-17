@@ -27,14 +27,13 @@ const detection = (
   copilotCliVersion: string | null,
   env?: Record<string, string>,
 ) =>
-  detectionRunner({
-    ported: (environment) =>
-      detectCopilot({
-        environment,
-        cwd: join(environment.home, 'repo'),
-        copilotCliVersion,
-      }),
-  })(seed, env);
+  detectionRunner((environment) =>
+    detectCopilot({
+      environment,
+      cwd: join(environment.home, 'repo'),
+      copilotCliVersion,
+    }),
+  )(seed, env);
 
 type Detected = { kind: 'returned'; value: HookDetection };
 

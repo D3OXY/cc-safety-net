@@ -10,6 +10,7 @@ import {
   type CommandWordPart,
   createCommandAccumulator,
   createCommandWordParts,
+  DEFAULT_COMMAND_PARSER_LIMITS,
   freezeCommandProgram,
   freezeCommandWord,
   freezeParsedCommandWord,
@@ -52,7 +53,6 @@ const AUTO_POWERSHELL_PATH_ALIASES = new Set(['gc', 'cat', 'type', 'cp', 'mv', '
 const AUTO_POWERSHELL_PARAMETERS = ['-rec', '-for', '-path', '-literalpath', '-whatif'];
 const POWERSHELL_ENV_VARIABLE = /^\$env:\w/i;
 const POWERSHELL_SEPARATED_VARIABLE = /^(?:\$\{?\w+\}?|~)\\./;
-const SELECTOR_LIMITS = { maxInputLength: 131_072, maxWords: 16_384, maxDepth: 64 };
 
 export function shouldUsePowerShellParser(source: string): boolean {
   const candidate = source.toLowerCase().replaceAll('`', '');
@@ -112,7 +112,6 @@ export function parsePowerShellCommand(
         {
           code: 'input-limit',
           message: `command exceeds ${limits.maxInputLength} UTF-16 code units`,
-          span,
         },
       ],
       nodes: [],
@@ -206,7 +205,7 @@ function scanPowerShellSequence(
     if (char === '{') {
       flush();
       if (depth >= limits.maxDepth) {
-        issues.push(depthLimitIssue(i, limits.maxDepth));
+        issues.push(depthLimitIssue(limits.maxDepth));
         return { nodes, issues, next: end, closed: false, words: wordCount, limited: true };
       }
       const inner = scanPowerShellSequence(source, i + 1, end, limits, depth + 1, true);
@@ -233,7 +232,6 @@ function scanPowerShellSequence(
         issues.push({
           code: 'unclosed-script-block',
           message: 'PowerShell script block is not closed',
-          span: { start: i, end: inner.next },
         });
       }
       wordCount += inner.words;
@@ -300,7 +298,6 @@ function scanPowerShellSequence(
       issues.push({
         code: 'word-limit',
         message: `command exceeds ${limits.maxWords} words`,
-        span: { start: i, end: result.next },
       });
       flush();
       return { nodes, issues, next: result.next, closed: false, words: wordCount, limited: true };
@@ -355,7 +352,6 @@ function readPowerShellWord(
         issues.push({
           code: 'trailing-escape',
           message: 'PowerShell escape has no following character',
-          span: { start: i, end: i + 1 },
         });
         i++;
         break;
@@ -390,14 +386,13 @@ function readPowerShellWord(
         issues.push({
           code: 'unclosed-single-quote',
           message: 'single-quoted word is not closed',
-          span: { start, end: source.length },
         });
       }
       continue;
     }
     if (char === '"') {
       quoted = true;
-      const quoteStart = i++;
+      i++;
       let closed = false;
       while (i < end) {
         const inner = source[i];
@@ -425,7 +420,6 @@ function readPowerShellWord(
         issues.push({
           code: 'unclosed-double-quote',
           message: 'double-quoted word is not closed',
-          span: { start: quoteStart, end: source.length },
         });
       }
       continue;
@@ -473,7 +467,7 @@ function readPowerShellSubexpression(
         source: source.slice(start + 2, innerEnd),
         span: { start: start + 2, end: innerEnd },
         status: 'limited',
-        issues: [depthLimitIssue(start, limits.maxDepth)],
+        issues: [depthLimitIssue(limits.maxDepth)],
         nodes: [],
       }),
       next,
@@ -487,7 +481,6 @@ function readPowerShellSubexpression(
           {
             code: 'unclosed-command-subexpression',
             message: 'PowerShell command subexpression is not closed',
-            span: { start, end: next },
           },
         ]
       : [];
@@ -615,11 +608,10 @@ function readPowerShellVariableEnd(source: string, start: number, end: number): 
   return next;
 }
 
-function depthLimitIssue(start: number, limit: number): CommandIssue {
+function depthLimitIssue(limit: number): CommandIssue {
   return {
     code: 'depth-limit',
     message: `command structure exceeds parser limit ${limit}`,
-    span: { start, end: start },
   };
 }
 
@@ -638,7 +630,11 @@ function scanSelectorCommands(source: string): {
     if (words.length > 0) commands.push(words);
     words = [];
   };
-  while (i < source.length && i < 131_072 && wordCount < 16_384) {
+  while (
+    i < source.length &&
+    i < DEFAULT_COMMAND_PARSER_LIMITS.maxInputLength &&
+    wordCount < DEFAULT_COMMAND_PARSER_LIMITS.maxWords
+  ) {
     const char = source[i];
     if (char === '\r' || char === '\n') {
       flush();
@@ -652,8 +648,8 @@ function scanSelectorCommands(source: string): {
     const comment = readPowerShellComment(
       source,
       i,
-      Math.min(source.length, SELECTOR_LIMITS.maxInputLength),
-      SELECTOR_LIMITS.maxDepth,
+      Math.min(source.length, DEFAULT_COMMAND_PARSER_LIMITS.maxInputLength),
+      DEFAULT_COMMAND_PARSER_LIMITS.maxDepth,
     );
     if (comment) {
       invalidComment ||= !!comment.issue || comment.limited;
@@ -675,8 +671,8 @@ function scanSelectorCommands(source: string): {
     const result = readPowerShellWord(
       source,
       i,
-      Math.min(source.length, SELECTOR_LIMITS.maxInputLength),
-      SELECTOR_LIMITS,
+      Math.min(source.length, DEFAULT_COMMAND_PARSER_LIMITS.maxInputLength),
+      DEFAULT_COMMAND_PARSER_LIMITS,
       0,
     );
     if (result.word.text) words.push(result.word.text);
@@ -730,7 +726,6 @@ function readPowerShellComment(
           issue: {
             code: 'comment-depth-limit',
             message: `PowerShell block comment exceeds nesting limit ${maxDepth}`,
-            span: { start, end: i + 2 },
           },
           limited: true,
         };
@@ -751,7 +746,6 @@ function readPowerShellComment(
     issue: {
       code: 'unclosed-block-comment',
       message: 'PowerShell block comment is not closed',
-      span: { start, end },
     },
     limited: false,
   };

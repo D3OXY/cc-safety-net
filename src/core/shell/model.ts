@@ -12,7 +12,6 @@ export type CommandSpan = {
 export type CommandIssue = {
   readonly code: string;
   readonly message: string;
-  readonly span: CommandSpan;
 };
 
 export type WordProvenance =
@@ -157,6 +156,12 @@ export type CommandParserLimits = {
   readonly maxDepth: number;
 };
 
+export const DEFAULT_COMMAND_PARSER_LIMITS: CommandParserLimits = Object.freeze({
+  maxInputLength: 131_072,
+  maxWords: 16_384,
+  maxDepth: 64,
+});
+
 export function createCommandAccumulator() {
   return {
     words: [] as CommandWord[],
@@ -263,9 +268,7 @@ export function freezeCommandProgram(program: CommandProgram): CommandProgram {
   return Object.freeze({
     ...program,
     span: Object.freeze(program.span),
-    issues: Object.freeze(
-      program.issues.map((issue) => Object.freeze({ ...issue, span: Object.freeze(issue.span) })),
-    ),
+    issues: Object.freeze(program.issues.map((issue) => Object.freeze({ ...issue }))),
     nodes: Object.freeze(
       program.nodes.map((node) => {
         if (node.kind === 'command') return freezeCommandView(node);

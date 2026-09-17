@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test';
+import { parseShellArgv } from '@/core/shell/tokens';
 import {
   extractDashCArg,
   extractShellStartupLoaderMetadata,
   isShellSyntaxCheck,
-  parseShellArgv,
   type ShellStartupLoaderMetadata,
 } from '@/gate/analyzer/shell-wrappers';
 
@@ -339,6 +339,66 @@ describe('gate/analyzer/shell-wrappers', () => {
         tokens: ['ksh', '-o-c', 'echo hi'],
         parsed: {
           command: 'echo hi',
+          commandIndex: 2,
+          scriptIndex: null,
+          readsStdinAsCommands: false,
+          syntaxCheck: false,
+        },
+      },
+      {
+        tokens: ['bash', '--rcfile'],
+        parsed: {
+          command: null,
+          commandIndex: null,
+          scriptIndex: null,
+          readsStdinAsCommands: true,
+          syntaxCheck: false,
+        },
+      },
+      {
+        tokens: ['bash', '-O', '-c', 'echo ok'],
+        parsed: {
+          command: null,
+          commandIndex: null,
+          scriptIndex: 3,
+          readsStdinAsCommands: false,
+          syntaxCheck: false,
+        },
+      },
+      {
+        tokens: ['bash', '-O', 'extglob', '-lc', 'echo ok'],
+        parsed: {
+          command: 'echo ok',
+          commandIndex: 4,
+          scriptIndex: null,
+          readsStdinAsCommands: false,
+          syntaxCheck: false,
+        },
+      },
+      {
+        tokens: ['ksh', '-oc', 'echo ok'],
+        parsed: {
+          command: 'echo ok',
+          commandIndex: 2,
+          scriptIndex: null,
+          readsStdinAsCommands: false,
+          syntaxCheck: false,
+        },
+      },
+      {
+        tokens: ['sh', '+e', '-c', 'echo ok'],
+        parsed: {
+          command: 'echo ok',
+          commandIndex: 3,
+          scriptIndex: null,
+          readsStdinAsCommands: false,
+          syntaxCheck: false,
+        },
+      },
+      {
+        tokens: ['fish', '-c', 'echo ok'],
+        parsed: {
+          command: 'echo ok',
           commandIndex: 2,
           scriptIndex: null,
           readsStdinAsCommands: false,

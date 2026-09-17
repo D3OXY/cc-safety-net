@@ -5,19 +5,11 @@ export type LolcatOutput = {
 
 export type LolcatSleep = (milliseconds: number) => Promise<void>;
 
-type LolcatRenderOptions = {
-  frequency?: number;
-  seed?: number;
-  spread?: number;
-};
-
-export type LolcatAnimationOptions = LolcatRenderOptions & {
-  duration?: number;
-  frameRate?: number;
+export type LolcatAnimationOptions = {
   output?: LolcatOutput;
+  seed?: number;
   signal?: AbortSignal;
   sleep?: LolcatSleep;
-  speed?: number;
 };
 
 type Rgb = {
@@ -35,11 +27,11 @@ const ANSI_RESET = '\x1b[0m';
 const ANSI_RESET_FOREGROUND = '\x1b[39m';
 const BOLD_OFF = '\x1b[22m';
 const BOLD_ON = '\x1b[1m';
-const DEFAULT_DURATION = 12;
-const DEFAULT_FRAME_RATE = 60;
+const DURATION = 12;
+const FRAME_RATE = 60;
 const DEFAULT_FREQUENCY = 0.1;
-const DEFAULT_SPEED = 40;
-const DEFAULT_SPREAD = 3;
+const SPEED = 40;
+const SPREAD = 3;
 const CURSOR_DOWN = (rows: number) => `\x1b[${rows}B`;
 const CURSOR_UP = (rows: number) => `\x1b[${rows}A`;
 const HIDE_CURSOR = '\x1b[?25l';
@@ -93,10 +85,6 @@ function waitForAnimationFrame(
       },
     );
   });
-}
-
-function positiveOrDefault(value: number | undefined, fallback: number) {
-  return value && value > 0 ? value : fallback;
 }
 
 function clamp01(value: number) {
@@ -259,16 +247,11 @@ export async function writeAnimatedLolcat(text: string, options: LolcatAnimation
 
   const output = options.output ?? process.stdout;
   const sleep = options.sleep ?? wait;
-  const frequency = positiveOrDefault(options.frequency, DEFAULT_FREQUENCY);
   const seed = options.seed ?? 0;
-  const speed = positiveOrDefault(options.speed, DEFAULT_SPEED);
-  const spread = positiveOrDefault(options.spread, DEFAULT_SPREAD);
-  const frameRate = positiveOrDefault(options.frameRate, DEFAULT_FRAME_RATE);
-  const duration = Math.max(1, Math.floor(positiveOrDefault(options.duration, DEFAULT_DURATION)));
   const lines = text.split('\n').map((line) => Array.from(line));
   const width = Math.max(...lines.map((line) => line.length));
-  const totalDuration = (1000 * duration * lines.filter((line) => line.length > 0).length) / speed;
-  const frameCount = width > 0 ? Math.max(1, Math.ceil(totalDuration / (1000 / frameRate))) : 0;
+  const totalDuration = (1000 * DURATION * lines.filter((line) => line.length > 0).length) / SPEED;
+  const frameCount = width > 0 ? Math.max(1, Math.ceil(totalDuration / (1000 / FRAME_RATE))) : 0;
   const frameDelay = frameCount > 0 ? totalDuration / frameCount : 0;
 
   output.write(
@@ -281,7 +264,16 @@ export async function writeAnimatedLolcat(text: string, options: LolcatAnimation
       output.write(
         buildFrame(
           lines.map((line, lineIndex) =>
-            wavefrontLineCells(line, lineIndex, frame, frameCount, width, frequency, seed, spread),
+            wavefrontLineCells(
+              line,
+              lineIndex,
+              frame,
+              frameCount,
+              width,
+              DEFAULT_FREQUENCY,
+              seed,
+              SPREAD,
+            ),
           ),
         ),
       );
@@ -290,7 +282,9 @@ export async function writeAnimatedLolcat(text: string, options: LolcatAnimation
   } finally {
     output.write(
       buildFrame(
-        lines.map((line, lineIndex) => settledLineCells(line, lineIndex, frequency, seed, spread)),
+        lines.map((line, lineIndex) =>
+          settledLineCells(line, lineIndex, DEFAULT_FREQUENCY, seed, SPREAD),
+        ),
       ),
     );
     output.write(RESTORE_CURSOR);

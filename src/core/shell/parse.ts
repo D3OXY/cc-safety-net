@@ -1,12 +1,13 @@
-import type { CommandParserLimits, CommandProgram, ShellKind } from './model';
+import {
+  type CommandParserLimits,
+  type CommandProgram,
+  DEFAULT_COMMAND_PARSER_LIMITS,
+  type ShellKind,
+} from './model';
 import { parsePosixCommand } from './posix';
 import { parsePowerShellCommand, shouldUsePowerShellParser } from './powershell';
 
-export const DEFAULT_COMMAND_PARSER_LIMITS: CommandParserLimits = Object.freeze({
-  maxInputLength: 131_072,
-  maxWords: 16_384,
-  maxDepth: 64,
-});
+export { DEFAULT_COMMAND_PARSER_LIMITS };
 
 export function parseCommand(
   source: string,

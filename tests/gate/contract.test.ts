@@ -99,7 +99,7 @@ function expectContract(
   expect(decision.reason).toContain(expected.reasonIncludes);
   const segment = 'segment' in expected ? expected.segment : undefined;
   if (segment === undefined) return;
-  expect(decision.evidence.find((item) => item.kind === 'command')?.segment).toBe(segment);
+  expect(decision.evidence?.segment).toBe(segment);
 }
 
 describe('behavioral contract through the ported gate', () => {

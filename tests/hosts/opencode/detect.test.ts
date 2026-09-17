@@ -10,9 +10,9 @@ const JSON_FILE = `${DIR}/opencode.json`;
 const JSONC_FILE = `${DIR}/opencode.jsonc`;
 const plugins = (...entries: readonly string[]) => JSON.stringify({ plugin: entries });
 
-const detection = detectionRunner({
-  ported: (environment) => detectOpenCode({ environment, cwd: environment.home }),
-});
+const detection = detectionRunner((environment) =>
+  detectOpenCode({ environment, cwd: environment.home }),
+);
 
 const configured = (path: string, errors?: string[]) => ({
   kind: 'returned' as const,

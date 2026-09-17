@@ -6,9 +6,8 @@ import type {
   CommandWord,
 } from '@/core/shell/model';
 import { DEFAULT_COMMAND_PARSER_LIMITS, parseCommand } from '@/core/shell/parse';
-import { getBasename, normalizeCommandToken } from '@/core/shell/tokens';
+import { getBasename, normalizeCommandToken, parseShellArgv } from '@/core/shell/tokens';
 import { analysisWordText, isLiteralExecutionSourceWord } from './command-words';
-import { parseShellArgv } from './shell-wrappers';
 import { isStandardCommandWrapper } from './transparent-wrappers';
 import { parseEnvAssignment } from './wrapper-prelude';
 

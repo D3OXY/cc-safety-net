@@ -1,4 +1,4 @@
-import { commandSignature, formatRelativeTime } from '@/audit/display';
+import { commandSignature, findSuspectEntries, formatRelativeTime } from '@/audit/display';
 import {
   DEFAULT_AUDIT_RETENTION_DAYS,
   MAX_AUDIT_RETENTION_DAYS,
@@ -136,7 +136,7 @@ type PathListConfig = {
   setPaths: (paths: string[]) => void;
   isDisabled: () => boolean;
   itemLabel: string;
-  validateAdditions?: (paths: string[]) => Promise<unknown>;
+  validateAdditions: (paths: string[]) => ReturnType<typeof validatePathAdditions>;
 };
 type ConfirmOptions = {
   title: string;
@@ -164,7 +164,6 @@ type ProjectProposal = {
   };
 };
 type ProjectDraftState = {
-  dir: string;
   path: string;
   revision: number;
   canPickDirectory: boolean;
@@ -776,24 +775,6 @@ const renderTopLists = () => {
   renderTopList('top-rules', overview.counts.rules, 'top-rule', 'data-rule-id');
 };
 
-const findSuspects = (entries: FeedEntry[]) => {
-  const signatureKey = (entry: FeedEntry) =>
-    `${entry.sessionId}\n${commandSignature(entry.segment || entry.command)}`;
-  const repeats = entries
-    .filter((entry) => entry.decision !== 'allow' && entry.sessionId)
-    .reduce((counts, entry) => {
-      const key = signatureKey(entry);
-      return counts.set(key, (counts.get(key) ?? 0) + 1);
-    }, new Map<string, number>());
-  return new Set(
-    entries.filter(
-      (entry) =>
-        entry.decision !== 'allow' &&
-        (entry.failureStage || (repeats.get(signatureKey(entry)) ?? 0) >= 2),
-    ),
-  );
-};
-
 const clearCommandFilter = () => {
   if (!activityFilters.command) return false;
   activityFilters.command = '';
@@ -921,7 +902,7 @@ const loadActivity = async () => {
 
   const feed: ActivityFeed = result.data;
   activity = feed;
-  suspects = findSuspects(activity.entries);
+  suspects = findSuspectEntries(activity.entries);
   if (activityFilters.agent !== 'all' && !(activityFilters.agent in activity.counts.agents)) {
     activityFilters.agent = 'all';
   }
@@ -1541,7 +1522,7 @@ const createPathList = (prefix: string, config: PathListConfig) => {
     claimForProject();
     const submitted = qs<HTMLInputElement>(`${prefix}-input`).value;
     const additions = entries.filter((entry) => !config.getPaths().includes(entry));
-    if (config.validateAdditions && additions.length) {
+    if (additions.length) {
       adding = true;
       try {
         const error = await config.validateAdditions([...config.getPaths(), ...additions]);
@@ -2332,7 +2313,6 @@ const ingestProjectState = async (okStatus: string) => {
     return false;
   }
   projectDraft = {
-    dir: result.data.dir,
     path: result.data.path,
     revision: result.data.revision,
     canPickDirectory: result.data.canPickDirectory === true,

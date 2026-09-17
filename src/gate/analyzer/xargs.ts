@@ -5,16 +5,18 @@ import { checkPolicyRuleMatch } from '@/core/rules/custom';
 import { destructiveCommandMatch } from '@/core/rules/destructive';
 import type { DestructiveCommandRuleMatch, PolicyRule } from '@/core/rules/types';
 import type { CommandWord } from '@/core/shell/model';
+import { parseShellArgv } from '@/core/shell/tokens';
 import type { AnalyzeNestedOverrides, EnvironmentContext } from '@/gate/analysis';
 import { AWK_EXECUTABLE_SOURCE_SELECTORS, parseAwkArgv } from './awk';
 import {
   type ChildProvenance,
+  childProvenance,
   type NestedCommandAnalyzeContext,
-  type NormalizedChildCommand,
   normalizeChildCommands,
 } from './child-command';
 import { analysisWordText, textCommandWords } from './command-words';
 import { dangerousInTextMatch } from './dangerous-text';
+import { solveDynamicInput, substitutionAddsExecutableSource } from './dynamic-input';
 import { getFindExecCommand, getFindPrimaryArity, isFindExecPrimary } from './find';
 import { extractGitSubcommandAndRest } from './git/parse';
 import { GIT_RULE_SUBCOMMANDS } from './git/rules';
@@ -24,7 +26,7 @@ import {
   extractShellScriptOperandSource,
   shellSourceHasDynamicExecutionCarrier,
 } from './shell-execution';
-import { extractDashCArg, isShellSyntaxCheck, parseShellArgv } from './shell-wrappers';
+import { extractDashCArg, isShellSyntaxCheck } from './shell-wrappers';
 
 export const REASON_XARGS_RM =
   'xargs rm -rf with dynamic input is dangerous. Use explicit file list instead.';
@@ -137,22 +139,6 @@ export function analyzeXargs(
   return null;
 }
 
-function childProvenance(
-  childCommand: NormalizedChildCommand,
-  context: XargsAnalyzeContext,
-): ChildProvenance {
-  return {
-    producer: 'xargs',
-    cwd: childCommand.cwd,
-    originalCwd: context.originalCwd,
-    effectiveCwd: childCommand.cwd,
-    envAssignments: childCommand.envAssignments,
-    allowTmpdirVar: context.allowTmpdirVar,
-    worktreeMode: context.worktreeMode,
-    wrappedByTransparent: false,
-  };
-}
-
 function matchDynamicPolicyRule(
   tokens: readonly string[],
   replacementToken: string | null,
@@ -198,11 +184,8 @@ function replacementValuesThatProduce(
   if (first === -1 || token.indexOf(replacementToken, first + replacementToken.length) !== -1) {
     return [];
   }
-  const prefix = token.slice(0, first);
-  const suffix = token.slice(first + replacementToken.length);
-  return target.startsWith(prefix) && target.endsWith(suffix)
-    ? [target.slice(prefix.length, target.length - suffix.length)]
-    : [];
+  const value = solveDynamicInput(token, first, replacementToken.length, target);
+  return value === null ? [] : [value];
 }
 
 function xargsInputCanChangeExecutedSource(
@@ -305,9 +288,6 @@ function executableSourceInputCanChange<
   }
   if (parsed.sources.some((source) => source.value.includes(replacementToken))) return true;
 
-  const existingSources = new Set(
-    parsed.sources.map((source) => `${source.tokenIndex}\0${source.kind}\0${source.value}`),
-  );
   const targets = selectors.flatMap((source) => [
     source.selector,
     ...(source.valueForm === 'attached-only' || source.valueForm === 'attached-or-separate'
@@ -322,10 +302,11 @@ function executableSourceInputCanChange<
       tokens.flatMap((token) => replacementValuesThatProduce(token, replacementToken, target)),
     ),
   );
-  return Array.from(candidates).some((candidate) =>
-    parse(tokens.map((token) => token.replaceAll(replacementToken, candidate))).sources.some(
-      (source) => !existingSources.has(`${source.tokenIndex}\0${source.kind}\0${source.value}`),
-    ),
+  return substitutionAddsExecutableSource(
+    parsed.sources,
+    candidates,
+    (candidate) =>
+      parse(tokens.map((token) => token.replaceAll(replacementToken, candidate))).sources,
   );
 }
 

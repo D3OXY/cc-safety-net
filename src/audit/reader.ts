@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AuditLogEntry } from '@/core/audit';
-import { commandSignature } from './display';
 
 export function listAuditLogFiles(logsDir: string, skips?: { count: number }): string[] {
   try {
@@ -15,22 +14,6 @@ export function listAuditLogFiles(logsDir: string, skips?: { count: number }): s
     if (skips && existsSync(logsDir)) skips.count++;
     return [];
   }
-}
-
-export function findSuspectEntries(entries: readonly AuditLogEntry[]): Set<AuditLogEntry> {
-  const signatureKey = (entry: AuditLogEntry) =>
-    `${entry.sessionId}\n${commandSignature(entry.segment || entry.command)}`;
-  const denials = entries.filter((entry) => entry.decision !== 'allow');
-  const repeats = denials
-    .filter((entry) => entry.sessionId)
-    .reduce(
-      (counts, entry) =>
-        counts.set(signatureKey(entry), (counts.get(signatureKey(entry)) ?? 0) + 1),
-      new Map<string, number>(),
-    );
-  return new Set(
-    denials.filter((entry) => entry.failureStage || (repeats.get(signatureKey(entry)) ?? 0) >= 2),
-  );
 }
 
 const OPTIONAL_STRING_FIELDS = [

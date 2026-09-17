@@ -69,7 +69,7 @@ describe('explainCommand honours its options', () => {
       const explainCase = EXPLAIN_CASES.find((entry) => entry.slug === slug);
       if (!explainCase) throw new Error(`no explain case named ${slug}`);
       const result = compareSides(fixture(explainCase.files), explainCase.command, {
-        strict: true,
+        policySnapshot: policySnapshot({ safety: { level: 'strict' } }),
       });
       expect(result.result).toBe('blocked');
     }

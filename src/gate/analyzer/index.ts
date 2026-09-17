@@ -53,7 +53,7 @@ export function analyzeCommandWithProgram(
     reason: result.reason,
     intent: result.intent ?? 'manual_only',
     ...(result.ruleId ? { ruleId: result.ruleId } : {}),
-    evidence: [{ kind: 'command', command, segment: result.segment }],
+    evidence: { command, segment: result.segment },
   };
 }
 
@@ -96,7 +96,7 @@ export function analyzerCapBreach(
       kind: 'deny',
       reason: limit.reason,
       intent: 'stop_and_explain',
-      evidence: [{ kind: 'command', command, segment: command }],
+      evidence: { command, segment: command },
     },
     errorCode: limit.errorCode,
   };

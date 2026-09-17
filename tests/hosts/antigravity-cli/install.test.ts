@@ -22,13 +22,11 @@ const CONFIGURED = {
   configPath: CONFIG_PATH,
 } as const;
 
-const { row, detection } = hostRunner({
-  ported: (environment) => ({
-    install: () => installAntigravityCli(environment),
-    detect: () => detectAntigravity({ environment, cwd: environment.home }),
-    uninstall: () => uninstallAntigravityCli(environment),
-  }),
-});
+const { row, detection } = hostRunner((environment) => ({
+  install: () => installAntigravityCli(environment),
+  detect: () => detectAntigravity({ environment, cwd: environment.home }),
+  uninstall: () => uninstallAntigravityCli(environment),
+}));
 
 afterEach(removeTempRoots);
 

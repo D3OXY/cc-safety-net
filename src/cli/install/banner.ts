@@ -5,10 +5,7 @@ import {
   writeAnimatedLolcat,
 } from '@/cli/utils/lolcat';
 
-type InstallBannerOptions = Pick<
-  LolcatAnimationOptions,
-  'duration' | 'frequency' | 'seed' | 'sleep' | 'speed' | 'spread'
-> & {
+type InstallBannerOptions = Pick<LolcatAnimationOptions, 'seed' | 'sleep'> & {
   input?: NodeJS.ReadStream;
   onInterrupt?: () => void;
   output?: LolcatOutput;
@@ -35,13 +32,9 @@ export async function printInstallBanner(options: InstallBannerOptions = {}) {
 
   const input = options.input ?? process.stdin;
   const animationOptions = {
-    duration: options.duration,
-    frequency: options.frequency,
     output,
     seed: options.seed ?? Math.random() * 8192,
     sleep: options.sleep,
-    speed: options.speed,
-    spread: options.spread,
   };
   if (!input.isTTY || typeof input.setRawMode !== 'function') {
     await writeAnimatedLolcat(INSTALL_ASCII_ART, animationOptions);

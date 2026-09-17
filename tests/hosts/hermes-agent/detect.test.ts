@@ -37,10 +37,12 @@ const configSeed = (config: string | undefined): TreeSpec =>
 
 const detection = async (seed: TreeSpec) =>
   (
-    await differential({
-      seed,
-      ported: (environment) => detectHermes({ environment, cwd: environment.home }),
-    })
+    await differential(
+      {
+        seed,
+      },
+      (environment) => detectHermes({ environment, cwd: environment.home }),
+    )
   ).outcome;
 
 afterEach(removeTempRoots);
@@ -49,10 +51,12 @@ describe('reading whether Hermes would load the plugin', () => {
   test.each(CONFIGS)('reads %s', async (_case, config, enabled) => {
     expect(
       (
-        await differential({
-          seed: configSeed(config),
-          ported: (environment) => isHermesAgentPluginEnabled(environment),
-        })
+        await differential(
+          {
+            seed: configSeed(config),
+          },
+          (environment) => isHermesAgentPluginEnabled(environment),
+        )
       ).outcome,
     ).toEqual({ kind: 'returned', value: enabled });
   });

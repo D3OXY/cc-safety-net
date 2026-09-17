@@ -34,16 +34,13 @@ function resolvePlaceholders(env: Record<string, string> | undefined, home: stri
   );
 }
 
-export async function differential<T>(options: {
-  seed: TreeSpec;
-  env?: Record<string, string>;
-  ported: (environment: Environment) => T | Promise<T>;
-}) {
+export async function differential<T>(
+  options: { seed: TreeSpec; env?: Record<string, string> },
+  run: (environment: Environment) => T | Promise<T>,
+) {
   const portedHome = seedHome('cc-safety-net-ported-', options.seed);
   const portedEnv = isolationEnv(portedHome, resolvePlaceholders(options.env, portedHome));
-  const ported = await describeAsyncOutcome(async () =>
-    options.ported(environmentFor(portedHome, portedEnv)),
-  );
+  const ported = await describeAsyncOutcome(async () => run(environmentFor(portedHome, portedEnv)));
 
   return {
     outcome: normalize(ported, [[portedHome, '<home>'], ...WINDOWS_SEPARATOR_FOLDS]),
@@ -55,9 +52,9 @@ export function fileAt(tree: TreeEntry[] | undefined, path: string) {
   return tree?.find((entry) => entry.path === path)?.content;
 }
 
-export function detectionRunner(sides: { ported: (environment: Environment) => HookDetection }) {
+export function detectionRunner(run: (environment: Environment) => HookDetection) {
   return async (seed: TreeSpec, env?: Record<string, string>) =>
-    (await differential({ seed, env, ported: sides.ported })).outcome;
+    (await differential({ seed, env }, run)).outcome;
 }
 
 type HostActions = {
@@ -94,27 +91,19 @@ function hostLifecycle(home: string, actions: HostActions): HostLifecycle {
   };
 }
 
-export function hostRunner(sides: { ported: (environment: Environment) => HostActions }) {
+export function hostRunner(run: (environment: Environment) => HostActions) {
   return {
     row: async (seed: TreeSpec, env?: Record<string, string>) => {
-      const result = await differential({
-        seed,
-        env,
-        ported: (environment) => hostLifecycle(environment.home, sides.ported(environment)),
-      });
+      const result = await differential({ seed, env }, (environment) =>
+        hostLifecycle(environment.home, run(environment)),
+      );
       return {
         steps: result.outcome.kind === 'returned' ? result.outcome.value : undefined,
         tree: result.tree,
       };
     },
     detection: async (seed: TreeSpec, env?: Record<string, string>) =>
-      (
-        await differential({
-          seed,
-          env,
-          ported: (environment) => sides.ported(environment).detect(),
-        })
-      ).outcome,
+      (await differential({ seed, env }, (environment) => run(environment).detect())).outcome,
   };
 }
 

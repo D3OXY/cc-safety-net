@@ -35,10 +35,9 @@ const UPDATE = { currentVersion: 'dev', latestVersion: '9.9.9', updateAvailable:
 
 const integrationsOver = async (seed: TreeSpec) => {
   const outcome = (
-    await differential({
-      seed,
-      ported: (environment) => portedIntegrations(environment, { fetcher: mockVersionFetcher }),
-    })
+    await differential({ seed }, (environment) =>
+      portedIntegrations(environment, { fetcher: mockVersionFetcher }),
+    )
   ).outcome;
   if (outcome.kind !== 'returned') throw new Error(`fetchIntegrations threw: ${outcome.message}`);
   return outcome.value as Integrations;
@@ -46,14 +45,12 @@ const integrationsOver = async (seed: TreeSpec) => {
 
 const healthOver = async (seed: TreeSpec) => {
   const outcome = (
-    await differential({
-      seed,
-      ported: (environment) =>
-        portedHealth(environment, {
-          fetcher: mockVersionFetcher,
-          checkUpdates: async () => UPDATE,
-        }),
-    })
+    await differential({ seed }, (environment) =>
+      portedHealth(environment, {
+        fetcher: mockVersionFetcher,
+        checkUpdates: async () => UPDATE,
+      }),
+    )
   ).outcome;
   if (outcome.kind !== 'returned') throw new Error(`fetchHealth threw: ${outcome.message}`);
   return outcome.value as Health;

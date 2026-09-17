@@ -61,15 +61,17 @@ async function ampRow(row: Row = {}) {
       snapshots: runner.snapshots,
     };
   };
-  const side = await differential({
-    seed: row.home ?? {},
-    ported: (environment) =>
+  const side = await differential(
+    {
+      seed: row.home ?? {},
+    },
+    (environment) =>
       drive((run) =>
         row.action === 'uninstall'
           ? uninstallAmp(environment, run)
           : installAmp(environment, join(artifactRoot, 'index.ts'), run),
       ),
-  });
+  );
   if (side.outcome.kind === 'threw') throw new Error(side.outcome.message);
   return { ...side.outcome.value, tree: side.tree };
 }
@@ -216,10 +218,12 @@ describe('clearing a local plugin that masks the personal one', () => {
   test('names the same system-scope path on both sides', async () => {
     expect(
       (
-        await differential({
-          seed: {},
-          ported: (environment) => getAmpPluginPath(environment),
-        })
+        await differential(
+          {
+            seed: {},
+          },
+          (environment) => getAmpPluginPath(environment),
+        )
       ).outcome,
     ).toEqual({ kind: 'returned', value: local(LEGACY) });
   });

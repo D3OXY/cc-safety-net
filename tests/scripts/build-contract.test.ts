@@ -15,7 +15,6 @@ import {
 } from '../../scripts/build-runtime';
 import {
   getRuntimeImportSpecifiers,
-  requiresRepositoryExecutableMode,
   unbundledRuntimeImports,
   verifyBuildArtifacts,
   verifyManagedArtifact,
@@ -179,12 +178,6 @@ describe('generated artifact contract', () => {
     expect(declaration).not.toContain('@opencode-ai/plugin');
   });
 
-  test('skips repository filesystem mode enforcement only on Windows', () => {
-    expect(requiresRepositoryExecutableMode('win32')).toBeFalse();
-    expect(requiresRepositoryExecutableMode('linux')).toBeTrue();
-    expect(requiresRepositoryExecutableMode('darwin')).toBeTrue();
-  });
-
   test('ships a self-contained Amp artifact with the managed header and package version', () => {
     const artifact = readFileSync('dist/amp/cc-safety-net/index.ts', 'utf8');
     expect(() => verifyManagedArtifact('Amp', AMP_MANAGED_HEADER, artifact)).not.toThrow();
@@ -254,7 +247,7 @@ describe('generated artifact contract', () => {
         await expect(verifyBuildArtifacts()).rejects.toThrow('missing shared chunks');
 
         writeFileSync('dist/chunks/index-fixture.js', 'export {};\n');
-        if (requiresRepositoryExecutableMode(process.platform)) {
+        if (process.platform !== 'win32') {
           chmodSync('dist/bin/cc-safety-net.js', 0o644);
           await expect(verifyBuildArtifacts()).rejects.toThrow('must have mode 0755');
           chmodSync('dist/bin/cc-safety-net.js', 0o755);

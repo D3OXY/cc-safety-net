@@ -34,7 +34,6 @@ const INVALID_USER: TreeSpec = {
 const PARANOID = { version: 1, safety: { level: 'paranoid' } };
 
 type ProjectBody = {
-  dir: string;
   path: string;
   revision: number;
   baseline: { safety: { level: string } };
@@ -48,7 +47,6 @@ type DiffBody = {
   rows: { field: string; before?: string; after?: string }[];
   weakenings: string[];
   existingFileDiagnostics: string[];
-  errors: string[];
 };
 
 const READ_DRAFT: GuiRequest = { path: '/api/policy/project' };
@@ -90,7 +88,6 @@ describe('the GUI project draft', () => {
     const [before, , after] = row.responses.map((response) => response.body as ProjectBody);
 
     expect(before).toMatchObject({
-      dir: posix.join('<root>', 'project'),
       path: posix.join('<root>', PROJECT_POLICY_FILE),
       revision: 0,
       baseline: { safety: { level: 'strict' } },
@@ -100,7 +97,10 @@ describe('the GUI project draft', () => {
     });
     expect(before?.canPickDirectory).toBeBoolean();
     expect(row.responses[1]?.body).toStrictEqual({ cancelled: false });
-    expect(after).toMatchObject({ dir: posix.join('<root>', 'picked'), revision: 1 });
+    expect(after).toMatchObject({
+      path: posix.join('<root>', 'picked/.cc-safety-net/policy.json'),
+      revision: 1,
+    });
     expect(row.responses[3]).toMatchObject({
       status: 409,
       body: { errors: ['The project draft directory changed; reload the draft before applying.'] },
@@ -108,7 +108,7 @@ describe('the GUI project draft', () => {
     const diff = row.responses[4]?.body as DiffBody;
     expect(row.responses[4]?.status).toBe(200);
     expect(diff.rows.length).toBeGreaterThan(0);
-    expect(diff).toMatchObject({ weakenings: [], existingFileDiagnostics: [], errors: [] });
+    expect(diff).toMatchObject({ weakenings: [], existingFileDiagnostics: [] });
     expect(row.responses[5]).toMatchObject({
       status: 200,
       body: { path: posix.join('<root>', 'picked/.cc-safety-net/policy.json'), errors: [] },
@@ -153,7 +153,7 @@ describe('the GUI project draft', () => {
     expect(failed.responses[0]?.body).toStrictEqual({ cancelled: false, error: 'boom' });
     for (const row of [cancelled, failed]) {
       expect(row.responses[1]?.body).toMatchObject({
-        dir: posix.join('<root>', 'project'),
+        path: posix.join('<root>', PROJECT_POLICY_FILE),
         revision: 0,
       });
     }

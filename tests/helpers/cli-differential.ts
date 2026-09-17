@@ -8,6 +8,7 @@ import { createProcessEnvironment, type Environment } from '@/core/environment';
 import { createFakeBin } from './fake-bin';
 import { snapshotTree, type TreeEntry, type TreeSpec, writeTree } from './fixture-tree';
 import {
+  BLANKED_ENV_NAMES,
   createTempRoot,
   isolatedSpawnEnv,
   normalize,
@@ -40,25 +41,6 @@ export type CliOutcome = {
   exitCode: number | null;
   tree: TreeEntry[];
 };
-
-const BLANKED_ENV_NAMES = [
-  'CC_SAFETY_NET_LEVEL',
-  'CC_SAFETY_NET_STRICT',
-  'CC_SAFETY_NET_PARANOID',
-  'CC_SAFETY_NET_PARANOID_RM',
-  'CC_SAFETY_NET_PARANOID_INTERPRETERS',
-  'CC_SAFETY_NET_WORKTREE',
-  'CC_SAFETY_NET_DEBUG',
-  'CC_SAFETY_NET_AUDIT_SCOPE',
-  'SAFETY_NET_STRICT',
-  'SAFETY_NET_PARANOID',
-  'SAFETY_NET_PARANOID_RM',
-  'SAFETY_NET_PARANOID_INTERPRETERS',
-  'SAFETY_NET_WORKTREE',
-  'CLAUDE_SETTINGS_PATH',
-  'NO_COLOR',
-  'FORCE_COLOR',
-];
 
 const SCAFFOLDING = /^(bin|fake-script\.json|fake-log\.txt|home\/\.bun)(\/|$)/;
 

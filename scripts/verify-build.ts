@@ -14,11 +14,6 @@ function isBuildChunkArtifact(path: string): boolean {
   return /^dist\/chunks\/[A-Za-z0-9_-]+\.js$/.test(path);
 }
 
-/** @internal */
-export function requiresRepositoryExecutableMode(platform: NodeJS.Platform): boolean {
-  return platform !== 'win32';
-}
-
 // Every module specifier the source actually imports or requires at runtime.
 // Only import (`from "x"`), dynamic import (`import("x")`), and require (`require("x")`)
 // positions are matched, so the word "import" appearing inside a string literal is ignored.
@@ -125,7 +120,7 @@ export async function verifyBuildArtifacts(): Promise<string[]> {
     );
   }
   if (
-    requiresRepositoryExecutableMode(process.platform) &&
+    process.platform !== 'win32' &&
     ((await stat('dist/bin/cc-safety-net.js')).mode & 0o777) !== 0o755
   ) {
     throw new Error('dist/bin/cc-safety-net.js must have mode 0755');

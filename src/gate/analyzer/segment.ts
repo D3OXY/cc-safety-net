@@ -90,8 +90,8 @@ export function analyzeSegment(
     candidates.map((word) => (dialect === 'posix' ? analysisWordText(word) : word.text));
 
   const child = options.child;
-  const stream = child !== undefined && child.producer !== 'unknown-head';
-  const embedded = child?.producer === 'unknown-head';
+  const stream = child !== undefined && !child.embedded;
+  const embedded = child?.embedded === true;
   const cwdUnknown = options.effectiveCwd === null;
   const baseCwdForRm = child
     ? child.cwd
@@ -590,7 +590,6 @@ export function analyzeSegment(
       type: 'tmpdir-check',
       tmpdirValue:
         envAssignments.has('TMPDIR') || options.environment.env.has('TMPDIR') ? '<redacted>' : null,
-      isOverriddenToNonTemp: !allowTmpdirVar,
       allowTmpdirVar,
     });
   }
@@ -729,7 +728,7 @@ function analyzeEmbeddedSuffix(
       options.budget.charge('derivedTokens', tokens.length - index);
     }
     const result = analyzeChildCommand(childCommand.tokens, depth, options, {
-      producer: 'unknown-head',
+      embedded: true,
       cwd: childCommand.cwd,
       originalCwd: childCommand.wrapperCwd === null ? undefined : originalCwd,
       effectiveCwd: childCommand.wrapperCwd === undefined ? effectiveCwd : childCommand.wrapperCwd,

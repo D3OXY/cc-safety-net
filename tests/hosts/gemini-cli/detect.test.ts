@@ -10,9 +10,9 @@ const ENABLEMENT = `${EXTENSIONS}/extension-enablement.json`;
 const overrides = (...entries: readonly string[]) =>
   JSON.stringify({ 'gemini-safety-net': { overrides: entries } });
 
-const detection = detectionRunner({
-  ported: (environment) => detectGeminiCli({ environment, cwd: environment.home }),
-});
+const detection = detectionRunner((environment) =>
+  detectGeminiCli({ environment, cwd: environment.home }),
+);
 
 const installed = (enablement?: string): TreeSpec => ({
   [EXTENSION_DIR]: null,

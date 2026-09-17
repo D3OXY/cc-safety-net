@@ -128,7 +128,7 @@ describe('one budget, one report per analyzer cap', () => {
           kind: 'deny',
           reason: LIMITS[row.kind].reason,
           intent: 'stop_and_explain',
-          evidence: [{ kind: 'command', command: row.breaching, segment: row.breaching }],
+          evidence: { command: row.breaching, segment: row.breaching },
         },
       });
     });

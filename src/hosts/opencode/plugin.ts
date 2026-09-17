@@ -8,9 +8,18 @@ import {
 } from '@/core/denial';
 import { createProcessEnvironment } from '@/core/environment';
 import { shouldRecordAllowedCommands } from '@/core/policy/env';
-import * as toolRouting from '@/core/tool-input';
+import {
+  getCommandFromToolInput,
+  getNonCommandToolInputKind,
+  ToolInputLimitError,
+} from '@/core/tool-input';
 import { isUsableDirectory } from '@/gate/intake';
-import * as invocationDomain from '@/gate/invocation';
+import {
+  type CommandToolKind,
+  createToolInvocation,
+  type ToolCallContext,
+  type ToolRoute,
+} from '@/gate/invocation';
 import {
   type GuardDependencies,
   type GuardEvaluation,
@@ -18,7 +27,7 @@ import {
 } from '@/gate/pipeline';
 import { writeIntegrationDenialAudit } from '@/hosts/audit';
 import { loadBuiltinCommands } from '@/hosts/opencode/builtin-commands/commands';
-import * as guardEngine from '@/hosts/runtime';
+import { evaluateRuntimeGuard } from '@/hosts/runtime';
 
 type CCSafetyNetPluginInput = PluginInput & {
   homeDir?: string;
@@ -68,9 +77,9 @@ export function createCCSafetyNetPlugin(guardDependencies: Partial<GuardDependen
         const toolInput = output.args;
         let command: string | undefined;
         try {
-          command = toolRouting.getCommandFromToolInput(toolInput);
+          command = getCommandFromToolInput(toolInput);
         } catch (error) {
-          if (!(error instanceof toolRouting.ToolInputLimitError)) throw error;
+          if (!(error instanceof ToolInputLimitError)) throw error;
           throwPreflightDenial(createFailedClosedDenial({ toolName: input.tool }), input.tool);
         }
         const shellRoute = resolveOpenCodeShellRoute(currentConfig?.shell);
@@ -82,8 +91,8 @@ export function createCCSafetyNetPlugin(guardDependencies: Partial<GuardDependen
             input.tool,
           );
         }
-        const context: invocationDomain.ToolCallContext = { configCwd, executionCwd };
-        const invocation = invocationDomain.createToolInvocation(
+        const context: ToolCallContext = { configCwd, executionCwd };
+        const invocation = createToolInvocation(
           input.tool,
           toolInput,
           route,
@@ -91,7 +100,7 @@ export function createCCSafetyNetPlugin(guardDependencies: Partial<GuardDependen
           command ?? null,
         );
         try {
-          const evaluation = guardEngine.evaluateRuntimeGuard(environment, invocation, {
+          const evaluation = evaluateRuntimeGuard(environment, invocation, {
             guard: {
               auditAllowed: shouldRecordAllowedCommands(environment.env),
               dependencies: guardDependencies,
@@ -124,7 +133,7 @@ export function resolveOpenCodeShellRoute(
   configuredShell: unknown,
   platform = process.platform,
   environmentShell = process.env.SHELL,
-): invocationDomain.CommandToolKind {
+): CommandToolKind {
   if (typeof configuredShell !== 'string' && platform === 'win32') return 'powershell';
   const candidate = typeof configuredShell === 'string' ? configuredShell : environmentShell;
   if (typeof candidate !== 'string') return 'auto';
@@ -140,12 +149,9 @@ export function resolveOpenCodeShellRoute(
   return 'auto';
 }
 
-function getOpenCodeToolRoute(
-  toolName: string,
-  shell: invocationDomain.CommandToolKind,
-): invocationDomain.ToolRoute {
+function getOpenCodeToolRoute(toolName: string, shell: CommandToolKind): ToolRoute {
   if (toolName === 'bash') return { kind: 'command', shell };
-  return { kind: toolRouting.getNonCommandToolInputKind(toolName) };
+  return { kind: getNonCommandToolInputKind(toolName) };
 }
 
 function resolveOpenCodeExecutionCwd(configCwd: string, toolInput: unknown): string | null {

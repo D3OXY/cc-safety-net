@@ -66,9 +66,7 @@ export function projectGuardDenial(
   options: { includeEvidence: boolean; toolName?: string },
 ): IntegrationDenial | undefined {
   if (evaluation.decision.kind !== 'deny') return undefined;
-  const evidence = options.includeEvidence
-    ? evaluation.decision.evidence.find((item) => item.kind === 'command')
-    : undefined;
+  const evidence = options.includeEvidence ? evaluation.decision.evidence : undefined;
   return {
     reason: evaluation.decision.reason,
     ruleId: evaluation.decision.ruleId,

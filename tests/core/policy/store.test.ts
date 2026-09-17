@@ -233,6 +233,31 @@ describe('salvaging one user policy document', () => {
   test.each(SALVAGE_ROWS.map((row) => [row.behavior, row] as const))('%s', (_behavior, row) => {
     expect(ported.normalizeGuiPolicy(row.document, HOME)).toEqual(row.expected);
   });
+
+  test('one validation names every invalid field while its valid siblings survive', () => {
+    const document = {
+      version: 1,
+      safety: { level: 'lenient', overrides: { fail_closed: true } },
+      audit: { retention_days: 0 },
+      tier: 'gold',
+    };
+    const validated = ported.validateUserPolicy(document, HOME);
+    expect(validated.policy).toEqual({
+      ...ported.DEFAULT_GUI_POLICY,
+      safety: { level: 'standard', overrides: { fail_closed: true } },
+      audit: { retention_days: MIN_AUDIT_RETENTION_DAYS },
+    });
+    expect(validated.issues.map((issue) => [...issue.path, issue.message])).toEqual([
+      ['tier'],
+      ['safety', 'level', 'must be "standard", "strict", or "paranoid"'],
+      [
+        'audit',
+        'retention_days',
+        `must be an integer between ${MIN_AUDIT_RETENTION_DAYS} and ${MAX_AUDIT_RETENTION_DAYS}`,
+      ],
+    ]);
+    expect(getUserPolicyDiagnostics(document, HOME)).toHaveLength(validated.issues.length);
+  });
 });
 
 describe('properties every salvaged document must satisfy', () => {

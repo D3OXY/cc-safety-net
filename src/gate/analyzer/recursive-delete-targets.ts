@@ -6,6 +6,12 @@ import {
 } from '@/core/paths/canonicalization';
 import { isTrustedTempPath, isTrustedTempRootPath } from '@/core/paths/tmpdir';
 import { expandAllowPathHome, getAllowPathHomeConflictError } from '@/core/policy/allow-paths';
+import {
+  type DestructiveCommandRulePolicy,
+  destructiveCommandRuleIsEnabled,
+} from '@/core/policy/effective-rules';
+import { type DestructiveCommandRuleId, destructiveCommandMatch } from '@/core/rules/destructive';
+import type { DestructiveCommandRuleMatch } from '@/core/rules/types';
 import type { CommandWord } from '@/core/shell/model';
 import { expandPosixLiteralBraceWord } from '@/core/shell/posix';
 import type { EnvironmentContext, PathResolver, ProtectedGitMetadata } from '@/gate/analysis';
@@ -69,6 +75,36 @@ export type RecursiveDeleteTargetClassification =
   | { kind: 'cwd_self_target' }
   | { kind: 'within_anchored_cwd' }
   | { kind: 'outside_anchored_cwd' };
+
+export type RecursiveDeleteRuleTable = Readonly<
+  Record<
+    Exclude<RecursiveDeleteTargetClassification['kind'], 'temp_target'>,
+    { readonly id: DestructiveCommandRuleId; readonly reason: string }
+  >
+>;
+
+export function matchRecursiveDeleteClassification(
+  classification: RecursiveDeleteTargetClassification,
+  ctx: RecursiveDeleteTargetContext,
+  policy: DestructiveCommandRulePolicy | undefined,
+  table: RecursiveDeleteRuleTable,
+): DestructiveCommandRuleMatch | null {
+  if (classification.kind === 'temp_target') return null;
+  const rule = table[classification.kind];
+  if (
+    classification.kind === 'dynamic_target' &&
+    !destructiveCommandRuleIsEnabled(policy, rule.id, ctx.strict)
+  ) {
+    return null;
+  }
+  if (
+    classification.kind === 'within_anchored_cwd' &&
+    !destructiveCommandRuleIsEnabled(policy, rule.id, ctx.paranoid)
+  ) {
+    return null;
+  }
+  return destructiveCommandMatch(rule.id, rule.reason);
+}
 
 export interface DeleteTargetWordFacts {
   readonly expandedTargets: readonly string[] | undefined;

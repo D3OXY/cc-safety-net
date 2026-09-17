@@ -39,8 +39,22 @@ interface BuildPackageTarballOptions {
   npmCommand?: string[];
 }
 
-export function requiresPackedModeVerification(platform: NodeJS.Platform): boolean {
-  return platform !== 'win32';
+export function writeTypeScriptConsumer(directory: string, consumer: string): string {
+  writeFileSync(join(directory, 'consumer.ts'), consumer);
+  writeFileSync(
+    join(directory, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        module: 'ESNext',
+        moduleResolution: 'Bundler',
+        noEmit: true,
+        strict: true,
+        target: 'ES2022',
+      },
+      files: ['consumer.ts'],
+    }),
+  );
+  return join(directory, 'tsconfig.json');
 }
 
 function run(
@@ -91,7 +105,7 @@ export async function verifyPackage(): Promise<void> {
     if (result.size > MAX_TARBALL_BYTES) {
       throw new Error(`npm tarball is ${result.size} bytes; maximum is ${MAX_TARBALL_BYTES}`);
     }
-    if (requiresPackedModeVerification(process.platform)) {
+    if (process.platform !== 'win32') {
       const bin = result.files.find((file) => file.path === 'dist/bin/cc-safety-net.js');
       if (!bin || bin.mode !== 0o755) throw new Error('Packed CLI mode is not 0755');
       if (result.files.some((file) => file !== bin && file.mode !== 0o644)) {
@@ -295,24 +309,11 @@ export async function verifyPackage(): Promise<void> {
       if (typeof loaded.default !== 'function') process.exit(3);
     `);
 
-    writeFileSync(
-      join(directory, 'consumer.ts'),
+    const pluginConsumer = writeTypeScriptConsumer(
+      directory,
       "import { CCSafetyNetPlugin } from 'cc-safety-net';\nvoid CCSafetyNetPlugin;\n",
     );
-    writeFileSync(
-      join(directory, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          module: 'ESNext',
-          moduleResolution: 'Bundler',
-          noEmit: true,
-          strict: true,
-          target: 'ES2022',
-        },
-        files: ['consumer.ts'],
-      }),
-    );
-    run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', 'tsconfig.json'], directory);
+    run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', pluginConsumer], directory);
 
     evalModule(
       "import * as api from 'cc-safety-net/api'; if (Object.keys(api).join() !== 'checkCommand') process.exit(2)",
@@ -369,24 +370,11 @@ function verifyLibraryOnlyConsumer(tarball: string): void {
       directory,
     );
     run(['node', '--eval', "require.resolve('@opencode-ai/plugin')"], directory, [1]);
-    writeFileSync(
-      join(directory, 'consumer.ts'),
+    const apiConsumer = writeTypeScriptConsumer(
+      directory,
       "import { checkCommand, type CheckCommandResult } from 'cc-safety-net/api';\nconst result: CheckCommandResult = checkCommand({ command: 'git status', cwd: '/tmp' });\nvoid result;\n",
     );
-    writeFileSync(
-      join(directory, 'tsconfig.json'),
-      JSON.stringify({
-        compilerOptions: {
-          module: 'ESNext',
-          moduleResolution: 'Bundler',
-          noEmit: true,
-          strict: true,
-          target: 'ES2022',
-        },
-        files: ['consumer.ts'],
-      }),
-    );
-    run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', 'tsconfig.json'], directory);
+    run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', apiConsumer], directory);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

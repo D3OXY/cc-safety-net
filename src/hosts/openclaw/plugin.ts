@@ -1,17 +1,14 @@
-import {
-  createFailedClosedDenial,
-  formatDenial,
-  formatIntegrationError,
-  type IntegrationDenial,
-  projectGuardDenial,
-} from '@/core/denial';
-import { createProcessEnvironment, type PathResolver } from '@/core/environment';
-import { ENV_FLAGS, envTruthy, shouldRecordAllowedCommands } from '@/core/policy/env';
+import { formatDenial, type IntegrationDenial } from '@/core/denial';
+import type { PathResolver } from '@/core/environment';
 import { resolveContainedCwd } from '@/gate/intake';
 import { createToolInvocation, type ToolInvocation } from '@/gate/invocation';
-import { type GuardDependencies, GuardEvaluationError } from '@/gate/pipeline';
-import { writeIntegrationDenialAudit } from '@/hosts/audit';
-import { evaluateRuntimeGuard } from '@/hosts/runtime';
+import {
+  createPluginToolCallHandler,
+  type MalformedToolCall,
+  malformedToolCall,
+  type PluginHandlerOptions,
+  type PluginToolCallHost,
+} from '@/hosts/hook/plugin-adapter';
 
 const OPENCLAW_EXEC_TOOL = 'exec';
 
@@ -47,12 +44,6 @@ type OpenClawPluginApi = {
   ) => void;
 };
 
-type MalformedOpenClawToolCall = {
-  malformed: true;
-  denial: IntegrationDenial;
-  cwd: string | null;
-};
-
 export function registerOpenClawPlugin(api: OpenClawPluginApi): void {
   api.on('before_tool_call', createOpenClawBeforeToolCallHandler(api), {
     matcher: [OPENCLAW_EXEC_TOOL],
@@ -63,59 +54,19 @@ export function registerOpenClawPlugin(api: OpenClawPluginApi): void {
 /** @internal */
 export function createOpenClawBeforeToolCallHandler(
   api: OpenClawPluginApi,
-  options: { guardDependencies?: Partial<GuardDependencies> } = {},
+  options: PluginHandlerOptions = {},
 ): (event: unknown, ctx: OpenClawToolContext) => OpenClawBeforeToolCallResult {
-  return (event, ctx) => {
-    try {
-      return handleOpenClawBeforeToolCall(event, ctx, api, options);
-    } catch (error) {
-      console.error('CC Safety Net error:', error);
-      return blockOpenClawToolCall(createFailedClosedDenial());
-    }
+  const host: PluginToolCallHost<unknown, OpenClawToolContext, OpenClawBeforeToolCallResult> = {
+    agent: 'openclaw',
+    debugLabel: 'openclaw before_tool_call',
+    extract: (event, ctx, paths) => getOpenClawToolCall(event, ctx, api, paths),
+    getSessionId: (_event, ctx) => ctx.sessionId ?? ctx.sessionKey,
+    allow: undefined,
+    block: (denial) => blockOpenClawToolCall(denial),
+    includeEvidenceOnError: () => true,
+    cancelled: (ctx) => ctx.abortSignal?.aborted === true,
   };
-}
-
-function handleOpenClawBeforeToolCall(
-  event: unknown,
-  ctx: OpenClawToolContext,
-  api: OpenClawPluginApi,
-  options: { guardDependencies?: Partial<GuardDependencies> },
-): OpenClawBeforeToolCallResult {
-  const environment = createProcessEnvironment();
-
-  if (ctx.abortSignal?.aborted) return blockOpenClawToolCall(createFailedClosedDenial());
-
-  const toolCall = getOpenClawToolCall(event, ctx, api, environment.paths);
-  if (!toolCall) return undefined;
-
-  const getSessionId = () => ctx.sessionId ?? ctx.sessionKey;
-  if ('malformed' in toolCall) {
-    writeIntegrationDenialAudit(environment, toolCall.denial, getSessionId, {
-      agent: 'openclaw',
-      toolName: toolCall.denial.toolName,
-      cwd: toolCall.cwd,
-    });
-    return blockOpenClawToolCall(toolCall.denial);
-  }
-
-  try {
-    const evaluation = evaluateRuntimeGuard(environment, toolCall, {
-      guard: {
-        auditAllowed: shouldRecordAllowedCommands(environment.env),
-        dependencies: options.guardDependencies,
-      },
-      audit: { agent: 'openclaw', getSessionId },
-    });
-    return blockOpenClawEvaluation(evaluation);
-  } catch (error) {
-    if (!(error instanceof GuardEvaluationError)) throw error;
-    if (envTruthy(ENV_FLAGS.debug, environment.env)) {
-      console.error(
-        `CC Safety Net debug: openclaw before_tool_call analysis failed: ${formatIntegrationError(error.cause)}`,
-      );
-    }
-    return blockOpenClawEvaluation(error.evaluation);
-  }
+  return createPluginToolCallHandler(host, options);
 }
 
 function getOpenClawToolCall(
@@ -123,11 +74,11 @@ function getOpenClawToolCall(
   ctx: OpenClawToolContext,
   api: OpenClawPluginApi,
   paths: PathResolver,
-): MalformedOpenClawToolCall | ToolInvocation | undefined {
-  if (!event || typeof event !== 'object') return malformedOpenClawToolCall(null);
+): MalformedToolCall | ToolInvocation | undefined {
+  if (!event || typeof event !== 'object') return malformedToolCall(null);
   const toolName = (event as OpenClawBeforeToolCallEvent).toolName;
   if (typeof toolName !== 'string' || toolName.trim() === '') {
-    return malformedOpenClawToolCall(null);
+    return malformedToolCall(null);
   }
 
   if (toolName !== OPENCLAW_EXEC_TOOL) return undefined;
@@ -136,29 +87,28 @@ function getOpenClawToolCall(
 
   const params = (event as OpenClawBeforeToolCallEvent).params;
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
-    return malformedOpenClawToolCall(null, toolName);
+    return malformedToolCall(null, { toolName });
   }
 
   const execParams = params as Record<string, unknown>;
   const command = execParams.command;
   if (typeof command !== 'string' || command.trim() === '') {
-    return malformedOpenClawToolCall(null, toolName);
+    return malformedToolCall(null, { toolName });
   }
   if (execParams.host !== undefined && !PROVEN_EXEC_HOSTS.has(execParams.host as string)) {
-    return malformedOpenClawToolCall(null, toolName, command);
+    return malformedToolCall(null, { command, toolName });
   }
 
   const workspace = resolveOpenClawWorkspace(api, ctx.agentId, paths);
-  if (!workspace) return malformedOpenClawToolCall(null, toolName, command);
+  if (!workspace) return malformedToolCall(null, { command, toolName });
 
   const executionCwd = resolveOpenClawExecutionCwd(workspace, execParams, paths);
   if (!executionCwd) {
-    return malformedOpenClawToolCall(
-      workspace,
-      toolName,
+    return malformedToolCall(workspace, {
       command,
-      typeof execParams.workdir === 'string' ? execParams.workdir : undefined,
-    );
+      segment: typeof execParams.workdir === 'string' ? execParams.workdir : undefined,
+      toolName,
+    });
   }
 
   return createToolInvocation(
@@ -195,26 +145,6 @@ function resolveOpenClawExecutionCwd(
   const workdir = execParams.workdir;
   if (typeof workdir !== 'string' || workdir.trim() === '') return undefined;
   return resolveContainedCwd(workdir, [workspace], paths);
-}
-
-function malformedOpenClawToolCall(
-  cwd: string | null,
-  toolName?: string,
-  command?: string,
-  segment?: string,
-): MalformedOpenClawToolCall {
-  return {
-    malformed: true,
-    denial: createFailedClosedDenial({ command, segment, toolName }),
-    cwd,
-  };
-}
-
-function blockOpenClawEvaluation(
-  evaluation: Parameters<typeof projectGuardDenial>[0],
-): OpenClawBeforeToolCallResult {
-  const denial = projectGuardDenial(evaluation, { includeEvidence: true });
-  return denial ? blockOpenClawToolCall(denial) : undefined;
 }
 
 function blockOpenClawToolCall(denial: IntegrationDenial): OpenClawBeforeToolCallResult {

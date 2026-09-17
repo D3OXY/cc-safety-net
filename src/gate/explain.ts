@@ -46,7 +46,6 @@ interface ExplainTrace {
 export interface ExplainOptions {
   cwd?: string;
   userConfigDir?: string;
-  strict?: boolean;
   policySnapshot?: PolicySnapshot;
 }
 
@@ -78,11 +77,10 @@ export function explainCommand(
     options.policySnapshot ??
     loadPolicySnapshot(environment, { cwd, userConfigDir: options.userConfigDir });
   const modes = getCCSafetyNetEnvModes(snapshot.policy, environment.env);
-  const strictOverride = options.strict;
   const context = resolveCommandAnalysisContext({
     policySnapshot: snapshot,
     effectiveCapabilities: modes.capabilities,
-    strict: strictOverride ?? modes.strict,
+    strict: modes.strict,
     paranoidRm: modes.paranoidRm,
     paranoidInterpreters: modes.paranoidInterpreters,
     worktreeMode: modes.worktreeMode,
@@ -135,9 +133,6 @@ export function explainCommand(
     trace,
     dependencies: {
       loadPolicySnapshot: () => snapshot,
-      ...(strictOverride === undefined
-        ? {}
-        : { getModes: () => ({ ...modes, strict: strictOverride }) }),
     },
   });
   const decision = evaluation.decision.kind === 'deny' ? evaluation.decision : null;
@@ -173,16 +168,7 @@ export function explainCommand(
   if (decision && index > 0 && index < segments.length) {
     trace.recordSegment({ type: 'segment-skipped', index, reason: 'prior-segment-blocked' }, index);
   }
-  const commandTrace = recorder.finish(
-    decision
-      ? {
-          result: 'blocked',
-          reason: decision.reason,
-          segment: denialSegment(decision, command),
-          ...(decision.ruleId ? { ruleId: decision.ruleId } : {}),
-        }
-      : { result: 'allowed' },
-  );
+  const commandTrace = recorder.finish();
   const activationRuleId =
     decision?.ruleId ?? identifyModeGatedCandidate(invocation, snapshot, modes, environment);
   const activationMetadata = DESTRUCTIVE_COMMAND_RULE_METADATA.find(
@@ -215,7 +201,7 @@ export function explainCommand(
 type CommandDenial = Extract<Decision, { kind: 'deny' }>;
 
 function denialSegment(decision: CommandDenial, command: string): string {
-  return decision.evidence.find((item) => item.kind === 'command')?.segment ?? command;
+  return decision.evidence?.segment ?? command;
 }
 
 function preAnalysisMatcher(decision: CommandDenial) {

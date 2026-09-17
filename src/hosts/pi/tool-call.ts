@@ -1,20 +1,16 @@
-import {
-  createFailedClosedDenial,
-  formatDenial,
-  formatIntegrationError,
-  type IntegrationDenial,
-  projectGuardDenial,
-} from '@/core/denial';
-import { createProcessEnvironment, type PathResolver } from '@/core/environment';
-import { ENV_FLAGS, envTruthy, shouldRecordAllowedCommands } from '@/core/policy/env';
-import type { PolicySnapshotOptions } from '@/core/policy/snapshot';
+import { formatDenial, type IntegrationDenial } from '@/core/denial';
+import type { PathResolver } from '@/core/environment';
 import { getNonCommandToolInputKind } from '@/core/tool-input';
 import { resolveContainedCwd } from '@/gate/intake';
 import type { CommandToolKind, ToolInvocation } from '@/gate/invocation';
 import { createToolInvocation } from '@/gate/invocation';
-import { type GuardDependencies, GuardEvaluationError } from '@/gate/pipeline';
-import { writeIntegrationDenialAudit } from '@/hosts/audit';
-import { evaluateRuntimeGuard } from '@/hosts/runtime';
+import {
+  createPluginToolCallHandler,
+  type MalformedToolCall,
+  malformedToolCall,
+  type PluginHandlerOptions,
+  type PluginToolCallHost,
+} from '@/hosts/hook/plugin-adapter';
 
 type PiApi = {
   on: (
@@ -40,10 +36,14 @@ type PiToolCallEvent = {
 
 const PI_COMMAND_TOOL_ADAPTERS = new Map<string, CommandToolKind>([['bash', 'posix']]);
 
-type MalformedPiToolCall = {
-  malformed: true;
-  denial: IntegrationDenial;
-  cwd: string | null;
+const PI_HOST: PluginToolCallHost<unknown, PiToolCallContext, PiToolCallResult> = {
+  agent: 'pi',
+  debugLabel: 'pi tool_call',
+  extract: (event, ctx, paths) => getPiToolCall(event, ctx, paths),
+  getSessionId: (_event, ctx) => ctx.sessionManager.getSessionId(),
+  allow: undefined,
+  block: (denial) => blockPiToolCall(denial),
+  includeEvidenceOnError: (toolCall) => toolCall.route.kind === 'command',
 };
 
 export function registerToolCallEvent(pi: PiApi): void {
@@ -55,76 +55,16 @@ export const handlePiToolCall = createPiToolCallHandler();
 
 /** @internal */
 export function createPiToolCallHandler(
-  options: {
-    guardDependencies?: Partial<GuardDependencies>;
-    policyOptions?: Omit<PolicySnapshotOptions, 'cwd'>;
-  } = {},
+  options: PluginHandlerOptions = {},
 ): (event: unknown, ctx: PiToolCallContext) => PiToolCallResult {
-  return (event, ctx) => {
-    try {
-      return handlePiToolCallWithDependencies(event, ctx, options);
-    } catch (error) {
-      console.error('CC Safety Net error:', error);
-      return blockPiToolCall(createFailedClosedDenial());
-    }
-  };
-}
-
-function handlePiToolCallWithDependencies(
-  event: unknown,
-  ctx: PiToolCallContext,
-  options: {
-    guardDependencies?: Partial<GuardDependencies>;
-    policyOptions?: Omit<PolicySnapshotOptions, 'cwd'>;
-  },
-): PiToolCallResult {
-  const environment = createProcessEnvironment();
-  const toolCall = getPiToolCall(event, ctx, environment.paths);
-  if (!toolCall) return undefined;
-
-  if ('malformed' in toolCall) {
-    writeIntegrationDenialAudit(
-      environment,
-      toolCall.denial,
-      () => ctx.sessionManager.getSessionId(),
-      {
-        agent: 'pi',
-        toolName: toolCall.denial.toolName,
-        cwd: toolCall.cwd,
-      },
-    );
-    return blockPiToolCall(toolCall.denial);
-  }
-
-  try {
-    const evaluation = evaluateRuntimeGuard(environment, toolCall, {
-      guard: {
-        auditAllowed: shouldRecordAllowedCommands(environment.env),
-        policyOptions: options.policyOptions,
-        dependencies: options.guardDependencies,
-      },
-      audit: {
-        agent: 'pi',
-        getSessionId: () => ctx.sessionManager.getSessionId(),
-      },
-    });
-    return blockPiEvaluation(evaluation, true);
-  } catch (error) {
-    if (!(error instanceof GuardEvaluationError)) throw error;
-    if (envTruthy(ENV_FLAGS.debug, environment.env)) {
-      console.error(
-        `CC Safety Net debug: pi tool_call analysis failed: ${formatIntegrationError(error.cause)}`,
-      );
-    }
-    return blockPiEvaluation(error.evaluation, toolCall.route.kind === 'command');
-  }
+  return createPluginToolCallHandler(PI_HOST, options);
 }
 
 function getPiToolCall(
   event: unknown,
   ctx: PiToolCallContext,
   paths: PathResolver,
-): MalformedPiToolCall | ToolInvocation | undefined {
+): MalformedToolCall | ToolInvocation | undefined {
   if (!event || typeof event !== 'object') return undefined;
   const toolCall = event as PiToolCallEvent;
   if (toolCall.type !== undefined && toolCall.type !== 'tool_call') return undefined;
@@ -167,20 +107,10 @@ function getPiToolCall(
   );
 }
 
-function malformedPiToolCall(ctx: PiToolCallContext, toolName?: string): MalformedPiToolCall {
-  return {
-    malformed: true,
-    denial: createFailedClosedDenial({ toolName }),
-    cwd: typeof ctx.cwd === 'string' && ctx.cwd.trim() ? ctx.cwd : null,
-  };
-}
-
-function blockPiEvaluation(
-  evaluation: Parameters<typeof projectGuardDenial>[0],
-  includeEvidence: boolean,
-): PiToolCallResult {
-  const denial = projectGuardDenial(evaluation, { includeEvidence });
-  return denial ? blockPiToolCall(denial) : undefined;
+function malformedPiToolCall(ctx: PiToolCallContext, toolName?: string): MalformedToolCall {
+  return malformedToolCall(typeof ctx.cwd === 'string' && ctx.cwd.trim() ? ctx.cwd : null, {
+    toolName,
+  });
 }
 
 function blockPiToolCall(denial: IntegrationDenial): PiToolCallResult {

@@ -81,7 +81,6 @@ afterEach(removeTempRoots);
 describe('the manager limits that outlive the differentials', () => {
   test('one operation may spend 131 requests and 64 MiB over 4 connections', () => {
     expect({ ...RULE_SYNC_RESOURCE_LIMITS }).toEqual({
-      maxSources: 64,
       concurrency: 4,
       maxRequests: 131,
       maxResponseBytes: 67_108_864,
