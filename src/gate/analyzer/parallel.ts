@@ -1,5 +1,5 @@
 import { isAbsolute } from 'node:path';
-import { type Budget, LIMITS } from '@/core/budget';
+import { AnalysisLimit, type Budget, LIMITS } from '@/core/budget';
 import { resolveChdirTarget } from '@/core/paths/chdir';
 import { hasUnsafeTmpdirWordSplitting, isTmpdirValueTrusted } from '@/core/paths/tmpdir';
 import { filterDestructiveCommandMatch } from '@/core/policy/effective-rules';
@@ -798,7 +798,7 @@ function resolveParallelWorkdir(
   if (workdir === undefined) {
     return undefined;
   }
-  if (workdir === '...' || /[{}$`*?~[]/.test(workdir)) {
+  if (workdir === '...' || /^~|[{}$`*?[]/.test(workdir)) {
     return null;
   }
   if (!cwd && !isAbsolute(workdir)) {
@@ -972,23 +972,24 @@ function expandParallelJobs(argumentGroups: readonly (readonly string[])[]): Par
     return [];
   }
   let jobs: string[][] = [[]];
-  for (const group of argumentGroups) {
+  const cellsExceedCap = (width: number) => jobs.length * width > LIMITS.derivedTokens.cap;
+  for (const [index, group] of argumentGroups.entries()) {
     if (group.length === 1) {
       const arg = group[0];
       if (arg === undefined) return [];
       for (const job of jobs) job.push(arg);
+      if (cellsExceedCap(index + 1)) throw new AnalysisLimit('derivedTokens');
       continue;
     }
     const expanded: string[][] = [];
     for (const job of jobs) {
       for (const arg of group) {
         expanded.push([...job, arg]);
-        if (expanded.length > LIMITS.derivedTokens.cap) {
-          return expanded;
-        }
+        if (expanded.length > LIMITS.derivedTokens.cap) throw new AnalysisLimit('derivedTokens');
       }
     }
     jobs = expanded;
+    if (cellsExceedCap(index + 1)) throw new AnalysisLimit('derivedTokens');
   }
   return jobs;
 }

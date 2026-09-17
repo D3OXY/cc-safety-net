@@ -24,7 +24,7 @@ beforeAll(() => {
   root = realpathSync(mkdtempSync(join(systemTempDir(), 'next-parallel-')));
   home = join(root, 'user');
   project = join(root, 'project');
-  writeTree(root, { 'user/.cache': null, 'project/build': null, other: null });
+  writeTree(root, { 'user/.cache': null, 'project/build': null, other: null, 'x~1/deep': null });
 });
 
 afterAll(() => {
@@ -524,12 +524,40 @@ describe('parallel analysis', () => {
     expect(commands.budget.counters.get('derivedTokens')).toBe(2);
   });
 
+  test('a job matrix whose cells exceed the derived-token cap breaches before any child runs', () => {
+    const group = (size: number) => Array.from({ length: size }, (_, index) => `v${index}`);
+    const off: ParallelRow = { label: 'off', disabledRule: 'parallel.command-stream-dynamic' };
+    const breach = bothAnalyzers(['parallel', ':::', ...group(128), ':::', ...group(65)], off);
+    expect(breach.match).toStrictEqual({
+      ok: false,
+      error: { name: 'AnalysisLimit', message: REASON_DERIVED_COMMAND_WORK_LIMIT },
+    });
+    const within = bothAnalyzers(['parallel', ':::', ...group(128), ':::', ...group(64)], off);
+    expect(within.match).toStrictEqual({ ok: true, value: null });
+  });
+
   test('a workdir still re-roots the child when the command-stream rule is off', () => {
     const tokens = ['parallel', '--workdir', root, 'rm', '-rf', 'user', ':::', 'x'];
     expect(idFor(tokens, { label: 'off', disabledRule: 'parallel.command-stream-dynamic' })).toBe(
       'rm.recursive-force-root-or-home',
     );
     expect(idFor(tokens)).toBe('parallel.command-stream-dynamic');
+  });
+
+  test('a tilde inside a workdir path is not tilde expansion', () => {
+    const tokens = [
+      'parallel',
+      '--workdir',
+      join(root, 'x~1', 'deep'),
+      'rm',
+      '-rf',
+      '../../user',
+      ':::',
+      'x',
+    ];
+    expect(idFor(tokens, { label: 'off', disabledRule: 'parallel.command-stream-dynamic' })).toBe(
+      'rm.recursive-force-root-or-home',
+    );
   });
 
   test('a product and a negative index still reach the child when the command-stream rule is off', () => {
