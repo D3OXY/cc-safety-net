@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir as systemTempRoot } from 'node:os';
 import { join } from 'node:path';
-import { REASON_DERIVED_COMMAND_WORK_LIMIT, REASON_PARALLEL_ANALYSIS_LIMIT } from '@/core/budget';
+import { REASON_DERIVED_COMMAND_WORK_LIMIT } from '@/core/budget';
 import { createTestEnvironment, processPathResolver as portedPaths } from '@/core/environment';
 import { resolveProtectedGitMetadata } from '@/core/git/metadata';
 import type { EffectiveSafetyCapabilities } from '@/core/policy/types';
@@ -117,15 +117,12 @@ describe('analyzeCommand', () => {
   test('parallel stops excessive placeholder replacement within a single argument', () => {
     expect(decision(`parallel echo ${'{}'.repeat(16385)} ::: x`, standard)).toMatchObject({
       kind: 'deny',
-      reason: REASON_PARALLEL_ANALYSIS_LIMIT,
+      reason: REASON_DERIVED_COMMAND_WORK_LIMIT,
     });
     expect(decision('parallel echo {}{} ::: x', standard)).toBeNull();
   });
-  test('parallel command lists stop before exceeding the child analysis budget', () => {
-    expect(decision(`parallel ::: ${Array(1025).fill('true').join(' ')}`, standard)).toMatchObject({
-      kind: 'deny',
-      reason: REASON_PARALLEL_ANALYSIS_LIMIT,
-    });
+  test('parallel command lists are analyzed one command at a time', () => {
+    expect(decision(`parallel ::: ${Array(1025).fill('true').join(' ')}`, standard)).toBeNull();
     expect(decision('parallel ::: true true', standard)).toBeNull();
   });
   test('parallel refuses to assemble commands from multiple input lists', () => {

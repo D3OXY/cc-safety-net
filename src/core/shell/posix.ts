@@ -386,7 +386,6 @@ function scanSequence(
           delimiter: delimiter.delimiter,
           quotedDelimiter: delimiter.quoted,
           stripTabs: redirect === '<<-',
-          declarationSpan: { start: redirectStart, end: redirectEnd },
           attach: (heredoc) => {
             redirection.heredoc = heredoc;
             if (heredoc.quotedDelimiter) return;
@@ -904,7 +903,6 @@ function findSubstitutionEnd(
           delimiter: delimiter.delimiter,
           quotedDelimiter: delimiter.quoted,
           stripTabs,
-          declarationSpan: { start: i, end: delimiter.next },
           attach: () => undefined,
         });
         i = delimiter.next - 1;

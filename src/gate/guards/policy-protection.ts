@@ -212,7 +212,7 @@ function findPolicyConfigMutationTargetInSegment(
     if (target) return { target };
   }
 
-  if (isReadOnlySegment(segment, environment)) return null;
+  if (isReadOnlySegment(stripped, command)) return null;
 
   for (const token of [...segment, ...stripped]) {
     for (const candidate of extractDirectPathCandidates(token)) {
@@ -251,10 +251,7 @@ function extractRmOperands(args: readonly string[]): readonly string[] {
   return args.filter((arg) => !arg.startsWith('-'));
 }
 
-function isReadOnlySegment(tokens: readonly string[], environment: EnvironmentContext): boolean {
-  const stripped = stripWrappersForPathScan([...tokens], environment);
-  if (stripped.length === 0) return false;
-  const command = getBasename(stripped[0] ?? '').toLowerCase();
+function isReadOnlySegment(stripped: readonly string[], command: string): boolean {
   if (!READ_ONLY_COMMANDS.has(command)) return false;
   if (command !== 'sed') return true;
   return !stripped

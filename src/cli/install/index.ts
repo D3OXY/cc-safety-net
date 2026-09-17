@@ -628,113 +628,45 @@ async function runManagedArtifactInstallTarget(
   return [message, noChange ? undefined : definition.restartNote].filter(Boolean).join('\n');
 }
 
-const INSTALL_OPERATIONS = {
-  amp: {
-    install: (environment: Environment, updating?: boolean) =>
-      runManagedArtifactInstallTarget('install', 'amp', environment, updating),
-    uninstall: (environment: Environment) =>
-      runManagedArtifactInstallTarget('uninstall', 'amp', environment),
-  },
-  'antigravity-cli': {
-    install: (environment: Environment, updating?: boolean) =>
-      runConfigInstallTarget('install', 'antigravity-cli', environment, updating),
-    uninstall: (environment: Environment) =>
-      runConfigInstallTarget('uninstall', 'antigravity-cli', environment),
-  },
-  'claude-code': {
-    install: (environment: Environment, updating?: boolean) =>
-      installNativeTarget('claude-code', environment, updating),
-    uninstall: () => uninstallNativeTarget('claude-code'),
-  },
-  codex: {
-    install: (
-      environment: Environment,
-      updating?: boolean,
-      codexPluginListOutput?: string | null,
-    ) => installNativeTarget('codex', environment, updating, codexPluginListOutput),
-    uninstall: () => uninstallNativeTarget('codex'),
-  },
-  'copilot-cli': {
-    install: async (environment: Environment, updating?: boolean) =>
-      [
-        await installNativeTarget('copilot-cli', environment, updating),
-        enableCopilotPlugin(environment),
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    uninstall: () => uninstallNativeTarget('copilot-cli'),
-  },
-  cursor: {
-    install: (environment: Environment, updating?: boolean) =>
-      runConfigInstallTarget('install', 'cursor', environment, updating),
-    uninstall: (environment: Environment) =>
-      runConfigInstallTarget('uninstall', 'cursor', environment),
-  },
-  'gemini-cli': {
-    install: (environment: Environment, updating?: boolean) =>
-      installNativeTarget('gemini-cli', environment, updating),
-    uninstall: () => uninstallNativeTarget('gemini-cli'),
-  },
-  'grok-build': {
-    install: (environment: Environment, updating?: boolean) =>
-      runConfigInstallTarget('install', 'grok-build', environment, updating),
-    uninstall: (environment: Environment) =>
-      runConfigInstallTarget('uninstall', 'grok-build', environment),
-  },
+const INSTALL_EXTRAS: Partial<
+  Record<
+    InstallTarget,
+    {
+      beforeInstall?: (environment: Environment, updating: boolean) => void;
+      afterInstall?: (environment: Environment) => string | undefined | Promise<string | undefined>;
+      beforeUninstall?: (environment: Environment) => void;
+    }
+  >
+> = {
+  'copilot-cli': { afterInstall: enableCopilotPlugin },
   'hermes-agent': {
-    install: (environment: Environment, updating?: boolean) => {
+    beforeInstall: (environment, updating) => {
       if (!updating) clearNpxSafetyNetCache(environment);
-      return runManagedArtifactInstallTarget('install', 'hermes-agent', environment, updating);
     },
-    uninstall: (environment: Environment) =>
-      runManagedArtifactInstallTarget('uninstall', 'hermes-agent', environment),
-  },
-  'kimi-code': {
-    install: (environment: Environment, updating?: boolean) =>
-      runConfigInstallTarget('install', 'kimi-code', environment, updating),
-    uninstall: (environment: Environment) =>
-      runConfigInstallTarget('uninstall', 'kimi-code', environment),
   },
   openclaw: {
-    install: async (environment: Environment, updating?: boolean) => {
-      const message = await installNativeTarget('openclaw', environment, updating);
+    afterInstall: async () => {
       await verifyOpenClawPluginRuntime();
-      return message;
+      return undefined;
     },
-    uninstall: (environment: Environment) => {
-      assertOpenClawPluginDirIsOurs(environment);
-      return uninstallNativeTarget('openclaw');
-    },
+    beforeUninstall: assertOpenClawPluginDirIsOurs,
   },
   opencode: {
-    install: async (environment: Environment, updating?: boolean) => {
-      const message = await installNativeTarget('opencode', environment, updating);
+    afterInstall: async (environment) => {
       await verifyOpenCodePluginRuntime(environment);
-      return message;
+      return undefined;
     },
-    uninstall: (environment: Environment) => uninstallOpenCodeTarget(environment),
   },
-  pi: {
-    install: async (environment: Environment, updating?: boolean) =>
-      [
-        await installNativeTarget('pi', environment, updating),
-        removePiExtensionsFilter(environment),
-      ]
-        .filter(Boolean)
-        .join('\n'),
-    uninstall: () => uninstallNativeTarget('pi'),
-  },
-} satisfies Record<
-  InstallTarget,
-  Record<
-    InstallAction,
-    (
-      environment: Environment,
-      updating?: boolean,
-      codexPluginListOutput?: string | null,
-    ) => string | Promise<string>
-  >
->;
+  pi: { afterInstall: removePiExtensionsFilter },
+};
+
+function isConfigInstallTarget(target: InstallTarget): target is ConfigInstallTarget {
+  return target in CONFIG_INSTALLS;
+}
+
+function isManagedArtifactTarget(target: InstallTarget): target is ManagedArtifactTarget {
+  return target in MANAGED_ARTIFACT_INSTALLS;
+}
 
 const KIMI_PLUGIN_INSTRUCTIONS = [
   'Install CC Safety Net as a native Kimi Code plugin:',
@@ -806,7 +738,24 @@ async function runSingleInstallTarget(
   updating = false,
   codexPluginListOutput?: string | null,
 ): Promise<string> {
-  return INSTALL_OPERATIONS[target][action](environment, updating, codexPluginListOutput);
+  const extras = INSTALL_EXTRAS[target];
+  if (action === 'install') extras?.beforeInstall?.(environment, updating);
+  if (action === 'uninstall') extras?.beforeUninstall?.(environment);
+  if (isConfigInstallTarget(target))
+    return runConfigInstallTarget(action, target, environment, updating);
+  if (isManagedArtifactTarget(target))
+    return runManagedArtifactInstallTarget(action, target, environment, updating);
+  if (action === 'uninstall')
+    return target === 'opencode'
+      ? uninstallOpenCodeTarget(environment)
+      : uninstallNativeTarget(target);
+
+  return [
+    await installNativeTarget(target, environment, updating, codexPluginListOutput),
+    await extras?.afterInstall?.(environment),
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function parseUpdateArgs(args: readonly string[]): void {

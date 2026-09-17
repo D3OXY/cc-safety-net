@@ -11,6 +11,11 @@ export type DotGitFileTargets = {
   commonDir: string | null;
 };
 
+type LinkedWorktreeTargets = {
+  gitDir: string;
+  commonDir: string;
+};
+
 const TRUSTED_GIT_BINARIES = [
   '/usr/bin/git',
   '/usr/local/bin/git',
@@ -27,9 +32,11 @@ export function resolveWorktreeFacts(
   timeoutMs = GIT_CONFIG_TIMEOUT_MS,
 ): WorktreeFacts | null {
   const gitCwd = resolveDirectory(cwd);
-  if (gitCwd === null || !isLinkedWorktree(gitCwd)) return null;
+  const targets = gitCwd === null ? null : resolveLinkedWorktreeTargets(gitCwd);
+  if (gitCwd === null || targets === null) return null;
   const recursiveSubmodules = effectiveGitConfigEnablesRecursiveSubmodules(
     gitCwd,
+    targets,
     gitBinary,
     timeoutMs,
   );
@@ -47,27 +54,33 @@ function resolveDirectory(cwd: string): string | null {
 
 /** @internal */
 export function isLinkedWorktree(cwd: string): boolean {
+  return resolveLinkedWorktreeTargets(cwd) !== null;
+}
+
+function resolveLinkedWorktreeTargets(cwd: string): LinkedWorktreeTargets | null {
   const dotGitPath = findDotGit(cwd);
   if (!dotGitPath) {
-    return false;
+    return null;
   }
 
   try {
     const stat = lstatSync(dotGitPath);
     if (stat.isSymbolicLink() || !stat.isFile()) {
-      return false;
+      return null;
     }
 
     const targets = resolveDotGitFileTargets(dotGitPath);
-    if (!targets?.commonDir) return false;
+    if (!targets?.commonDir) return null;
 
     if (!worktreeGitdirBacklinkMatches(targets.gitDir, dotGitPath)) {
-      return false;
+      return null;
     }
 
-    return worktreeConfigMatchesRoot(targets.gitDir, dirname(dotGitPath));
+    return worktreeConfigMatchesRoot(targets.gitDir, dirname(dotGitPath))
+      ? { gitDir: targets.gitDir, commonDir: targets.commonDir }
+      : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -248,11 +261,11 @@ export function findDotGitInAncestors(cwd: string): string | null {
 
 function effectiveGitConfigEnablesRecursiveSubmodules(
   cwd: string,
+  targets: LinkedWorktreeTargets,
   gitBinary: string | null,
   timeoutMs: number,
 ): boolean | null {
-  const localConfigResult = localGitConfigEnablesRecursiveSubmodules(cwd);
-  if (localConfigResult === null || localConfigResult) {
+  if (localGitConfigEnablesRecursiveSubmodules(targets)) {
     return true;
   }
 
@@ -272,12 +285,8 @@ function effectiveGitConfigEnablesRecursiveSubmodules(
   return result.status === 0 && gitConfigValueEnablesRecursiveSubmodules(result.stdout.trim());
 }
 
-function localGitConfigEnablesRecursiveSubmodules(cwd: string): boolean | null {
-  const configPaths = getLocalGitConfigPaths(cwd);
-  if (configPaths === null) {
-    return null;
-  }
-  return configPaths
+function localGitConfigEnablesRecursiveSubmodules(targets: LinkedWorktreeTargets): boolean {
+  return [join(targets.commonDir, 'config'), join(targets.gitDir, 'config.worktree')]
     .filter((configPath) => existsSync(configPath))
     .some((configPath) => gitConfigFileEnablesRecursiveSubmodules(configPath));
 }
@@ -296,60 +305,6 @@ export function isGitConfigEnvName(name: string): boolean {
 
 function withoutGitConfigEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(env).filter(([key]) => !isGitConfigEnvName(key)));
-}
-
-function getLocalGitConfigPaths(cwd: string): string[] | null {
-  const dotGitPath = findDotGitInAncestors(cwd);
-  if (dotGitPath === null) {
-    return null;
-  }
-
-  const gitDir = resolveGitDirFromDotGit(dotGitPath);
-  if (gitDir === null) {
-    return null;
-  }
-
-  const commonDir = resolveLocalConfigCommonDir(gitDir);
-  if (commonDir === null) {
-    return null;
-  }
-
-  return [join(commonDir, 'config'), join(gitDir, 'config.worktree')];
-}
-
-function resolveGitDirFromDotGit(dotGitPath: string): string | null {
-  try {
-    const content = readFileSync(dotGitPath, 'utf-8');
-    const firstLine = content.split(/\r?\n/, 1)[0]?.trim() ?? '';
-    if (!firstLine.startsWith('gitdir:')) {
-      return dotGitPath;
-    }
-
-    const rawGitDir = firstLine.slice('gitdir:'.length).trim();
-    if (rawGitDir === '') {
-      return null;
-    }
-    return isAbsolute(rawGitDir) ? rawGitDir : resolve(dirname(dotGitPath), rawGitDir);
-  } catch {
-    return null;
-  }
-}
-
-function resolveLocalConfigCommonDir(gitDir: string): string | null {
-  const commonDirPath = join(gitDir, 'commondir');
-  if (!existsSync(commonDirPath)) {
-    return gitDir;
-  }
-
-  try {
-    const rawCommonDir = readFileSync(commonDirPath, 'utf-8').split(/\r?\n/, 1)[0]?.trim() ?? '';
-    if (rawCommonDir === '') {
-      return null;
-    }
-    return isAbsolute(rawCommonDir) ? rawCommonDir : resolve(gitDir, rawCommonDir);
-  } catch {
-    return null;
-  }
 }
 
 function gitConfigFileEnablesRecursiveSubmodules(configPath: string): boolean {

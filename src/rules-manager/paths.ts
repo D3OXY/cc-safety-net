@@ -8,12 +8,9 @@ import {
 import {
   getProjectPolicyFilesystemScope,
   getProjectRulesConfigPath,
-  getProjectRulesDir,
   getUserPolicyFilesystemScope,
   getUserRulesConfigPath,
-  getUserRulesDir,
   type RulesPolicyOptions,
-  type UserScopeOptions,
 } from '@/core/policy/paths';
 import type { SyncRulesConfigOptions } from './types';
 
@@ -27,19 +24,6 @@ export interface ScopePaths {
   filesystemScope: PolicyFilesystemScope;
   configTarget: PolicyFilesystemTarget;
   lockTarget: PolicyFilesystemTarget;
-}
-
-/** @internal - exported for test coverage */
-export function getProjectRulesLockPath(cwd: string): string {
-  return join(getProjectRulesDir(cwd), RULES_LOCK_FILE);
-}
-
-/** @internal Where a v2 install published its lockfile; kept for reading those leftovers. */
-export function getUserRulesLockPath(
-  environment: Environment,
-  options: UserScopeOptions = {},
-): string {
-  return join(getUserRulesDir(environment, options), RULES_LOCK_FILE);
 }
 
 /** @internal Where a v2 install published its lockfile; kept for reading those leftovers. */

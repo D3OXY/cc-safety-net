@@ -1,5 +1,6 @@
+import type { IntegrationDenial } from '@/core/denial';
 import type { Environment } from '@/core/environment';
-import type { ToolRoute } from '@/gate/invocation';
+import type { ToolCallContext, ToolRoute } from '@/gate/invocation';
 import { getStandardHookContext, runConfiguredHookAdapter } from '@/hosts/hook/common';
 import { PRE_TOOL_USE_HOOK_EVENT } from '@/hosts/hook/constants';
 
@@ -18,7 +19,7 @@ export type PreToolUseHookInput = {
   tool_use_id?: string;
 };
 
-export type PreToolUseHookOutput = {
+type PreToolUseHookOutput = {
   hookSpecificOutput: {
     hookEventName: typeof PRE_TOOL_USE_HOOK_EVENT;
     permissionDecision: 'allow' | 'deny';
@@ -30,6 +31,13 @@ export async function runPreToolUseHook(options: {
   agent: string;
   getAgent?: (input: PreToolUseHookInput, environment: Environment) => string;
   getToolRoute: (toolName: string) => ToolRoute;
+  getContext?: (
+    input: PreToolUseHookInput,
+    toolInput: unknown,
+    toolName: string,
+    outputDeny: (denial: IntegrationDenial) => void,
+    environment: Environment,
+  ) => ToolCallContext | null;
 }): Promise<void> {
   await runConfiguredHookAdapter<PreToolUseHookInput>({
     agent: options.agent,
@@ -48,7 +56,7 @@ export async function runPreToolUseHook(options: {
       input: input.tool_input,
       route: options.getToolRoute(toolName),
     }),
-    getContext: getStandardHookContext,
+    getContext: options.getContext ?? getStandardHookContext,
     getSessionId: (input) => input.session_id,
   });
 }

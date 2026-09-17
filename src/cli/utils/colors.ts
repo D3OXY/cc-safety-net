@@ -10,7 +10,6 @@ export function shouldUseColor(): boolean {
 const green = (s: string) => (shouldUseColor() ? `\x1b[32m${s}\x1b[0m` : s);
 const yellow = (s: string) => (shouldUseColor() ? `\x1b[33m${s}\x1b[0m` : s);
 const blue = (s: string) => (shouldUseColor() ? `\x1b[34m${s}\x1b[0m` : s);
-const magenta = (s: string) => (shouldUseColor() ? `\x1b[35m${s}\x1b[0m` : s);
 const cyan = (s: string) => (shouldUseColor() ? `\x1b[36m${s}\x1b[0m` : s);
 const red = (s: string) => (shouldUseColor() ? `\x1b[31m${s}\x1b[0m` : s);
 const dim = (s: string) => (shouldUseColor() ? `\x1b[2m${s}\x1b[0m` : s);
@@ -20,7 +19,6 @@ export const colors = {
   green,
   yellow,
   blue,
-  magenta,
   cyan,
   red,
   dim,

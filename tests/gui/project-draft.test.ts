@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { DEFAULT_GUI_POLICY } from '@/core/policy/store';
-import { renderPages, sliceBlock } from '../helpers/gui-page';
+import { renderPolicyGuiHtml } from '@/gui/page';
+import { sliceBlock } from '../helpers/gui-page';
 
 const TOKEN = Buffer.from('cc-safety-net gui draft fixture').toString('base64url');
 
@@ -22,10 +23,10 @@ type DraftBlock = {
   }) => { baseline: Policy; marked: Set<string>; policy: Policy; snapshot: string } | null;
 };
 
-const pages = renderPages(TOKEN);
-const block = (page: string) => sliceBlock(page, 'var clonePolicy = ', 'var collectFormPolicy = ');
+const page = renderPolicyGuiHtml(TOKEN);
+const block = sliceBlock(page, 'var clonePolicy = ', 'var collectFormPolicy = ');
 const draft = new Function(
-  `${block(pages.ported)}\nreturn { clonePolicy, collectProjectProposal, projectMarkedFields, overlayProjectProposal, seedProjectDraft };`,
+  `${block}\nreturn { clonePolicy, collectProjectProposal, projectMarkedFields, overlayProjectProposal, seedProjectDraft };`,
 )() as DraftBlock;
 
 const baseline = (): Policy => ({

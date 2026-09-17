@@ -135,7 +135,7 @@ function getGitConfigAliases(entries: readonly GitConfigEntry[]): Map<string, st
   return aliases;
 }
 
-function getGitConfigEntries(
+export function getGitConfigEntries(
   tokens: readonly string[],
   env: ReadonlyMap<string, string>,
   envAssignments?: ReadonlyMap<string, string>,

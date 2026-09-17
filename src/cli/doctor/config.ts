@@ -14,18 +14,12 @@ import {
 } from '@/core/policy/paths';
 import { getRulesConfigRuntimeErrorsForConfig, loadRulesPolicy } from '@/core/policy/scope-policy';
 import type { CustomRule } from '@/core/policy/types';
-import type { ConfigSourceInfo, EffectiveRule, ShadowedRule } from '@/hosts/doctor-types';
+import type { ConfigSourceInfo, EffectiveRule } from '@/hosts/doctor-types';
 
 export interface ConfigInfo {
   userConfig: ConfigSourceInfo;
   projectConfig: ConfigSourceInfo;
   effectiveRules: EffectiveRule[];
-  shadowedRules: ShadowedRule[];
-}
-
-export interface ConfigInfoOptions {
-  userConfigPath?: string;
-  projectConfigPath?: string;
 }
 
 function getConfigSourceInfo(
@@ -65,13 +59,9 @@ function toEffectiveRule(rule: CustomRule, source: 'user' | 'project'): Effectiv
   };
 }
 
-export function getConfigInfo(
-  environment: Environment,
-  cwd: string,
-  options?: ConfigInfoOptions,
-): ConfigInfo {
-  const userPath = options?.userConfigPath ?? getUserRulesConfigPath(environment);
-  const projectPath = options?.projectConfigPath ?? getProjectRulesConfigPath(cwd);
+export function getConfigInfo(environment: Environment, cwd: string): ConfigInfo {
+  const userPath = getUserRulesConfigPath(environment);
+  const projectPath = getProjectRulesConfigPath(cwd);
   const userConfigDir = dirname(userPath);
   const policy = loadRulesPolicy(environment, {
     cwd,
@@ -97,6 +87,5 @@ export function getConfigInfo(
     effectiveRules: policy.rules.map((rule) =>
       toEffectiveRule(rule, rulebookSources.get(rule.name) ?? 'project'),
     ),
-    shadowedRules: [],
   };
 }

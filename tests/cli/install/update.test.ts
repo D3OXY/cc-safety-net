@@ -1,10 +1,10 @@
 import { afterEach, expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { type FlowSpec, runFlowDifferential } from '../../helpers/command-flow';
+import { type FlowSpec, runSide } from '../../helpers/command-flow';
 import { fileAt } from '../../helpers/host-differential';
 import { removeTempRoots } from '../../helpers/temp-home';
 
-const flow = async (spec: FlowSpec) => await runFlowDifferential(spec);
+const flow = async (spec: FlowSpec) => await runSide(spec);
 
 const NUDGE =
   'Update available: cc-safety-net dev → 9.9.9. Update this CLI with your package manager, e.g. `npm i -g cc-safety-net@latest` for a global install.';

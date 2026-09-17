@@ -68,34 +68,13 @@ const WRITES = [
       expect(written).toEqual({ version: 1, rules: [], overrides: {}, transparent_wrappers: [] }),
   },
   {
-    name: 'a default config listing two sources',
-    ported: (path: string) => writeDefaultRulesConfig(path, ['team-rules', 'local-a']),
-    states: (written: unknown) =>
-      expect(written).toEqual({
-        version: 1,
-        rules: ['team-rules', 'local-a'],
-        overrides: {},
-        transparent_wrappers: [],
-      }),
-  },
-  {
-    name: 'the project starter rulebook',
+    name: 'the starter rulebook `rule init --example` writes',
     ported: (path: string) => writeStarterRulebook(path),
     states: (written: unknown) =>
       expect(starterExample(written)).toEqual({
-        name: 'project-rules',
+        name: 'example-rules',
         author: 'project',
         description: 'Project-specific CC Safety Net rules.',
-      }),
-  },
-  {
-    name: 'the user starter rulebook',
-    ported: (path: string) => writeStarterRulebook(path, 'user-rules'),
-    states: (written: unknown) =>
-      expect(starterExample(written)).toEqual({
-        name: 'user-rules',
-        author: 'user',
-        description: 'User-specific CC Safety Net rules.',
       }),
   },
 ];

@@ -11,7 +11,7 @@ import {
   type PolicyPreview,
 } from './store';
 import type { GuiPolicy } from './types';
-import { getUserPolicyDiagnostics } from './user-policy-diagnostics';
+import { salvageUserPolicy } from './user-policy-diagnostics';
 
 export interface GuiPolicyReadResult {
   path: string;
@@ -54,15 +54,14 @@ export function readUserPolicyForGui(
   }
 
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    const errors = getUserPolicyDiagnostics(parsed, environment.home);
+    const salvaged = salvageUserPolicy(JSON.parse(raw) as unknown, environment.home);
 
     return {
       path,
       exists: true,
       raw,
-      policy: normalizeGuiPolicy(parsed, environment.home),
-      errors,
+      policy: salvaged.policy,
+      errors: salvaged.errors,
     };
   } catch (error) {
     return {
@@ -81,12 +80,11 @@ export function writeUserPolicyFromGui(
   options: UserScopeOptions = {},
 ): GuiPolicyWriteResult {
   const path = getUserPolicyPath(environment, options);
-  const errors = getUserPolicyDiagnostics(policy, environment.home);
-  const normalizedPolicy =
-    errors.length > 0 ? createDefaultGuiPolicy() : normalizeGuiPolicy(policy, environment.home);
-  if (errors.length > 0) {
-    return { path, policy: normalizedPolicy, errors };
+  const salvaged = salvageUserPolicy(policy, environment.home);
+  if (salvaged.errors.length > 0) {
+    return { path, policy: createDefaultGuiPolicy(), errors: salvaged.errors };
   }
+  const normalizedPolicy = salvaged.policy;
 
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   writePolicyFileAtomic(
@@ -105,10 +103,10 @@ export function previewUserPolicyForGui(
   preview?: PolicyPreview;
   errors: string[];
 } {
-  const errors = getUserPolicyDiagnostics(policy, environment.home);
-  if (errors.length > 0) return { errors };
+  const salvaged = salvageUserPolicy(policy, environment.home);
+  if (salvaged.errors.length > 0) return { errors: salvaged.errors };
   return {
-    preview: createPolicyPreview(normalizeGuiPolicy(policy, environment.home), environment.env),
+    preview: createPolicyPreview(salvaged.policy, environment.env),
     errors: [],
   };
 }

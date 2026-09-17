@@ -5,8 +5,7 @@ import { resolveEffectiveDestructiveCommandRules } from '@/core/policy/effective
 import type { EffectiveSafetyCapabilities } from '@/core/policy/types';
 import { textCommandWords } from '@/gate/analyzer/command-words';
 import { analyzeGitDetailed, analyzeGitMatch } from '@/gate/analyzer/git';
-import { createLinkedWorktreeFixture, withLinkedWorktreeFixture } from '../../helpers';
-import { runGit } from '../../helpers/git-worktree';
+import { createLinkedWorktreeFixture, runGit, withLinkedWorktreeFixture } from '../../helpers';
 import { corpusCommands } from '../../helpers/shell-inputs';
 
 const fixture = createLinkedWorktreeFixture();
@@ -204,7 +203,7 @@ describe('gate/analyzer/git', () => {
 
   test('submodule.recurse in the worktree config withholds the relaxation', async () => {
     await withLinkedWorktreeFixture((configured) => {
-      runGit(configured.linkedWorktree, ['config', 'submodule.recurse', 'true']);
+      runGit(['config', 'submodule.recurse', 'true'], configured.linkedWorktree);
       const env = new Map<string, string>();
       const shared = {
         cwd: configured.linkedWorktree,

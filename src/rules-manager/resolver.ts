@@ -272,7 +272,6 @@ export async function fetchGitHubResource(
   url: string,
   kind: GitHubResourceKind,
   options: {
-    fetch?: typeof fetch;
     timeoutMs?: number;
     budget?: RuleSyncResourceBudget;
     signal?: AbortSignal;
@@ -292,7 +291,7 @@ export async function fetchGitHubResource(
   try {
     if (options.signal?.aborted) throw options.signal.reason;
     reserveGitHubRequest(budget);
-    const response = await (options.fetch ?? fetch)(url, {
+    const response = await fetch(url, {
       signal: controller.signal,
       redirect: 'error',
     });

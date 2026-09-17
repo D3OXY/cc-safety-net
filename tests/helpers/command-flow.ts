@@ -36,7 +36,7 @@ export type FlowSpec = {
   options?: (home: string) => FlowOptions;
 };
 
-async function runSide(spec: FlowSpec) {
+export async function runSide(spec: FlowSpec) {
   const root = createTempRoot('cc-safety-net-ported-flow-');
   const home = join(root, 'home');
   const tmp = join(root, 'tmp');
@@ -94,8 +94,4 @@ async function runSide(spec: FlowSpec) {
     },
     [[home, '<home>'], [root, '<root>'], [REPO_ROOT, '<repo>'], ...WINDOWS_SEPARATOR_FOLDS],
   );
-}
-
-export async function runFlowDifferential(spec: FlowSpec) {
-  return runSide(spec);
 }

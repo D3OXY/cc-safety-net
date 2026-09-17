@@ -1,26 +1,7 @@
-import {
-  getToolRoute,
-  outputFailedClosed,
-  resolveContainedCwd,
-  resolveStandardHookContext,
-} from '@/gate/intake';
+import { getToolRoute, outputFailedClosed, resolveContainedCwd } from '@/gate/intake';
 import type { CommandToolKind } from '@/gate/invocation';
-import type { HookOutput } from '@/hosts/claude-code/hook';
-import { runConfiguredHookAdapter } from '@/hosts/hook/common';
-import { KIMI_CODE_HOOK_EVENT } from '@/hosts/hook/constants';
-
-interface KimiCodeHookInput {
-  session_id?: string;
-  cwd?: string;
-  hook_event_name: string;
-  tool_name?: string;
-  tool_input?: {
-    command?: string;
-    cwd?: unknown;
-    [key: string]: unknown;
-  };
-  tool_call_id?: string;
-}
+import { getStandardHookContext } from '@/hosts/hook/common';
+import { runPreToolUseHook } from '@/hosts/hook/pre-tool-use';
 
 const KIMI_CODE_COMMAND_TOOLS = new Map<string, CommandToolKind>([['Bash', 'posix']]);
 
@@ -29,31 +10,11 @@ function getKimiCodeToolRoute(toolName: string) {
 }
 
 export async function runKimiCodeHook(): Promise<void> {
-  await runConfiguredHookAdapter<KimiCodeHookInput>({
+  await runPreToolUseHook({
     agent: 'kimi-code',
-    createDenyOutput: (message): HookOutput => ({
-      hookSpecificOutput: {
-        hookEventName: KIMI_CODE_HOOK_EVENT,
-        permissionDecision: 'deny',
-        permissionDecisionReason: message,
-      },
-    }),
-    isSupported: (input) => input.hook_event_name === KIMI_CODE_HOOK_EVENT,
-    getToolName: (input) => input.tool_name,
-    getToolInput: (input, toolName) => ({
-      ok: true,
-      input: input.tool_input,
-      route: getKimiCodeToolRoute(toolName),
-    }),
+    getToolRoute: getKimiCodeToolRoute,
     getContext: (input, toolInput, toolName, outputDeny, environment) => {
-      const context = resolveStandardHookContext(
-        input.cwd,
-        toolInput,
-        toolName,
-        outputDeny,
-        environment.paths,
-        process.cwd(),
-      );
+      const context = getStandardHookContext(input, toolInput, toolName, outputDeny, environment);
       if (!context) return null;
       const args = input.tool_input;
       if (!KIMI_CODE_COMMAND_TOOLS.has(toolName) || !args || !Object.hasOwn(args, 'cwd')) {
@@ -71,6 +32,5 @@ export async function runKimiCodeHook(): Promise<void> {
       }
       return { configCwd: context.configCwd, executionCwd: containedCwd };
     },
-    getSessionId: (input) => input.session_id,
   });
 }

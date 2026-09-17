@@ -11,10 +11,6 @@ export const REASON_SAFETY_NET_FAILED_CLOSED =
 export const REASON_DERIVED_COMMAND_WORK_LIMIT =
   "Command analysis exceeds CC Safety Net's derived-command work limit. Reduce nested or embedded command complexity and retry.";
 
-/** @internal */
-export const REASON_PARALLEL_ANALYSIS_LIMIT =
-  "Parallel command expands beyond CC Safety Net's analysis limits. Reduce the template or explicit argument list and retry.";
-
 export type AnalysisErrorCode =
   | 'path-canonicalization-limit'
   | 'tool-input-limit'
@@ -29,10 +25,6 @@ const PATH = {
 const DERIVED = {
   errorCode: 'structural-shell-syntax-limit',
   reason: REASON_DERIVED_COMMAND_WORK_LIMIT,
-} as const;
-const PARALLEL = {
-  errorCode: 'structural-shell-syntax-limit',
-  reason: REASON_PARALLEL_ANALYSIS_LIMIT,
 } as const;
 
 export const LIMITS = Object.freeze({
@@ -55,10 +47,6 @@ export const LIMITS = Object.freeze({
   wrapperPeelIterations: { cap: 20, ...DERIVED },
 
   derivedCommandShape: DERIVED,
-  parallelChildAnalyses: { cap: 1_024, ...PARALLEL },
-  parallelDerivedTokens: { cap: 16_384, ...PARALLEL },
-  parallelDerivedBytes: { cap: 1024 * 1024, ...PARALLEL },
-  parallelPlaceholderReplacements: { cap: 16_384, ...PARALLEL },
 } satisfies Record<string, Limit>);
 
 export type LimitKind = keyof typeof LIMITS;

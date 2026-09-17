@@ -1,5 +1,5 @@
 import { isAbsolute, join } from 'node:path';
-import { AnalysisLimit, createBudget } from '@/core/budget';
+import { createBudget } from '@/core/budget';
 import type { Environment } from '@/core/environment';
 import { resolveExistingPath } from '@/core/paths/canonicalization';
 import { isSameOrInsidePath } from '@/gate/intake';
@@ -47,8 +47,7 @@ export function detectClaudeShapeAgent(
 
     if (matches.length === 1) return matches[0] ?? 'unknown';
     if (matches.length > 1) return 'unknown';
-  } catch (error) {
-    if (error instanceof AnalysisLimit) return 'unknown';
+  } catch {
     return 'unknown';
   }
 

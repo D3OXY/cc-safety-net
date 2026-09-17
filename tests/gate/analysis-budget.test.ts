@@ -75,28 +75,10 @@ const ROWS: readonly { kind: LimitKind; name: string; breaching: string; below: 
     below: `xargs env -S 'echo quoted'`,
   },
   {
-    kind: 'parallelChildAnalyses',
-    name: 'parallel child analyses',
-    breaching: `parallel echo {} ::: ${numberedArgs(1100)}`,
-    below: `parallel echo {} ::: ${numberedArgs(1000)}`,
-  },
-  {
-    kind: 'parallelDerivedTokens',
-    name: 'parallel derived tokens',
+    kind: 'derivedTokens',
+    name: 'parallel expansion',
     breaching: `parallel echo ${copies(149, () => 'w').join(' ')} {} ::: ${numberedArgs(120)}`,
     below: `parallel echo ${copies(149, () => 'w').join(' ')} {} ::: ${numberedArgs(100)}`,
-  },
-  {
-    kind: 'parallelDerivedBytes',
-    name: 'parallel derived bytes',
-    breaching: `parallel echo ${'y'.repeat(3000)} {} ::: ${numberedArgs(400)}`,
-    below: `parallel echo ${'y'.repeat(3000)} {} ::: ${numberedArgs(200)}`,
-  },
-  {
-    kind: 'parallelPlaceholderReplacements',
-    name: 'parallel placeholder replacements',
-    breaching: `parallel echo ${'{}'.repeat(20)} ::: ${numberedArgs(1000)}`,
-    below: `parallel echo ${'{}'.repeat(20)} ::: ${numberedArgs(800)}`,
   },
 ];
 
@@ -148,10 +130,6 @@ describe('one budget, one report per analyzer cap', () => {
       'controlFlowStates',
       'derivedCommandShape',
       'derivedTokens',
-      'parallelChildAnalyses',
-      'parallelDerivedBytes',
-      'parallelDerivedTokens',
-      'parallelPlaceholderReplacements',
       'trackedHeredocFiles',
       'wrapperPeelIterations',
     ]);

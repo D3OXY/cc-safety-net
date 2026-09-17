@@ -7,7 +7,7 @@ import { isInterpreterCommand } from '@/core/policy/transparent-wrappers';
 import { AWK_INTERPRETERS, SHELL_WRAPPERS } from '@/core/rules/constants';
 import { checkPolicyRuleMatch } from '@/core/rules/custom';
 import { type DestructiveCommandRuleId, destructiveCommandMatch } from '@/core/rules/destructive';
-import type { DestructiveCommandRuleMatch, PolicyRule } from '@/core/rules/types';
+import type { DestructiveCommandRuleMatch } from '@/core/rules/types';
 import type { CommandWord } from '@/core/shell/model';
 import { normalizeCommandToken } from '@/core/shell/tokens';
 import { parseSimpleWords } from '@/core/shell/traversal';
@@ -23,12 +23,11 @@ import {
 } from './child-command';
 import { analysisWordText, textCommandWords } from './command-words';
 import { dangerousInTextMatch } from './dangerous-text';
-import { solveDynamicInput, substitutionAddsExecutableSource } from './dynamic-input';
+import { substitutionAddsExecutableSource } from './dynamic-input';
 import { getFindPrimaryArity, isFindExecPrimary } from './find';
 import { extractGitSubcommandAndRest } from './git/parse';
 import { GIT_RULE_SUBCOMMANDS } from './git/rules';
 import { extractInterpreterExecutableSources } from './interpreters';
-import { type ParallelAnalysisReservation, reserveParallelAnalysis } from './parallel-budget';
 import { analyzeRmMatch } from './rm';
 import { hasRecursiveForceFlags } from './rm-flags';
 import {
@@ -95,10 +94,6 @@ const PARALLEL_UNSUPPORTED_INPUT_OPTIONS = new Set([
 const PARALLEL_REMOTE_OPTIONS = new Set(['-S', '--sshlogin', '--slf', '--sshloginfile']);
 const PARALLEL_WORKDIR_OPTIONS = new Set(['--workdir', '--wd']);
 const PARALLEL_APPENDED_SOURCE = '__CC_SAFETY_NET_PARALLEL_SOURCE__';
-const UTF8_ENCODER = new TextEncoder();
-
-const MAX_EXPANDED_BYTE_OVERCOUNT =
-  LIMITS.parallelDerivedBytes.cap + 4 * LIMITS.parallelPlaceholderReplacements.cap;
 
 export interface ParallelAnalyzeContext extends NestedCommandAnalyzeContext {
   analyzeChild: (
@@ -186,13 +181,8 @@ export function analyzeParallel(
   }
 
   if (template.length === 0) {
-    if (jobs.some((job) => job.length !== 1)) {
-      const reason = parallelUnsupportedReason(context);
-      if (reason) return reason;
-    }
-
     const commands = jobs.map((job) => job[0] ?? '');
-    reserveParallelAnalysis(context.budget, commandsModeWork(commands));
+    context.budget.charge('derivedTokens', commands.length);
     const nestedOverrides = buildNestedOverrides(
       executionContext.envAssignments,
       executionContext.cwd,
@@ -233,10 +223,9 @@ function analyzeParallelChildCommand(
   if (SHELL_WRAPPERS.has(childCommand.head)) {
     const analyzeExpandedShellArgv = () => {
       if (!templateHasPlaceholder || jobs.length === 0) return null;
-      reserveParallelAnalysis(context.budget, expandedTokenJobWork(childTokens, jobs, 'generic'));
       return firstMatch(jobs, (job) =>
         context.analyzeChild(
-          childTokens.map((token) => replaceParallelJobPlaceholder(token, job)),
+          expandParallelJob(childTokens, job, context.budget),
           childProvenance(childCommand, executionContext),
         ),
       );
@@ -248,21 +237,24 @@ function analyzeParallelChildCommand(
         const reason = parallelShellDynamicReason(context);
         if (reason) return reason;
         if (jobs.length === 0) return null;
-        reserveParallelAnalysis(context.budget, expandedStringJobWork(dashCArg, jobs));
         return firstMatch(jobs, (job) =>
-          context.analyzeNested(replaceParallelJobPlaceholder(dashCArg, job), nestedOverrides),
+          context.analyzeNested(
+            expandParallelString(dashCArg, job, context.budget),
+            nestedOverrides,
+          ),
         );
       }
 
       if (hasParallelPlaceholder(dashCArg)) {
         if (jobs.length > 0) {
-          reserveParallelAnalysis(context.budget, expandedStringJobWork(dashCArg, jobs));
           return firstMatch(jobs, (job) =>
-            context.analyzeNested(replaceParallelJobPlaceholder(dashCArg, job), nestedOverrides),
+            context.analyzeNested(
+              expandParallelString(dashCArg, job, context.budget),
+              nestedOverrides,
+            ),
           );
         }
 
-        reserveParallelAnalysis(context.budget, staticStringWork(dashCArg));
         const scriptTokens = parseSimpleWords(dashCArg);
         if (
           scriptTokens?.[0] &&
@@ -317,12 +309,11 @@ function analyzeParallelChildCommand(
         source.kind === 'literal' ? [source.source] : [],
       );
       if (literalPositionalSources.length > 0) {
-        reserveParallelAnalysis(context.budget, commandsModeWork(literalPositionalSources));
+        context.budget.charge('derivedTokens', literalPositionalSources.length);
         return firstMatch(literalPositionalSources, (source) =>
           context.analyzeNested(source, nestedOverrides),
         );
       }
-      reserveParallelAnalysis(context.budget, staticStringWork(dashCArg));
       if (shellSourceHasUnresolvedDynamicExecutionCarrier(dashCArg)) {
         const dynamicReason = parallelShellDynamicReason(context);
         if (dynamicReason) return dynamicReason;
@@ -355,7 +346,7 @@ function analyzeParallelChildCommand(
       if (expandedArgvReason) return expandedArgvReason;
       if (templateHasPlaceholder) return null;
       const sources = jobs.flatMap((job) => (job[0] === undefined ? [] : [job[0]]));
-      reserveParallelAnalysis(context.budget, commandsModeWork(sources));
+      context.budget.charge('derivedTokens', sources.length);
       return firstMatch(sources, (source) => context.analyzeNested(source, nestedOverrides));
     }
 
@@ -368,10 +359,9 @@ function analyzeParallelChildCommand(
 
   if (childCommand.head === 'rm' && hasRecursiveForceFlags(childTokens)) {
     if (templateHasPlaceholder && jobs.length > 0) {
-      reserveParallelAnalysis(context.budget, expandedTokenJobWork(childTokens, jobs, 'rm'));
       return firstMatch(jobs, (job) =>
         analyzeParallelRmExpansion(
-          childTokens.map((token) => replaceParallelRmJobPlaceholder(token, job)),
+          expandParallelJob(childTokens, job, context.budget, PARALLEL_RM_PLACEHOLDER_RE),
           childCommand.cwd,
           executionContext,
         ),
@@ -379,15 +369,18 @@ function analyzeParallelChildCommand(
     }
 
     if (jobs.length > 0) {
-      reserveParallelAnalysis(context.budget, appendedTokenJobWork(childTokens, jobs));
       return firstMatch(jobs, (job) =>
-        analyzeParallelRmExpansion([...childTokens, ...job], childCommand.cwd, executionContext),
+        analyzeParallelRmExpansion(
+          appendParallelJob(childTokens, job, context.budget),
+          childCommand.cwd,
+          executionContext,
+        ),
       );
     }
     const staticResult = analyzeParallelRmExpansion(
       childTokens.flatMap((token, index) => {
         if (index === 0 || !hasParallelPlaceholder(token)) return [token];
-        return token.startsWith('-') ? [replaceParallelRmJobPlaceholder(token, [''])] : [];
+        return token.startsWith('-') ? [token.replace(PARALLEL_RM_PLACEHOLDER_RE, '')] : [];
       }),
       childCommand.cwd,
       executionContext,
@@ -396,22 +389,14 @@ function analyzeParallelChildCommand(
     return parallelRmDynamicReason(context);
   }
 
-  reserveParallelAnalysis(
-    context.budget,
-    templateHasPlaceholder && jobs.length > 0
-      ? expandedTokenJobWork(childTokens, jobs, 'generic')
-      : jobs.length > 0
-        ? appendedTokenJobWork(childTokens, jobs)
-        : staticTokenWork(childTokens),
-  );
   const childJobs: readonly (ParallelJob | undefined)[] = jobs.length > 0 ? jobs : [undefined];
   return firstMatch(childJobs, (job) => {
     const tokens =
       job === undefined
         ? childTokens
         : templateHasPlaceholder
-          ? childTokens.map((token) => replaceParallelJobPlaceholder(token, job))
-          : [...childTokens, ...job];
+          ? expandParallelJob(childTokens, job, context.budget)
+          : appendParallelJob(childTokens, job, context.budget);
     const shellDynamicMatch = destructiveCommandMatch(
       'parallel.shell-dynamic',
       REASON_PARALLEL_SHELL,
@@ -421,12 +406,7 @@ function analyzeParallelChildCommand(
         ? analyzeDynamicParallelFind(tokens, executionContext)
         : null;
     const dynamicCustomResult =
-      matchDynamicParallelPolicyRule(
-        tokens,
-        usesStdin,
-        context.policy?.rules ?? [],
-        context.budget,
-      ) ??
+      matchParallelStdinPolicyRule(tokens, usesStdin, context) ??
       findDynamicInput?.customResult ??
       null;
     const normalizedHead = normalizeCommandToken(childCommand.head);
@@ -560,74 +540,25 @@ function executableSourceCanChange<T extends { kind: string; tokenIndex: number;
   );
 }
 
-function matchDynamicParallelPolicyRule(
+function matchParallelStdinPolicyRule(
   tokens: readonly string[],
   usesStdin: boolean,
-  rules: readonly PolicyRule[],
-  budget: Budget,
+  context: ParallelAnalyzeContext,
 ): DestructiveCommandRuleMatch | null {
+  const rules = context.policy?.rules ?? [];
   if (!usesStdin || rules.length === 0) return null;
   const relevantRules = rules.filter(
     (rule) => normalizeCommandToken(rule.command) === normalizeCommandToken(tokens[0] ?? ''),
   );
   if (relevantRules.length === 0) return null;
-  const hasPlaceholder = tokens.some(hasParallelPlaceholder);
-  reserveParallelAnalysis(budget, dynamicCustomRuleWork(tokens, relevantRules, hasPlaceholder));
+  if (tokens.slice(1).some(hasParallelPlaceholder)) return parallelShellDynamicReason(context);
 
-  if (!hasPlaceholder) {
-    return firstMatch(relevantRules, (rule) =>
-      checkPolicyRuleMatch(
-        [...tokens, ...(rule.subcommand ? [rule.subcommand] : []), ...rule.block_args],
-        [rule],
-      ),
-    );
-  }
-
-  return firstMatch(relevantRules, (rule) => {
-    const inputCandidates = new Set(
-      [rule.subcommand, ...rule.block_args].flatMap((target) =>
-        target ? parallelInputsThatProduce(tokens, target) : [],
-      ),
-    );
-    return firstMatch(inputCandidates, (input) =>
-      checkPolicyRuleMatch(
-        tokens.map((token) => replaceParallelJobPlaceholder(token, [input])),
-        [rule],
-      ),
-    );
-  });
-}
-
-function dynamicCustomRuleWork(
-  tokens: readonly string[],
-  rules: readonly PolicyRule[],
-  hasPlaceholder: boolean,
-): ParallelAnalysisReservation {
-  const candidateCount = hasPlaceholder
-    ? limitedMultiply(
-        limitedAdd(
-          rules.map((rule) => rule.block_args.length + (rule.subcommand ? 1 : 0)),
-          LIMITS.parallelChildAnalyses.cap,
-        ),
-        2 * Math.max(tokens.length, 1),
-        LIMITS.parallelChildAnalyses.cap,
-      )
-    : rules.length;
-  return {
-    childAnalyses: candidateCount,
-    derivedTokens: limitedMultiply(candidateCount, tokens.length, LIMITS.parallelDerivedTokens.cap),
-  };
-}
-
-function parallelInputsThatProduce(tokens: readonly string[], target: string): string[] {
-  return tokens.flatMap((token) => {
-    const matches = [...token.matchAll(PARALLEL_PLACEHOLDER_RE)];
-    if (matches.length !== 1) return [];
-    const match = matches[0];
-    if (!match || match.index === undefined) return [];
-    const input = solveDynamicInput(token, match.index, match[0].length, target);
-    return input !== null && input !== target ? [target, input] : [target];
-  });
+  return firstMatch(relevantRules, (rule) =>
+    checkPolicyRuleMatch(
+      [...tokens, ...(rule.subcommand ? [rule.subcommand] : []), ...rule.block_args],
+      [rule],
+    ),
+  );
 }
 
 type DynamicParallelFindAnalysis = {
@@ -658,12 +589,7 @@ function analyzeDynamicParallelFind(
       analysis.rmOptions ||=
         (childCommand.head === 'rm' && parallelInputCanChangeRmOptions(childCommand.tokens)) ||
         (childCommand.head === 'xargs' && nestedRmInputCanChangeOptions(childCommand.tokens));
-      analysis.customResult ??= matchDynamicParallelPolicyRule(
-        childCommand.tokens,
-        true,
-        context.policy?.rules ?? [],
-        context.budget,
-      );
+      analysis.customResult ??= matchParallelStdinPolicyRule(childCommand.tokens, true, context);
     }
   };
 
@@ -764,220 +690,7 @@ function analyzeParallelRmExpansion(
   );
 }
 
-type PlaceholderKind = 'generic' | 'rm';
 type ParallelJob = readonly string[];
-
-type ReplacementStats = {
-  occurrences: number;
-  fixedBytes: number;
-};
-
-function commandsModeWork(args: readonly string[]): ParallelAnalysisReservation {
-  return {
-    childAnalyses: args.length,
-    derivedTokens: args.length,
-    derivedBytes: sumUtf8Bytes(args),
-  };
-}
-
-function staticStringWork(value: string): ParallelAnalysisReservation {
-  return staticTokenWork([value]);
-}
-
-function staticTokenWork(tokens: readonly string[]): ParallelAnalysisReservation {
-  return {
-    childAnalyses: 1,
-    derivedTokens: tokens.length,
-    derivedBytes: sumUtf8Bytes(tokens),
-  };
-}
-
-function appendedTokenJobWork(
-  tokens: readonly string[],
-  jobs: readonly ParallelJob[],
-): ParallelAnalysisReservation {
-  if (jobs.length > LIMITS.parallelChildAnalyses.cap) {
-    return { childAnalyses: jobs.length };
-  }
-  return {
-    childAnalyses: jobs.length,
-    derivedTokens: limitedAdd(
-      jobs.map((job) => tokens.length + job.length),
-      LIMITS.parallelDerivedTokens.cap,
-    ),
-    derivedBytes: limitedAdd(
-      [
-        limitedMultiply(sumUtf8Bytes(tokens), jobs.length, LIMITS.parallelDerivedBytes.cap),
-        limitedAdd(
-          jobs.map((job) => sumUtf8Bytes(job)),
-          LIMITS.parallelDerivedBytes.cap,
-        ),
-      ],
-      LIMITS.parallelDerivedBytes.cap,
-    ),
-  };
-}
-
-function expandedStringJobWork(
-  value: string,
-  jobs: readonly ParallelJob[],
-): ParallelAnalysisReservation {
-  return expandedTokenJobWork([value], jobs, 'generic');
-}
-
-function expandedTokenJobWork(
-  tokens: readonly string[],
-  jobs: readonly ParallelJob[],
-  placeholderKind: PlaceholderKind,
-): ParallelAnalysisReservation {
-  if (jobs.length > LIMITS.parallelChildAnalyses.cap) {
-    return { childAnalyses: jobs.length };
-  }
-  const derivedTokens = limitedMultiply(
-    tokens.length,
-    jobs.length,
-    LIMITS.parallelDerivedTokens.cap,
-  );
-  if (derivedTokens > LIMITS.parallelDerivedTokens.cap) {
-    return { childAnalyses: jobs.length, derivedTokens };
-  }
-  const stats = combineReplacementStats(
-    tokens.map((token) => getReplacementStats(token, placeholderKind)),
-  );
-  const placeholderReplacements = limitedMultiply(
-    stats.occurrences,
-    jobs.length,
-    LIMITS.parallelPlaceholderReplacements.cap,
-  );
-  if (placeholderReplacements > LIMITS.parallelPlaceholderReplacements.cap) {
-    return { childAnalyses: jobs.length, derivedTokens, placeholderReplacements };
-  }
-  if (expandedJobBytesExceedLimit(stats, jobs, placeholderReplacements)) {
-    return {
-      childAnalyses: jobs.length,
-      derivedTokens,
-      derivedBytes: LIMITS.parallelDerivedBytes.cap + 1,
-      placeholderReplacements,
-    };
-  }
-  const replace =
-    placeholderKind === 'generic' ? replaceParallelJobPlaceholder : replaceParallelRmJobPlaceholder;
-  const derivedBytes = limitedAdd(
-    jobs.map((job) => sumUtf8Bytes(tokens.map((token) => replace(token, job)))),
-    LIMITS.parallelDerivedBytes.cap,
-  );
-  return {
-    childAnalyses: jobs.length,
-    derivedTokens,
-    derivedBytes,
-    placeholderReplacements,
-  };
-}
-
-function expandedJobBytesExceedLimit(
-  stats: ReplacementStats,
-  jobs: readonly ParallelJob[],
-  placeholderReplacements: number,
-): boolean {
-  const byteCeiling = LIMITS.parallelDerivedBytes.cap + 4 * placeholderReplacements;
-  return (
-    limitedAdd(
-      [
-        limitedMultiply(stats.fixedBytes, jobs.length, byteCeiling),
-        limitedMultiply(
-          stats.occurrences,
-          limitedAdd(
-            jobs.map((job) =>
-              job.reduce((largest, arg) => Math.max(largest, utf8ByteLength(arg)), 0),
-            ),
-            byteCeiling,
-          ),
-          byteCeiling,
-        ),
-      ],
-      byteCeiling,
-    ) > byteCeiling
-  );
-}
-
-function getReplacementStats(value: string, placeholderKind: PlaceholderKind): ReplacementStats {
-  const matches =
-    placeholderKind === 'generic'
-      ? value.matchAll(PARALLEL_PLACEHOLDER_RE)
-      : value.matchAll(PARALLEL_RM_PLACEHOLDER_RE);
-  let occurrences = 0;
-  let fixedBytes = 0;
-  let lastIndex = 0;
-  for (const match of matches) {
-    if (occurrences >= LIMITS.parallelPlaceholderReplacements.cap) {
-      return {
-        occurrences: LIMITS.parallelPlaceholderReplacements.cap + 1,
-        fixedBytes: 0,
-      };
-    }
-    fixedBytes = limitedAdd(
-      [fixedBytes, utf8ByteLength(value.slice(lastIndex, match.index))],
-      MAX_EXPANDED_BYTE_OVERCOUNT,
-    );
-    occurrences++;
-    lastIndex = match.index + match[0].length;
-  }
-  return {
-    occurrences,
-    fixedBytes:
-      occurrences === 0
-        ? utf8ByteLength(value)
-        : limitedAdd(
-            [fixedBytes, utf8ByteLength(value.slice(lastIndex))],
-            MAX_EXPANDED_BYTE_OVERCOUNT,
-          ),
-  };
-}
-
-function combineReplacementStats(stats: readonly ReplacementStats[]): ReplacementStats {
-  return {
-    occurrences: limitedAdd(
-      stats.map((value) => value.occurrences),
-      LIMITS.parallelPlaceholderReplacements.cap,
-    ),
-    fixedBytes: limitedAdd(
-      stats.map((value) => value.fixedBytes),
-      MAX_EXPANDED_BYTE_OVERCOUNT,
-    ),
-  };
-}
-
-function sumUtf8Bytes(values: readonly string[], limit = LIMITS.parallelDerivedBytes.cap): number {
-  return limitedAdd(values.map(utf8ByteLength), limit);
-}
-
-function utf8ByteLength(value: string): number {
-  return UTF8_ENCODER.encode(value).byteLength;
-}
-
-function limitedAdd(values: readonly number[], limit: number): number {
-  let total = 0;
-  for (const value of values) {
-    if (!Number.isSafeInteger(value) || value < 0 || value > limit - total) {
-      return limit + 1;
-    }
-    total += value;
-  }
-  return total;
-}
-
-function limitedMultiply(left: number, right: number, limit: number): number {
-  if (
-    !Number.isSafeInteger(left) ||
-    !Number.isSafeInteger(right) ||
-    left < 0 ||
-    right < 0 ||
-    (left !== 0 && right > Math.floor(limit / left))
-  ) {
-    return limit + 1;
-  }
-  return left * right;
-}
 
 function buildNestedOverrides(
   envAssignments: ReadonlyMap<string, string> | undefined,
@@ -1017,10 +730,32 @@ function replaceParallelJobPlaceholder(token: string, job: ParallelJob): string 
   );
 }
 
-function replaceParallelRmJobPlaceholder(token: string, job: ParallelJob): string {
-  return token.replace(PARALLEL_RM_PLACEHOLDER_RE, (placeholder) =>
-    getParallelPlaceholderValue(placeholder, job),
+function expandParallelJob(
+  tokens: readonly string[],
+  job: ParallelJob,
+  budget: Budget,
+  placeholders = PARALLEL_PLACEHOLDER_RE,
+): string[] {
+  budget.charge(
+    'derivedTokens',
+    tokens.reduce((total, token) => total + 1 + Math.floor(token.length / 64), 0),
   );
+  return tokens.map((token) =>
+    token.replace(placeholders, (placeholder) => {
+      const value = getParallelPlaceholderValue(placeholder, job);
+      budget.charge('derivedTokens', Math.max(1, Math.ceil(value.length / 64)));
+      return value;
+    }),
+  );
+}
+
+function expandParallelString(value: string, job: ParallelJob, budget: Budget): string {
+  return expandParallelJob([value], job, budget)[0] ?? '';
+}
+
+function appendParallelJob(tokens: readonly string[], job: ParallelJob, budget: Budget): string[] {
+  budget.charge('derivedTokens', tokens.length + job.length);
+  return [...tokens, ...job];
 }
 
 function getParallelPlaceholderValue(placeholder: string, job: ParallelJob): string {
@@ -1029,8 +764,7 @@ function getParallelPlaceholderValue(placeholder: string, job: ParallelJob): str
     return job[0] ?? '';
   }
   const parsed = Number(position);
-  const index = parsed > 0 ? parsed - 1 : job.length + parsed;
-  return job[index] ?? '';
+  return job[parsed > 0 ? parsed - 1 : job.length + parsed] ?? '';
 }
 
 function hasParallelPlaceholder(token: string): boolean {
@@ -1040,7 +774,7 @@ function hasParallelPlaceholder(token: string): boolean {
 function hasUnsupportedParallelPlaceholder(token: string): boolean {
   if (hasExecutableParallelPlaceholder(token)) return true;
   for (const match of token.matchAll(PARALLEL_PLACEHOLDER_RE)) {
-    if (!/^(?:\{\}|\{-?\d+\})$/.test(match[0])) {
+    if (!/^(?:\{\}|\{\d+\})$/.test(match[0])) {
       return true;
     }
   }
@@ -1056,6 +790,27 @@ function isOnlyParallelPlaceholder(token: string): boolean {
   return /^\{[^{}\s]*\}$/.test(token);
 }
 
+function resolveParallelWorkdir(
+  workdir: string | undefined,
+  cwd: string | undefined,
+  paths: PathResolver,
+): string | null | undefined {
+  if (workdir === undefined) {
+    return undefined;
+  }
+  if (workdir === '...' || /[{}$`*?~[]/.test(workdir)) {
+    return null;
+  }
+  if (!cwd && !isAbsolute(workdir)) {
+    return null;
+  }
+  try {
+    return resolveChdirTarget(cwd ?? workdir, workdir, paths);
+  } catch {
+    return null;
+  }
+}
+
 function parseParallelCommand(tokens: readonly string[]): ParallelParseResult {
   let i = 1;
   const templateTokens: string[] = [];
@@ -1064,8 +819,8 @@ function parseParallelCommand(tokens: readonly string[]): ParallelParseResult {
   let markerIndex = -1;
   let runsRemotely = false;
   let usesPipe = false;
-  let dryRun = false;
   let workdir: string | undefined;
+  let dryRun = false;
   let unsupported = tokens.some(
     (token) => token === '::::' || token === '::::+' || token === ':::+',
   );
@@ -1142,14 +897,13 @@ function parseParallelCommand(tokens: readonly string[]): ParallelParseResult {
       continue;
     }
     if (PARALLEL_WORKDIR_OPTIONS.has(optionName)) {
+      unsupported = true;
       const value = attachedValue ?? nextToken;
       if (value === undefined || value === ':::' || value === '--') {
-        unsupported = true;
         i++;
         continue;
       }
       workdir = value;
-      unsupported ||= attachedValue !== undefined && value === '';
       i += attachedValue === undefined ? 2 : 1;
       continue;
     }
@@ -1193,6 +947,7 @@ function parseParallelCommand(tokens: readonly string[]): ParallelParseResult {
     }
     argumentGroups.push(group);
   }
+  unsupported ||= argumentGroups.length > 1;
   const jobs = expandParallelJobs(argumentGroups);
 
   const templateHasPlaceholder = templateTokens.some(hasParallelPlaceholder);
@@ -1212,27 +967,6 @@ function parseParallelCommand(tokens: readonly string[]): ParallelParseResult {
   };
 }
 
-function resolveParallelWorkdir(
-  workdir: string | undefined,
-  cwd: string | undefined,
-  paths: PathResolver,
-): string | null | undefined {
-  if (workdir === undefined) {
-    return undefined;
-  }
-  if (workdir === '...' || /[{}$`*?~[]/.test(workdir)) {
-    return null;
-  }
-  if (!cwd && !isAbsolute(workdir)) {
-    return null;
-  }
-  try {
-    return resolveChdirTarget(cwd ?? workdir, workdir, paths);
-  } catch {
-    return null;
-  }
-}
-
 function expandParallelJobs(argumentGroups: readonly (readonly string[])[]): ParallelJob[] {
   if (argumentGroups.length === 0 || argumentGroups.some((group) => group.length === 0)) {
     return [];
@@ -1249,7 +983,7 @@ function expandParallelJobs(argumentGroups: readonly (readonly string[])[]): Par
     for (const job of jobs) {
       for (const arg of group) {
         expanded.push([...job, arg]);
-        if (expanded.length > LIMITS.parallelChildAnalyses.cap) {
+        if (expanded.length > LIMITS.derivedTokens.cap) {
           return expanded;
         }
       }

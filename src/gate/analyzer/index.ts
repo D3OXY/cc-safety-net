@@ -19,10 +19,6 @@ const ANALYZER_CAP_KINDS = new Set<LimitKind>([
   'controlFlowStates',
   'wrapperPeelIterations',
   'derivedCommandShape',
-  'parallelChildAnalyses',
-  'parallelDerivedTokens',
-  'parallelDerivedBytes',
-  'parallelPlaceholderReplacements',
 ]);
 
 /** @internal */

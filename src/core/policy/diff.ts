@@ -3,7 +3,7 @@ import type { Environment } from '@/core/environment';
 import { getUserPolicyPath, type UserScopeOptions } from './paths';
 import { normalizeGuiPolicy } from './store';
 import type { GuiPolicy } from './types';
-import { getUserPolicyDiagnostics } from './user-policy-diagnostics';
+import { salvageUserPolicy } from './user-policy-diagnostics';
 
 export type PolicyDiffRow = { field: string; before?: string; after?: string };
 
@@ -65,10 +65,10 @@ export function readRuntimeUserBaseline(
     };
   }
   const file = readPolicyJson(path);
+  const salvaged = salvageUserPolicy(file.value, environment.home);
   return {
-    baseline: normalizeGuiPolicy(file.value, environment.home),
-    diagnostics:
-      file.errors.length > 0 ? file.errors : getUserPolicyDiagnostics(file.value, environment.home),
+    baseline: salvaged.policy,
+    diagnostics: file.errors.length > 0 ? file.errors : salvaged.errors,
   };
 }
 

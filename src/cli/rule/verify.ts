@@ -2,7 +2,6 @@ import { join, resolve } from 'node:path';
 import { colors } from '@/cli/utils/colors';
 import type { Environment } from '@/core/environment';
 import {
-  bindDelegatedPolicyFilesystemTarget,
   getPolicyFilesystemTargetForPath,
   PolicyFilesystemError,
   type PolicyFilesystemTarget,
@@ -17,11 +16,7 @@ import {
   validateConfigFile,
   validateRulesConfigFile,
 } from '@/core/policy/config-file';
-import {
-  getPolicyPaths,
-  getProjectRulesConfigPath,
-  getUserRulesConfigPath,
-} from '@/core/policy/paths';
+import { getPolicyPaths } from '@/core/policy/paths';
 import { assertValidRulebook } from '@/core/policy/rulebook';
 import { getRulesConfigRuntimeErrorsForConfig } from '@/core/policy/scope-policy';
 import { NAME_PATTERN, RULES_DIR } from '@/core/policy/source-syntax';
@@ -37,10 +32,6 @@ type RulesConfigSchemaKind = 'rules' | 'legacy';
 
 interface RulesVerifyOptions {
   cwd?: string;
-  userConfigPath?: string;
-  projectConfigPath?: string;
-  legacyUserConfigPath?: string;
-  legacyProjectConfigPath?: string;
 }
 
 export function runRulesVerify(environment: Environment, options: RulesVerifyOptions = {}): number {
@@ -57,26 +48,15 @@ export function runRulesVerify(environment: Environment, options: RulesVerifyOpt
 
 function runRulesVerifyInternal(environment: Environment, options: RulesVerifyOptions): number {
   const cwd = options.cwd ?? process.cwd();
-  const userConfig = options.userConfigPath ?? getUserRulesConfigPath(environment);
-  const projectConfig = options.projectConfigPath ?? getProjectRulesConfigPath(cwd);
-  const legacyUserConfig =
-    options.legacyUserConfigPath ?? getLegacyUserRulesConfigPath(environment);
-  const legacyProjectConfig = options.legacyProjectConfigPath ?? getLegacyProjectConfigPath(cwd);
+  const paths = getPolicyPaths(environment, { cwd });
+  const legacyUserConfig = getLegacyUserRulesConfigPath(environment);
+  const legacyProjectConfig = getLegacyProjectConfigPath(cwd);
   const githubSourceRulesDir = resolve(cwd, RULES_DIR);
-  const paths = getPolicyPaths(environment, {
-    cwd,
-    userConfigPath: userConfig,
-    projectConfigPath: projectConfig,
-  });
-  const defaultPaths = getPolicyPaths(environment, { cwd });
-  const userConfigTarget = getPolicyFilesystemTargetForPath(paths.userScope, userConfig);
-  const projectConfigTarget = getPolicyFilesystemTargetForPath(paths.projectScope, projectConfig);
-  const legacyUserTarget = options.legacyUserConfigPath
-    ? bindDelegatedPolicyFilesystemTarget(options.legacyUserConfigPath, 'user policy')
-    : getPolicyFilesystemTargetForPath(defaultPaths.userScope, legacyUserConfig);
-  const legacyProjectTarget = options.legacyProjectConfigPath
-    ? bindDelegatedPolicyFilesystemTarget(options.legacyProjectConfigPath, 'project policy')
-    : getPolicyFilesystemTargetForPath(defaultPaths.projectScope, legacyProjectConfig);
+  const legacyUserTarget = getPolicyFilesystemTargetForPath(paths.userScope, legacyUserConfig);
+  const legacyProjectTarget = getPolicyFilesystemTargetForPath(
+    paths.projectScope,
+    legacyProjectConfig,
+  );
 
   let hasErrors = false;
   let hasWarnings = false;
@@ -90,27 +70,29 @@ function runRulesVerifyInternal(environment: Environment, options: RulesVerifyOp
   }> = [];
   const warnings: string[] = [];
   const githubSourceRules = getGitHubSourceRulesValidation(
-    getPolicyFilesystemTargetForPath(defaultPaths.projectScope, githubSourceRulesDir),
+    getPolicyFilesystemTargetForPath(paths.projectScope, githubSourceRulesDir),
   );
 
   printRulesVerifyHeader();
 
-  if (readPolicyFile(userConfigTarget) !== null) {
-    const result = validateRulesConfigFile(userConfigTarget);
-    result.errors.push(...getRulesConfigRuntimeErrorsForConfig(userConfig, paths.userScope));
+  if (readPolicyFile(paths.userConfigTarget) !== null) {
+    const result = validateRulesConfigFile(paths.userConfigTarget);
+    result.errors.push(
+      ...getRulesConfigRuntimeErrorsForConfig(paths.userConfigPath, paths.userScope),
+    );
     configsChecked.push({
       scope: 'User',
-      path: userConfig,
+      path: paths.userConfigPath,
       result,
       schema: 'rules',
-      target: userConfigTarget,
+      target: paths.userConfigTarget,
     });
     if (result.errors.length > 0) hasErrors = true;
   }
 
   if (readPolicyFile(legacyUserTarget) !== null) {
     hasWarnings = true;
-    if (readPolicyFile(userConfigTarget) !== null) {
+    if (readPolicyFile(paths.userConfigTarget) !== null) {
       warnings.push(getLegacyRulesConfigWarning('user', 'cleanup'));
     } else {
       const result = validateConfigFile(legacyUserTarget);
@@ -129,15 +111,17 @@ function runRulesVerifyInternal(environment: Environment, options: RulesVerifyOp
     }
   }
 
-  if (readPolicyFile(projectConfigTarget) !== null) {
-    const result = validateRulesConfigFile(projectConfigTarget);
-    result.errors.push(...getRulesConfigRuntimeErrorsForConfig(projectConfig, paths.projectScope));
+  if (readPolicyFile(paths.projectConfigTarget) !== null) {
+    const result = validateRulesConfigFile(paths.projectConfigTarget);
+    result.errors.push(
+      ...getRulesConfigRuntimeErrorsForConfig(paths.projectConfigPath, paths.projectScope),
+    );
     configsChecked.push({
       scope: 'Project',
-      path: resolve(projectConfig),
+      path: resolve(paths.projectConfigPath),
       result,
       schema: 'rules',
-      target: projectConfigTarget,
+      target: paths.projectConfigTarget,
     });
     if (result.errors.length > 0) hasErrors = true;
     if (readPolicyFile(legacyProjectTarget) !== null) {

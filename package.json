@@ -39,12 +39,10 @@
     "knip": "knip-bun --production",
     "check-duplicates": "bunx jscpd src tests --no-tips --exit-code 1 --reporters ai --ignore '**/*.svg' --ignore 'src/gui/frontend/**' --ignore-pattern 'import\\s[\\s\\S]*?from\\s[^;]*;'",
     "test": "bun test",
-    "test:e2e": "bun test tests/e2e",
     "test:e2e:stability": "bun test tests/e2e --randomize --rerun-each 3",
     "test:e2e:live": "CC_SAFETY_NET_E2E_LIVE=1 bun test tests/e2e-live",
     "test:coverage": "AGENT=1 bun test tests --path-ignore-patterns 'tests/e2e-live/**' --coverage --coverage-reporter=text --coverage-reporter=lcov",
     "cc-safety-net": "bun run src/entries/bin.ts",
-    "ccsn": "bun run src/entries/bin.ts",
     "eval": "claude plugin eval . --ablation with-without --judge-model sonnet --allow-tools \"Bash(npx -y cc-safety-net:*)\" \"Bash(npx cc-safety-net:*)\"",
     "prepare": "lefthook install"
   },

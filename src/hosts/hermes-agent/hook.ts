@@ -1,14 +1,9 @@
 import { resolve } from 'node:path';
 import type { IntegrationDenial } from '@/core/denial';
 import type { Environment } from '@/core/environment';
-import {
-  firstTrustedRoot,
-  getToolRoute,
-  outputFailedClosed,
-  resolveStandardHookContext,
-} from '@/gate/intake';
+import { firstTrustedRoot, getToolRoute, outputFailedClosed } from '@/gate/intake';
 import type { CommandToolKind, ToolCallContext } from '@/gate/invocation';
-import { runConfiguredHookAdapter } from '@/hosts/hook/common';
+import { getStandardHookContext, runConfiguredHookAdapter } from '@/hosts/hook/common';
 import { HERMES_AGENT_HOOK_EVENT } from '@/hosts/hook/constants';
 
 interface HermesAgentHookInput {
@@ -45,14 +40,7 @@ function resolveHermesAgentContext(
   outputDeny: (denial: IntegrationDenial) => void,
   environment: Environment,
 ): ToolCallContext | null {
-  const context = resolveStandardHookContext(
-    input.cwd,
-    toolInput,
-    toolName,
-    outputDeny,
-    environment.paths,
-    process.cwd(),
-  );
+  const context = getStandardHookContext(input, toolInput, toolName, outputDeny, environment);
   if (!context) return null;
   if (!toolInput || typeof toolInput !== 'object' || Array.isArray(toolInput)) return context;
   if (!Object.hasOwn(toolInput, 'workdir')) return context;

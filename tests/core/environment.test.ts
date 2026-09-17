@@ -8,9 +8,8 @@ import {
   type FakeEntry,
   processPathResolver,
 } from '@/core/environment';
-import { createLinkedWorktreeFixture } from '../helpers';
+import { createLinkedWorktreeFixture, runGit } from '../helpers';
 import { describeOutcome } from '../helpers/fixture-tree';
-import { runGit } from '../helpers/git-worktree';
 
 import { writeSymlinkLoopTree } from './differential-inputs';
 
@@ -23,7 +22,7 @@ beforeAll(() => {
     link: { symlink: join(root, 'dir') },
     'repo/nested': null,
   });
-  runGit(join(root, 'repo'), ['init', '-q']);
+  runGit(['init', '-q'], join(root, 'repo'));
 });
 
 afterAll(() => {

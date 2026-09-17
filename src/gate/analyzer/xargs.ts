@@ -5,7 +5,7 @@ import { checkPolicyRuleMatch } from '@/core/rules/custom';
 import { destructiveCommandMatch } from '@/core/rules/destructive';
 import type { DestructiveCommandRuleMatch, PolicyRule } from '@/core/rules/types';
 import type { CommandWord } from '@/core/shell/model';
-import { parseShellArgv } from '@/core/shell/tokens';
+import { normalizeCommandToken, parseShellArgv } from '@/core/shell/tokens';
 import type { AnalyzeNestedOverrides, EnvironmentContext } from '@/gate/analysis';
 import { AWK_EXECUTABLE_SOURCE_SELECTORS, parseAwkArgv } from './awk';
 import {
@@ -112,6 +112,7 @@ export function analyzeXargs(
       childTokens,
       replacementToken,
       context.policy?.rules ?? [],
+      filterDestructiveCommandMatch(shellDynamicMatch, context.policy),
     );
     if (dynamicCustomResult) return dynamicCustomResult;
 
@@ -143,6 +144,7 @@ function matchDynamicPolicyRule(
   tokens: readonly string[],
   replacementToken: string | null,
   rules: readonly PolicyRule[],
+  shellDynamic: DestructiveCommandRuleMatch | null,
 ): DestructiveCommandRuleMatch | null {
   if (rules.length === 0) return null;
   if (replacementToken === null) {
@@ -156,23 +158,9 @@ function matchDynamicPolicyRule(
     return null;
   }
 
-  const values = new Set(
-    rules.flatMap((rule) =>
-      [rule.subcommand, ...rule.block_args].flatMap((target) =>
-        target
-          ? tokens.flatMap((token) => replacementValuesThatProduce(token, replacementToken, target))
-          : [],
-      ),
-    ),
-  );
-  for (const value of values) {
-    const result = checkPolicyRuleMatch(
-      tokens.map((token) => token.replaceAll(replacementToken, value)),
-      rules,
-    );
-    if (result) return result;
-  }
-  return null;
+  const head = normalizeCommandToken(tokens[0] ?? '');
+  if (!rules.some((rule) => normalizeCommandToken(rule.command) === head)) return null;
+  return tokens.slice(1).some((token) => token.includes(replacementToken)) ? shellDynamic : null;
 }
 
 function replacementValuesThatProduce(

@@ -94,7 +94,6 @@ async function collectDoctorReport(
     projectConfig: configInfo.projectConfig,
     configState: describeConfigState(snapshot),
     effectiveRules: configInfo.effectiveRules,
-    shadowedRules: configInfo.shadowedRules,
     environment: environmentInfo,
     effectiveSafety: {
       selectedPreset: policy.safety.level ?? 'standard',

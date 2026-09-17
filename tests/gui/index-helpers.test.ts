@@ -29,7 +29,6 @@ const installedPlugin = (enabled: boolean): TreeSpec => ({
 });
 
 type Integrations = Awaited<ReturnType<typeof portedIntegrations>>;
-type Health = Awaited<ReturnType<typeof portedHealth>>;
 
 const UPDATE = { currentVersion: 'dev', latestVersion: '9.9.9', updateAvailable: true };
 
@@ -41,19 +40,6 @@ const integrationsOver = async (seed: TreeSpec) => {
   ).outcome;
   if (outcome.kind !== 'returned') throw new Error(`fetchIntegrations threw: ${outcome.message}`);
   return outcome.value as Integrations;
-};
-
-const healthOver = async (seed: TreeSpec) => {
-  const outcome = (
-    await differential({ seed }, (environment) =>
-      portedHealth(environment, {
-        fetcher: mockVersionFetcher,
-        checkUpdates: async () => UPDATE,
-      }),
-    )
-  ).outcome;
-  if (outcome.kind !== 'returned') throw new Error(`fetchHealth threw: ${outcome.message}`);
-  return outcome.value as Health;
 };
 
 const statusOf = (status: Integrations, target: string) =>
@@ -94,20 +80,10 @@ describe('the GUI integrations probe', () => {
 });
 
 describe('the GUI health probe', () => {
-  afterEach(removeTempRoots);
-
-  test('lists only the runtimes it detected and passes the update check through', async () => {
-    const enabled = await healthOver(installedPlugin(true));
-    const bare = await healthOver({});
-
-    expect(enabled.update).toStrictEqual(UPDATE);
-    expect(enabled.hooks).toContainEqual({
-      platform: 'claude-code',
-      label: getIntegrationDisplayName('claude-code'),
-      configured: true,
+  test('passes the update check through without the running version', async () => {
+    expect(await portedHealth({ checkUpdates: async () => UPDATE })).toStrictEqual({
+      update: { latestVersion: '9.9.9', updateAvailable: true },
     });
-    expect(bare.hooks.map((hook) => hook.platform)).not.toContain('claude-code');
-    expect(bare.update).toStrictEqual(UPDATE);
   });
 });
 

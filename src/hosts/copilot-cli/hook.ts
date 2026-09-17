@@ -1,6 +1,6 @@
-import { getToolRoute, parseHookJson, resolveStandardHookContext } from '@/gate/intake';
+import { getToolRoute, parseHookJson } from '@/gate/intake';
 import type { CommandToolKind } from '@/gate/invocation';
-import { runConfiguredHookAdapter } from '@/hosts/hook/common';
+import { getStandardHookContext, runConfiguredHookAdapter } from '@/hosts/hook/common';
 
 interface CopilotCliHookInput {
   sessionId: string;
@@ -48,15 +48,7 @@ export async function runCopilotCliHook(): Promise<void> {
       if (toolInput === undefined) return { ok: false };
       return { ok: true, input: toolInput, route: getCopilotCliToolRoute(toolName) };
     },
-    getContext: (input, toolInput, toolName, outputDeny, environment) =>
-      resolveStandardHookContext(
-        input.cwd,
-        toolInput,
-        toolName,
-        outputDeny,
-        environment.paths,
-        process.cwd(),
-      ),
+    getContext: getStandardHookContext,
     getSessionId: (input) =>
       typeof input.sessionId === 'string' && input.sessionId.trim() ? input.sessionId : undefined,
   });
