@@ -39,6 +39,7 @@ function writeBuildFixture(directory: string) {
   writeFileSync(join(directory, 'dist', 'api.d.ts'), 'export {};\n');
   writeFileSync(join(directory, 'dist', 'api.js'), 'export {};\n');
   writeFileSync(join(directory, 'dist', 'index.d.ts'), 'export {};\n');
+  writeFileSync(join(directory, 'dist', 'opencode-v2.d.ts'), 'export {};\n');
   writeFileSync(join(directory, 'dist', 'index.js'), 'import "./chunks/index-fixture.js";\n');
   writeFileSync(join(directory, 'dist', 'pi', 'index.js'), 'export {};\n');
   writeFileSync(

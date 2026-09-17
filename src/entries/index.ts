@@ -5,9 +5,10 @@ import { createOpenCodeV2Plugin } from '@/hosts/opencode/v2';
 
 export const CCSafetyNetPlugin: Plugin = createCCSafetyNetPlugin();
 
-const plugin: V2Plugin & { server: Plugin } = {
+// The root exposes v1 types; v2 consumers use the opencode/v2 type entry.
+const plugin: { id: string; server: Plugin } = {
   ...createOpenCodeV2Plugin(),
   server: CCSafetyNetPlugin,
-};
+} satisfies V2Plugin & { server: Plugin };
 
 export default plugin;

@@ -56,7 +56,7 @@ describe('the build', () => {
     for (const build of [buildRuntimeBundles, buildAmpBundle, buildOpenClawBundle]) {
       expect((await build(outdir)).success).toBeTrue();
     }
-    for (const declaration of ['index.d.ts', 'api.d.ts']) {
+    for (const declaration of ['index.d.ts', 'api.d.ts', 'opencode-v2.d.ts']) {
       writeFileSync(join(outdir, declaration), 'export {};\n');
     }
     chmodSync(bin, 0o755);
@@ -81,6 +81,7 @@ describe('the build', () => {
       'openclaw/cc-safety-net/index.js',
       'openclaw/cc-safety-net/openclaw.plugin.json',
       'openclaw/cc-safety-net/package.json',
+      'opencode-v2.d.ts',
       'pi/index.js',
     ]);
     expect(listOutputs('chunks/*.js').length).toBeGreaterThan(0);

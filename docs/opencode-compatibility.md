@@ -4,6 +4,11 @@ CC Safety Net supports OpenCode 1.18.29+ and 2.0.6+. Both use the same npm packa
 Older v1 releases do not support the combined plugin entrypoint. Upgrade OpenCode before
 updating CC Safety Net.
 
+For TypeScript imports, use `CCSafetyNetPlugin` or the default plugin's `server` from
+`cc-safety-net` with the v1 SDK. Use the default export from `cc-safety-net/opencode/v2`
+with the v2 SDK. Each entry's declarations require only its own generation's optional
+peer. Both entries load the same runtime plugin; automatic installation is unchanged.
+
 ```sh
 npx -y cc-safety-net@latest install --opencode
 ```

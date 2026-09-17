@@ -14,6 +14,10 @@
       "types": "./dist/api.d.ts",
       "import": "./dist/api.js"
     },
+    "./opencode/v2": {
+      "types": "./dist/opencode-v2.d.ts",
+      "import": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {

@@ -304,6 +304,9 @@ export async function verifyPackage(): Promise<void> {
     evalModule(
       "import * as api from 'cc-safety-net'; if (Object.keys(api).join() !== 'CCSafetyNetPlugin,default') process.exit(2)",
     );
+    evalModule(
+      "import root from 'cc-safety-net'; import v2 from 'cc-safety-net/opencode/v2'; if (v2 !== root || typeof v2.effect !== 'function' || typeof v2.server !== 'function') process.exit(2)",
+    );
     run(['node', '--eval', "require('cc-safety-net')"], directory, [1]);
     evalModule("import 'cc-safety-net/dist/index.js'", 1);
     evalModule(`
@@ -354,42 +357,61 @@ export async function verifyPackage(): Promise<void> {
     if (existsSync(apiAuditHome)) {
       throw new Error('Packed library API wrote audit data');
     }
-    verifyLibraryOnlyConsumer(tarball);
+    verifyIsolatedConsumers(tarball);
     console.log(`Verified ${basename(tarball)} (${result.size} bytes)`);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
 }
 
-// The peer-installed fixture above cannot prove type isolation: with the peer
-// present, a declaration that leaked its types would still compile. This fixture
-// omits optional packages so the api subpath must compile from dist/api.d.ts alone.
-function verifyLibraryOnlyConsumer(tarball: string): void {
-  const directory = mkdtempSync(join(tmpdir(), 'cc-safety-net-library-'));
-  try {
-    run(['npm', 'init', '--yes'], directory);
-    run(
-      [
-        'npm',
-        'install',
-        '--ignore-scripts',
-        '--no-audit',
-        '--no-fund',
-        '--omit=optional',
-        tarball,
-        '@types/node@18',
-        'typescript@5',
-      ],
-      directory,
-    );
-    run(['node', '--eval', "require.resolve('@opencode-ai/plugin')"], directory, [1]);
-    const apiConsumer = writeTypeScriptConsumer(
-      directory,
-      "import { checkCommand, type CheckCommandResult } from 'cc-safety-net/api';\nconst result: CheckCommandResult = checkCommand({ command: 'git status', cwd: '/tmp' });\nvoid result;\n",
-    );
-    run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', apiConsumer], directory);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
+// Installing both peers masks declarations that leak the other generation's types.
+function verifyIsolatedConsumers(tarball: string): void {
+  for (const fixture of [
+    {
+      peers: [],
+      absent: ['@opencode-ai/plugin', '@opencode/plugin'],
+      source:
+        "import { checkCommand, type CheckCommandResult } from 'cc-safety-net/api';\nconst result: CheckCommandResult = checkCommand({ command: 'git status', cwd: '/tmp' });\nvoid result;\n",
+    },
+    {
+      peers: ['@opencode-ai/plugin@1.18.29'],
+      absent: ['@opencode/plugin'],
+      source:
+        "import plugin, { CCSafetyNetPlugin } from 'cc-safety-net';\nimport type { Plugin } from '@opencode-ai/plugin';\nconst named: Plugin = CCSafetyNetPlugin;\nconst server: Plugin = plugin.server;\nvoid named; void server;\n",
+    },
+    {
+      peers: ['@opencode/plugin@2.0.6', '@types/json-schema'],
+      absent: ['@opencode-ai/plugin'],
+      source:
+        "import plugin from 'cc-safety-net/opencode/v2';\nimport type { Plugin } from '@opencode/plugin/effect/plugin';\nconst registered: Plugin = plugin;\nvoid registered;\n",
+    },
+  ]) {
+    const directory = mkdtempSync(join(tmpdir(), 'cc-safety-net-consumer-'));
+    try {
+      run(['npm', 'init', '--yes'], directory);
+      run(
+        [
+          'npm',
+          'install',
+          '--ignore-scripts',
+          '--no-audit',
+          '--no-fund',
+          '--omit=optional',
+          tarball,
+          '@types/node@18',
+          'typescript@5',
+          ...fixture.peers,
+        ],
+        directory,
+      );
+      for (const peer of fixture.absent) {
+        run(['node', '--eval', `require.resolve('${peer}')`], directory, [1]);
+      }
+      const consumer = writeTypeScriptConsumer(directory, fixture.source);
+      run([join(directory, 'node_modules', '.bin', 'tsc'), '--project', consumer], directory);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   }
 }
 

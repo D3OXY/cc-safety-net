@@ -13,6 +13,7 @@ const THIRD_PARTY_ALLOWANCES: Record<string, readonly string[]> = {
     'effect',
   ],
   'entries/index.ts': ['@opencode-ai/plugin', '@opencode/plugin/effect/plugin'],
+  'entries/opencode-v2.ts': ['@opencode/plugin/effect/plugin'],
   'hosts/amp/tool-call.ts': ['@ampcode/plugin'],
   'entries/amp.ts': ['@ampcode/plugin'],
 };

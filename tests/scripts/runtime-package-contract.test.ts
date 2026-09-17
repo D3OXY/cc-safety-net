@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as Record<string, unknown>;
 
 describe('published runtime contract', () => {
-  test('publishes two supported ESM entries and rejects deep imports', () => {
+  test('publishes the supported ESM entries and rejects deep imports', () => {
     expect(pkg.exports).toEqual({
       '.': {
         types: './dist/index.d.ts',
@@ -13,6 +13,10 @@ describe('published runtime contract', () => {
       './api': {
         types: './dist/api.d.ts',
         import: './dist/api.js',
+      },
+      './opencode/v2': {
+        types: './dist/opencode-v2.d.ts',
+        import: './dist/index.js',
       },
       './package.json': './package.json',
     });

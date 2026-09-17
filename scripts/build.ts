@@ -52,7 +52,7 @@ for await (const path of new Bun.Glob('dist/**/*.d.ts').scan('.')) {
 }
 // tsc names a declaration after its source directory relative to rootDir, so an entry that
 // lives in a subdirectory is emitted into one; the package exposes both at the outdir root.
-for (const name of ['index', 'api']) {
+for (const name of ['index', 'api', 'opencode-v2']) {
   renameSync(join('dist', 'entries', `${name}.d.ts`), join('dist', `${name}.d.ts`));
 }
 
