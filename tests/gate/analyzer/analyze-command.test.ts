@@ -580,6 +580,8 @@ describe('analyzeCommand', () => {
     for (const command of [
       `CDPATH=${workspace}; cd helpers && rm -rf keep`,
       `export CDPATH=${workspace} && cd helpers && rm -rf keep`,
+      `CDPATH+=${workspace}; cd helpers && rm -rf keep`,
+      `export CDPATH+=${workspace}; cd helpers && rm -rf keep`,
     ]) {
       expect(decisionAt(plain, command, standard)?.ruleId, command).toBe(
         'rm.recursive-force-outside-cwd',
