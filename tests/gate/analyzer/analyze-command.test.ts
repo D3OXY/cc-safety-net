@@ -577,6 +577,14 @@ describe('analyzeCommand', () => {
     expect(
       decisionAt(plain, `CDPATH=${workspace} cd ./helpers && rm -rf keep`, standard),
     ).toBeNull();
+    for (const command of [
+      `CDPATH=${workspace}; cd helpers && rm -rf keep`,
+      `export CDPATH=${workspace} && cd helpers && rm -rf keep`,
+    ]) {
+      expect(decisionAt(plain, command, standard)?.ruleId, command).toBe(
+        'rm.recursive-force-outside-cwd',
+      );
+    }
     const cdpathEnvironment = createTestEnvironment({
       env: new Map([...processState, ['CDPATH', workspace]]),
       home: agentHome,

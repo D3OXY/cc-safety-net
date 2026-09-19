@@ -1013,7 +1013,9 @@ export function resolveCwdAfterCommandView(
   }
 
   const segment = commandView.words.map(analysisWordText);
-  if (!posixSegmentChangesCwd(segment, environment)) return undefined;
+  if (!posixSegmentChangesCwd(segment, environment)) {
+    return segment.some((token) => token.startsWith('CDPATH=')) ? null : undefined;
+  }
   if (!cwd) return null;
 
   const unwrapped = getCwdChangeTokens(segment, environment, cwd);
