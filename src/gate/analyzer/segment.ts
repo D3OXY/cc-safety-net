@@ -1030,8 +1030,16 @@ export function resolveCwdAfterCommandView(
   if (options.some((token) => !/^-[LP]+$/.test(token))) return null;
   const rest = optionEnd === -1 ? [] : operands.slice(optionEnd);
   const targets = rest[0] === '--' ? rest.slice(1) : rest;
-  if (targets.length !== 1) return null;
-  return resolveKnownCwdTarget(targets[0], cwd, environment.paths);
+  const target = targets[0];
+  if (targets.length !== 1 || target === undefined) return null;
+  if (
+    !/^(?:[./]|[A-Za-z]:[\\/])/.test(target) &&
+    (stripEnvAssignmentWords(commandView.words).envAssignments.has('CDPATH') ||
+      environment.env.has('CDPATH'))
+  ) {
+    return null;
+  }
+  return resolveKnownCwdTarget(target, cwd, environment.paths);
 }
 
 function resolveKnownCwdTarget(

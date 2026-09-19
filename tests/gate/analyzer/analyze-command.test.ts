@@ -568,6 +568,32 @@ describe('analyzeCommand', () => {
     );
   });
 
+  test('a bare cd operand is not tracked while CDPATH can redirect it', () => {
+    expect(decisionAt(plain, 'cd helpers && rm -rf keep', standard)).toBeNull();
+    expect(decisionAt(plain, 'cd ./helpers && rm -rf keep', standard)).toBeNull();
+    expect(
+      decisionAt(plain, `CDPATH=${workspace} cd helpers && rm -rf keep`, standard)?.ruleId,
+    ).toBe('rm.recursive-force-outside-cwd');
+    expect(
+      decisionAt(plain, `CDPATH=${workspace} cd ./helpers && rm -rf keep`, standard),
+    ).toBeNull();
+    const cdpathEnvironment = createTestEnvironment({
+      env: new Map([...processState, ['CDPATH', workspace]]),
+      home: agentHome,
+      tmpdir: scratch,
+      paths: portedPaths,
+    });
+    expect(
+      analyzeCommand('cd helpers && rm -rf keep', {
+        policySnapshot: snapshot,
+        effectiveCapabilities: standard.capabilities,
+        environment: cdpathEnvironment,
+        protectedGitMetadata: gitMetadata,
+        cwd: plain,
+      })?.ruleId,
+    ).toBe('rm.recursive-force-outside-cwd');
+  });
+
   test('the original cwd stays a self target after a tracked cd', () => {
     for (const command of [
       'cd helpers && rm -rf ..',
