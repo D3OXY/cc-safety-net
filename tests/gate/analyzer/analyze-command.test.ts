@@ -539,6 +539,8 @@ describe('analyzeCommand', () => {
   test('a tracked cd into a temp directory makes a relative rm -rf a temp delete', () => {
     const scratchPosix = scratch.split(sep).join('/');
     expect(decision(`cd '${scratchPosix}' && rm -rf build`, standard)).toBeNull();
+    expect(decision(`cd -- '${scratchPosix}' && rm -rf build`, standard)).toBeNull();
+    expect(decision(`cd -P '${scratchPosix}' && rm -rf build`, standard)).toBeNull();
     expect(decision(`cd '${scratchPosix}' && rm -rf ../checkout`, standard)?.ruleId).toBe(
       'rm.git-metadata',
     );

@@ -1022,7 +1022,11 @@ export function resolveCwdAfterCommandView(
     return null;
   }
 
-  return resolveKnownCwdTarget(unwrapped[cdIndex + 1], cwd, environment.paths);
+  const operands = unwrapped.slice(cdIndex + 1);
+  const optionEnd = operands.indexOf('--');
+  const target =
+    optionEnd === -1 ? operands.find((token) => !/^-[LP]+$/.test(token)) : operands[optionEnd + 1];
+  return resolveKnownCwdTarget(target, cwd, environment.paths);
 }
 
 function resolveKnownCwdTarget(
