@@ -1023,8 +1023,9 @@ export function resolveCwdAfterCommandView(
   }
 
   const operands = unwrapped.slice(cdIndex + 1);
-  const isOption = (token: string) => token.length > 1 && token.startsWith('-') && token !== '--';
-  const optionEnd = operands.findIndex((token) => !isOption(token));
+  const optionEnd = operands.findIndex(
+    (token) => token.length <= 1 || !token.startsWith('-') || token === '--',
+  );
   const options = optionEnd === -1 ? operands : operands.slice(0, optionEnd);
   if (options.some((token) => !/^-[LP]+$/.test(token))) return null;
   const rest = optionEnd === -1 ? [] : operands.slice(optionEnd);
