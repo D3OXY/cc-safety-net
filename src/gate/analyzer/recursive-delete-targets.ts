@@ -286,7 +286,28 @@ export function classifyRecursiveDeleteTarget(
     }
   }
 
+  if (isTrustedTempDescendantAfterCd(target, ctx, dynamic)) {
+    return { kind: 'temp_target' };
+  }
+
   return { kind: 'outside_anchored_cwd' };
+}
+
+function isTrustedTempDescendantAfterCd(
+  target: string,
+  ctx: RecursiveDeleteTargetContext,
+  dynamic: boolean,
+): boolean {
+  const normalized = target.trim();
+  if (dynamic || !ctx.resolvedCwd || !ctx.anchoredCwd || !normalized) return false;
+  if (isAbsolute(normalized) || normalized.startsWith('~')) return false;
+  if (hasParentDirectoryComponent(normalized)) return false;
+  if (
+    isWorkspaceWithinTarget(ctx.resolvedCwd, ctx.anchoredCwd, ctx.environment.paths, ctx.budget)
+  ) {
+    return false;
+  }
+  return isTrustedTempPath(resolve(ctx.resolvedCwd, normalized), ctx.environment);
 }
 
 export function isTrustedTempDescendantTarget(

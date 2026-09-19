@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir as systemTempRoot } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { REASON_DERIVED_COMMAND_WORK_LIMIT } from '@/core/budget';
 import { createTestEnvironment, processPathResolver as portedPaths } from '@/core/environment';
 import { resolveProtectedGitMetadata } from '@/core/git/metadata';
@@ -534,6 +534,17 @@ describe('analyzeCommand', () => {
     );
     expect(decisionAt(agentHome, 'rm -f file.txt', standard)).toBeNull();
     expect(decisionAt(project, 'rm -rf build', standard)).toBeNull();
+  });
+
+  test('a tracked cd into a temp directory makes a relative rm -rf a temp delete', () => {
+    const scratchPosix = scratch.split(sep).join('/');
+    expect(decision(`cd '${scratchPosix}' && rm -rf build`, standard)).toBeNull();
+    expect(decision(`cd '${scratchPosix}' && rm -rf ../checkout`, standard)?.ruleId).toBe(
+      'rm.git-metadata',
+    );
+    expect(decision('cd .. && rm -rf build', standard)?.ruleId).toBe(
+      'rm.recursive-force-outside-cwd',
+    );
   });
 
   test('strict adds the rules for command text it cannot verify', () => {

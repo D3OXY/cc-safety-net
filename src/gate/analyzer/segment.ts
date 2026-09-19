@@ -1,4 +1,3 @@
-import { normalize } from 'node:path';
 import { AnalysisLimit, LIMITS } from '@/core/budget';
 import { resolveChdirTarget } from '@/core/paths/chdir';
 import { isTmpdirOverriddenToNonTemp } from '@/core/paths/tmpdir';
@@ -1036,7 +1035,7 @@ function resolveKnownCwdTarget(
   }
 
   try {
-    return samePath(resolveChdirTarget(cwd, target, paths), cwd, paths) ? cwd : null;
+    return resolveChdirTarget(cwd, target, paths);
   } catch {
     return null;
   }
@@ -1117,13 +1116,6 @@ function getCwdChangeTokens(
 ): string[] {
   const stripped = stripLeadingGrouping(segment);
   return stripWrappers([...stripped], environment, cwd);
-}
-
-function samePath(a: string, b: string, paths: PathResolver): boolean {
-  const resolvedA = paths.realpath(a);
-  const resolvedB = paths.realpath(b);
-  if (resolvedA === null || resolvedB === null) return normalize(a) === normalize(b);
-  return normalize(resolvedA) === normalize(resolvedB);
 }
 
 function stripLeadingGrouping(tokens: readonly string[]): readonly string[] {
