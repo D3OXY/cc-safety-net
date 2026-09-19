@@ -318,7 +318,7 @@ describe('rm rule set', () => {
       { source: 'rm -rf build', id: null },
       { source: 'rm -rf ./build/cache', id: null },
       { source: 'rm -rf ..', id: 'rm.recursive-force-outside-cwd' },
-      { source: 'rm -rf ../work', id: 'rm.recursive-force-outside-cwd' },
+      { source: 'rm -rf ../work', id: 'rm.recursive-force-cwd-self' },
       { source: 'rm -rf ~/keep', id: 'rm.recursive-force-outside-cwd' },
     ];
     for (const row of rows)

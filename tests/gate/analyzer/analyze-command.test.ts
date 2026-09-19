@@ -15,7 +15,14 @@ const workspace = mkdtempSync(join(systemTempRoot(), 'analyze-command-'));
 const agentHome = join(workspace, 'agent-home');
 const scratch = join(workspace, 'scratch');
 const project = join(workspace, 'checkout');
-for (const directory of [agentHome, scratch, project, join(project, '.git')]) {
+const plain = join(workspace, 'plain');
+for (const directory of [
+  agentHome,
+  scratch,
+  project,
+  join(project, '.git'),
+  join(plain, 'helpers'),
+]) {
   mkdirSync(directory, { recursive: true });
 }
 
@@ -541,12 +548,30 @@ describe('analyzeCommand', () => {
     expect(decision(`cd '${scratchPosix}' && rm -rf build`, standard)).toBeNull();
     expect(decision(`cd -- '${scratchPosix}' && rm -rf build`, standard)).toBeNull();
     expect(decision(`cd -P '${scratchPosix}' && rm -rf build`, standard)).toBeNull();
+    expect(decision(`cd -x -- '${scratchPosix}' && rm -rf build`, standard)?.ruleId).toBe(
+      'rm.recursive-force-outside-cwd',
+    );
+    expect(decision(`cd '${scratchPosix}' extra && rm -rf build`, standard)?.ruleId).toBe(
+      'rm.recursive-force-outside-cwd',
+    );
     expect(decision(`cd '${scratchPosix}' && rm -rf ../checkout`, standard)?.ruleId).toBe(
       'rm.git-metadata',
     );
     expect(decision('cd .. && rm -rf build', standard)?.ruleId).toBe(
       'rm.recursive-force-outside-cwd',
     );
+  });
+
+  test('the original cwd stays a self target after a tracked cd', () => {
+    for (const command of [
+      'cd helpers && rm -rf ..',
+      'cd helpers && rm -rf ./..',
+      'cd .. && rm -rf plain',
+    ]) {
+      expect(decisionAt(plain, command, standard)?.ruleId, command).toBe(
+        'rm.recursive-force-cwd-self',
+      );
+    }
   });
 
   test('strict adds the rules for command text it cannot verify', () => {

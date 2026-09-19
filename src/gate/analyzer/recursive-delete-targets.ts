@@ -266,7 +266,15 @@ export function classifyRecursiveDeleteTarget(
 
     if (
       !options.skipCwdSelf &&
-      isCwdSelfTarget(target, ctx.resolvedCwd ?? anchoredCwd, ctx.environment.paths, ctx.budget)
+      [ctx.resolvedCwd ?? anchoredCwd, anchoredCwd].some((self) =>
+        isCwdSelfTarget(
+          target,
+          ctx.resolvedCwd ?? anchoredCwd,
+          ctx.environment.paths,
+          ctx.budget,
+          self,
+        ),
+      )
     ) {
       return { kind: 'cwd_self_target' };
     }
@@ -609,19 +617,20 @@ function isCwdSelfTarget(
   cwd: string,
   paths: PathResolver,
   budget: Budget,
+  self = cwd,
 ): boolean {
-  if (target === '.' || target === './' || target === '.\\') {
+  if (self === cwd && (target === '.' || target === './' || target === '.\\')) {
     return true;
   }
 
   try {
     return (
       normalizePathForComparison(resolveExistingPath(resolve(cwd, target), paths, budget)) ===
-      normalizePathForComparison(resolveExistingPath(cwd, paths, budget))
+      normalizePathForComparison(resolveExistingPath(self, paths, budget))
     );
   } catch {
     try {
-      return normalizePathForComparison(resolve(cwd, target)) === normalizePathForComparison(cwd);
+      return normalizePathForComparison(resolve(cwd, target)) === normalizePathForComparison(self);
     } catch {
       return false;
     }
