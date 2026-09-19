@@ -1023,12 +1023,12 @@ export function resolveCwdAfterCommandView(
   }
 
   const operands = unwrapped.slice(cdIndex + 1);
-  const separator = operands.indexOf('--');
-  const leading = separator === -1 ? operands : operands.slice(0, separator);
-  const isOption = (token: string) => token.length > 1 && token.startsWith('-');
-  if (leading.filter(isOption).some((token) => !/^-[LP]+$/.test(token))) return null;
-  const targets =
-    separator === -1 ? leading.filter((token) => !isOption(token)) : operands.slice(separator + 1);
+  const isOption = (token: string) => token.length > 1 && token.startsWith('-') && token !== '--';
+  const optionEnd = operands.findIndex((token) => !isOption(token));
+  const options = optionEnd === -1 ? operands : operands.slice(0, optionEnd);
+  if (options.some((token) => !/^-[LP]+$/.test(token))) return null;
+  const rest = optionEnd === -1 ? [] : operands.slice(optionEnd);
+  const targets = rest[0] === '--' ? rest.slice(1) : rest;
   if (targets.length !== 1) return null;
   return resolveKnownCwdTarget(targets[0], cwd, environment.paths);
 }

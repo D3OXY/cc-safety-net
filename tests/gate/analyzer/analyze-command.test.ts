@@ -554,6 +554,12 @@ describe('analyzeCommand', () => {
     expect(decision(`cd '${scratchPosix}' extra && rm -rf build`, standard)?.ruleId).toBe(
       'rm.recursive-force-outside-cwd',
     );
+    expect(decision(`cd '${scratchPosix}' -P && rm -rf build`, standard)?.ruleId).toBe(
+      'rm.recursive-force-outside-cwd',
+    );
+    expect(decision(`cd -P '${scratchPosix}' -L && rm -rf build`, standard)?.ruleId).toBe(
+      'rm.recursive-force-outside-cwd',
+    );
     expect(decision(`cd '${scratchPosix}' && rm -rf ../checkout`, standard)?.ruleId).toBe(
       'rm.git-metadata',
     );
