@@ -1013,9 +1013,8 @@ export function resolveCwdAfterCommandView(
   }
 
   const segment = commandView.words.map(analysisWordText);
-  if (!posixSegmentChangesCwd(segment, environment)) {
-    return segment.some((token) => /^CDPATH\+?=/.test(token)) ? null : undefined;
-  }
+  const assignsCdpath = segment.some((token) => /^CDPATH\+?=/.test(token));
+  if (!posixSegmentChangesCwd(segment, environment)) return assignsCdpath ? null : undefined;
   if (!cwd) return null;
 
   const unwrapped = getCwdChangeTokens(segment, environment, cwd);
@@ -1036,8 +1035,7 @@ export function resolveCwdAfterCommandView(
   if (targets.length !== 1 || target === undefined) return null;
   if (
     !/^(?:[./]|[A-Za-z]:[\\/])/.test(target) &&
-    (stripEnvAssignmentWords(commandView.words).envAssignments.has('CDPATH') ||
-      environment.env.has('CDPATH'))
+    (assignsCdpath || environment.env.has('CDPATH'))
   ) {
     return null;
   }

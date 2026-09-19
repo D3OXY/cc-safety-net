@@ -581,6 +581,7 @@ describe('analyzeCommand', () => {
       `CDPATH=${workspace}; cd helpers && rm -rf keep`,
       `export CDPATH=${workspace} && cd helpers && rm -rf keep`,
       `CDPATH+=${workspace}; cd helpers && rm -rf keep`,
+      `CDPATH+=${workspace} cd helpers && rm -rf keep`,
       `export CDPATH+=${workspace}; cd helpers && rm -rf keep`,
     ]) {
       expect(decisionAt(plain, command, standard)?.ruleId, command).toBe(
