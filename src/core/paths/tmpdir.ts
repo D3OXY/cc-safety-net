@@ -102,7 +102,7 @@ function isMacOSPerUserTempRoot(path: string): boolean {
   return /^\/(?:private\/)?var\/folders\/[^/]{2}\/[^/]+\/T$/.test(path);
 }
 
-export function tryResolveExistingPathComponents(path: string, paths: PathResolver): string | null {
+function tryResolveExistingPathComponents(path: string, paths: PathResolver): string | null {
   try {
     const normalized = normalize(path);
     if (!isAbsolute(normalized)) {

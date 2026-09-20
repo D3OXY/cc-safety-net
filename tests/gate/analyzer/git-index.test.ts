@@ -434,6 +434,8 @@ describe('temp-root relaxation', () => {
   const symlinked = join(tempRoot, 'symlinked');
   mkdirSync(symlinked);
   symlinkSync(join(workspace, '.git'), join(symlinked, '.git'));
+  const alias = join(tempRoot, 'alias');
+  symlinkSync(linked, alias);
 
   afterAll(() => {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -508,6 +510,17 @@ describe('temp-root relaxation', () => {
     { line: 'git worktree remove --force ../linked', options: { cwd: workspace }, relaxed: false },
     { line: 'git worktree remove --force linked', options: { cwd: repo }, relaxed: false },
     { line: 'git worktree remove --force ./linked', options: { cwd: repo }, relaxed: false },
+    { line: `git worktree remove --force ${alias}`, options: { cwd: workspace }, relaxed: false },
+    {
+      line: `git worktree remove --force ${join(tempRoot, 'missing')}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${join(workspace, 'file.txt')}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
     {
       line: 'git worktree remove --force $WT',
       options: { cwd: workspace, shellAssignments: new Map([['WT', linked]]) },

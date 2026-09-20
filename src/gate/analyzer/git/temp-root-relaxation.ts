@@ -1,11 +1,6 @@
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { PathResolver } from '@/core/environment';
-import {
-  isPathOrSubpath,
-  isTrustedTempPath,
-  isTrustedTempRootPath,
-  tryResolveExistingPathComponents,
-} from '@/core/paths/tmpdir';
+import { isPathOrSubpath, isTrustedTempPath, isTrustedTempRootPath } from '@/core/paths/tmpdir';
 import { substituteKnownShellVariables } from '../shell-git-env';
 import { extractGitSubcommandAndRest, splitAtDoubleDash } from './parse';
 import type { GitRuleMatch } from './rules';
@@ -55,8 +50,10 @@ export function getGitTempRootRelaxationForMatch(
 
 /**
  * The single absolute literal path `git worktree remove` targets, expanded from the carried
- * assignments. A relative operand is refused: git also accepts a unique trailing path component of
- * any registered worktree, so `remove --force victim` can name a worktree far from the cwd.
+ * assignments, which must already be a directory rather than a symlink. A relative operand is
+ * refused: git also accepts a unique trailing path component of any registered worktree, so
+ * `remove --force victim` can name a worktree far from the cwd. A missing or symlinked operand is
+ * refused because git deletes the registered worktree the operand resolves to when it runs.
  */
 function worktreeRemoveOperand(
   tokens: readonly string[],
@@ -68,8 +65,15 @@ function worktreeRemoveOperand(
   const operands = [...before.filter((token) => !token.startsWith('-')), ...after];
   const operand = operands.length === 1 ? (operands[0] ?? '') : '';
   const expanded = substituteKnownShellVariables(operand, shellAssignments ?? new Map());
-  if (!isAbsolute(expanded) || /[\s$`*?[]/.test(expanded)) return null;
-  return tryResolveExistingPathComponents(expanded, paths);
+  if (
+    !isAbsolute(expanded) ||
+    /[\s$`*?[]/.test(expanded) ||
+    paths.entryKind(expanded) !== 'present' ||
+    !paths.isDirectory(expanded)
+  ) {
+    return null;
+  }
+  return paths.realpath(expanded);
 }
 
 /** The nearest directory at or above `directory` that holds a `.git` entry of any kind. */
