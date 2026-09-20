@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from 'bun:test';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createTestEnvironment, processPathResolver } from '@/core/environment';
@@ -431,6 +431,9 @@ describe('temp-root relaxation', () => {
   runGit(['add', 'file.txt'], workspace);
   runGit(['-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'initial'], workspace);
   runGit(['worktree', 'add', '--quiet', linked, '-b', 'feat'], workspace);
+  const symlinked = join(tempRoot, 'symlinked');
+  mkdirSync(symlinked);
+  symlinkSync(join(workspace, '.git'), join(symlinked, '.git'));
 
   afterAll(() => {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -497,6 +500,7 @@ describe('temp-root relaxation', () => {
     { line: 'git -C $VAR reset --hard', relaxed: false },
     { line: 'git branch -D stale', options: { cwd: linked }, relaxed: false },
     { line: 'git reset --hard', options: { cwd: linked }, relaxed: false },
+    { line: 'git branch -D feature', options: { cwd: symlinked }, relaxed: false },
   ];
 
   test('a git discard in a temp-root repository outside the workspace is relaxed', () => {

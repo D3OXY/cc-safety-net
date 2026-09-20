@@ -22,6 +22,7 @@ export function getGitTempRootRelaxationForMatch(
     context.gitCwd === null ||
     context.hasExplicitGitContext ||
     dotGit === null ||
+    options.environment.paths.entryKind(dotGit) !== 'present' ||
     !options.environment.paths.isDirectory(dotGit) ||
     hasGitContextEnvOverride(options.environment.env, options.envAssignments) ||
     !isTrustedTempPath(context.gitCwd, options.environment) ||

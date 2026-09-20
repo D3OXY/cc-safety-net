@@ -53,6 +53,7 @@ import {
   isVerifiableLocalGeneratorSource,
   shellSourceHasUnresolvedDynamicExecutionCarrier,
 } from './shell-execution';
+import { substituteKnownShellVariables } from './shell-git-env';
 import {
   extractDashCArg,
   extractShellStartupLoaderMetadata,
@@ -1049,26 +1050,9 @@ export function resolveCwdAfterCommandView(
   return resolveKnownCwdTarget(target, cwd, environment.paths);
 }
 
-const CD_VARIABLE_RE = /\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))/g;
-
-function expandCdOperand(
-  target: string,
-  assignments: ReadonlyMap<string, string>,
-  depth = 0,
-): string | null {
-  if (/[\s`*?[~]/.test(target)) return null;
-  if (!target.includes('$')) return target;
-  if (depth === 8) return null;
-  const names = [...target.matchAll(CD_VARIABLE_RE)].map((match) => match[1] ?? match[2] ?? '');
-  if (names.length === 0 || names.some((name) => !assignments.has(name))) return null;
-  return expandCdOperand(
-    target.replace(
-      CD_VARIABLE_RE,
-      (_match, braced?: string, bare?: string) => assignments.get(braced ?? bare ?? '') ?? '',
-    ),
-    assignments,
-    depth + 1,
-  );
+function expandCdOperand(target: string, assignments: ReadonlyMap<string, string>): string | null {
+  const expanded = substituteKnownShellVariables(target, assignments);
+  return expanded.startsWith('~') || /[\s$`*?[]/.test(expanded) ? null : expanded;
 }
 
 function resolveKnownCwdTarget(

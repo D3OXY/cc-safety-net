@@ -581,12 +581,17 @@ describe('analyzeCommand', () => {
     ).toBeNull();
     expect(decision(`R='${scratchPosix}/../scratch'; cd $R && rm -rf build`, standard)).toBeNull();
     expect(decision(`do R='${scratchPosix}'; cd $R && rm -rf build`, standard)).toBeNull();
+    mkdirSync(join(scratch, 'RUNNER~1'), { recursive: true });
+    expect(decision(`R='${scratchPosix}/RUNNER~1'; cd $R && rm -rf build`, standard)).toBeNull();
     expect(decision(`cd '${scratchPosix}/with space' && rm -rf build`, standard)).toBeNull();
     expect(
       decision(`R='${scratchPosix}'; CDPATH=${workspacePosix} cd $R && rm -rf build`, standard),
     ).toBeNull();
     for (const command of [
       'R=$MISSING_NAME/x; cd $R && rm -rf build',
+      `A='$B'; B='${scratchPosix}'; cd $A && rm -rf build`,
+      `A=\\$B; B='${scratchPosix}'; cd $A && rm -rf build`,
+      `A=$B; B='${scratchPosix}'; cd $A && rm -rf build`,
       'R=$(pwd); cd $R && rm -rf build',
       `R='${scratchPosix}'/*; cd $R && rm -rf build`,
       `R='${scratchPosix} x'; cd "$R" && rm -rf build`,

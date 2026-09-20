@@ -1,4 +1,6 @@
 import { isGitConfigEnvName } from '@/core/git/worktree';
+import type { CommandWord } from '@/core/shell/model';
+import { analysisWordText } from './command-words';
 import {
   isGitContextEnvOverrideName,
   isTrackedGitEnvName,
@@ -31,6 +33,33 @@ const EXPORT_BUILTINS = new Set(['export', 'typeset', 'declare', 'readonly']);
 const BUILTIN_CALL_PREFIXES = new Set(['builtin', 'command', 'time']);
 
 const COMPOUND_BODY_KEYWORDS = new Set(['do', 'then', 'else']);
+
+const SHELL_VARIABLE_RE = /\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))/g;
+
+/**
+ * The segment's tokens with each unquoted `NAME=...$VAR...` assignment expanded from the known
+ * values, as a shell does at assignment time; a quoted or escaped `$` stays literal.
+ */
+export function segmentTokensWithExpandedAssignments(
+  words: readonly CommandWord[],
+  state: ShellGitContextEnvState,
+): string[] {
+  return words.map((word) =>
+    word.provenance === 'variable' && isEnvAssignmentToken(word.text)
+      ? substituteKnownShellVariables(word.text, state.shellAssignments)
+      : analysisWordText(word),
+  );
+}
+
+/** Replaces every `$NAME`/`${NAME}` whose value is known; unknown references stay in place. */
+export function substituteKnownShellVariables(
+  text: string,
+  assignments: ReadonlyMap<string, string>,
+): string {
+  return text.replace(SHELL_VARIABLE_RE, (match, braced?: string, bare?: string) => {
+    return assignments.get(braced ?? bare ?? '') ?? match;
+  });
+}
 
 export function createShellGitContextEnvState(
   env: ReadonlyMap<string, string>,

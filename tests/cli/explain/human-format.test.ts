@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { formatTraceHuman } from '@/cli/explain/format';
 import { explainCommand } from '@/gate/explain';
 import { runGit, withLinkedWorktreeFixture } from '../../helpers';
@@ -98,7 +98,7 @@ test('human explain names the temp-root repository that permits a git discard', 
   runGit(['init', '--quiet'], repo);
 
   const result = explainCommand(
-    `cd ${repo}; git reset --hard`,
+    `cd '${repo.split(sep).join('/')}'; git reset --hard`,
     { cwd: workspace },
     environmentFor(home, isolationEnv(home, { TMPDIR: tmpdir() })),
   );

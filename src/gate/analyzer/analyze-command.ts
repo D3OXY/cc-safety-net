@@ -51,6 +51,7 @@ import {
   createShellGitContextEnvState,
   getSegmentGitContextEnvAssignments,
   type ShellGitContextEnvState,
+  segmentTokensWithExpandedAssignments,
 } from './shell-git-env';
 import { isShellSyntaxCheck } from './shell-wrappers';
 import { stripWrapperWords } from './wrapper-prelude';
@@ -624,10 +625,12 @@ function analyzeCommandView(
     options.environment.paths,
     options.budget,
   );
-  const segment = analyzedViewWords(commandView.dialect, commandView.words).map(analysisWordText);
+  const words = analyzedViewWords(commandView.dialect, commandView.words);
+  const segment = words.map(analysisWordText);
   const segmentStr = commandView.displayText;
+  const envSegment = segmentTokensWithExpandedAssignments(words, state.shellGitContextState);
   const segmentEnvAssignments = getSegmentGitContextEnvAssignments(
-    segment,
+    envSegment,
     state.shellGitContextState,
   );
 
@@ -686,7 +689,7 @@ function analyzeCommandView(
       options,
     );
     if (deferredResult) return deferredResult;
-    applyShellGitContextEnvSegment(segment, state.shellGitContextState);
+    applyShellGitContextEnvSegment(envSegment, state.shellGitContextState);
     return null;
   }
 
@@ -740,7 +743,7 @@ function analyzeCommandView(
     options,
   );
   if (postCommandResult) return postCommandResult;
-  applyShellGitContextEnvSegment(segment, state.shellGitContextState);
+  applyShellGitContextEnvSegment(envSegment, state.shellGitContextState);
   return null;
 }
 
