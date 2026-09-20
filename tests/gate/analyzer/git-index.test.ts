@@ -436,6 +436,9 @@ describe('temp-root relaxation', () => {
   symlinkSync(join(workspace, '.git'), join(symlinked, '.git'));
   const alias = join(tempRoot, 'alias');
   symlinkSync(linked, alias);
+  const forged = join(tempRoot, 'forged');
+  mkdirSync(forged);
+  writeFileSync(join(forged, '.git'), `gitdir: ${join(workspace, '.git')}\n`);
 
   afterAll(() => {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -516,6 +519,11 @@ describe('temp-root relaxation', () => {
     { line: 'git reset --hard', options: { cwd: linked }, relaxed: true },
     { line: 'git checkout f93b82f8 -- file.txt', options: { cwd: linked }, relaxed: true },
     { line: 'git clean -fdx', options: { cwd: linked }, relaxed: true },
+    { line: 'git reset --hard HEAD~1', options: { cwd: linked }, relaxed: false },
+    { line: 'git checkout -B main --force', options: { cwd: linked }, relaxed: false },
+    { line: 'git clean -ffdx', options: { cwd: linked }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: forged }, relaxed: false },
+    { line: 'git checkout -- .', options: { cwd: forged }, relaxed: false },
     { line: 'git branch -D feature', options: { cwd: symlinked }, relaxed: false },
     { line: `git worktree remove --force ${linked}`, options: { cwd: workspace }, relaxed: true },
     { line: `git worktree remove -f -- ${nested}`, options: { cwd: workspace }, relaxed: true },

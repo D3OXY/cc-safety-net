@@ -64,7 +64,7 @@ export function getGitWorktreeRelaxationForMatch(
   };
 }
 
-function isNonRelaxableLocalDiscard(
+export function isNonRelaxableLocalDiscard(
   tokens: readonly string[],
   options: GitAnalyzeOptions,
   facts: WorktreeFacts,

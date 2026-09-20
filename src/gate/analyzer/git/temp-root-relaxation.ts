@@ -7,7 +7,11 @@ import { substituteKnownShellVariables } from '../shell-git-env';
 import { extractGitSubcommandAndRest, splitAtDoubleDash } from './parse';
 import type { GitRuleMatch } from './rules';
 import { getGitExecutionContext, hasGitContextEnvOverride } from './worktree';
-import type { GitAnalyzeOptions, GitRelaxation } from './worktree-relaxation';
+import {
+  type GitAnalyzeOptions,
+  type GitRelaxation,
+  isNonRelaxableLocalDiscard,
+} from './worktree-relaxation';
 
 export function getGitTempRootRelaxationForMatch(
   words: readonly CommandWord[],
@@ -37,7 +41,8 @@ export function getGitTempRootRelaxationForMatch(
       : findGitRepositoryRoot(context.gitCwd, paths);
   if (
     subject === null ||
-    (match.id !== 'git.worktree-remove-force' && !isDisposableRepository(subject, match, paths)) ||
+    (match.id !== 'git.worktree-remove-force' &&
+      !isDisposableRepository(subject, tokens, match, options)) ||
     !isTrustedTempPath(subject, options.environment) ||
     isTrustedTempRootPath(subject, options.environment) ||
     isPathOrSubpath(workspace, subject) ||
@@ -50,14 +55,24 @@ export function getGitTempRootRelaxationForMatch(
 }
 
 /**
- * A repository whose `.git` is a present directory entry, or a linked worktree (a present `.git`
- * file) for a rule that only discards local state: branch, stash and tag operations in a linked
- * worktree mutate the repository it belongs to, which may be the workspace.
+ * A repository whose `.git` is a present directory entry, or a linked worktree for a rule that
+ * only discards local state: branch, stash and tag operations in a linked worktree mutate the
+ * repository it belongs to, which may be the workspace. The worktree facts reader admits only a
+ * `.git` file whose gitdir points back at it, so a planted `gitdir: <workspace>/.git` is refused,
+ * and the linked-worktree filter keeps the discards that move a branch or recurse into submodules.
  */
-function isDisposableRepository(root: string, match: GitRuleMatch, paths: PathResolver): boolean {
+function isDisposableRepository(
+  root: string,
+  tokens: readonly string[],
+  match: GitRuleMatch,
+  options: GitAnalyzeOptions,
+): boolean {
+  const paths = options.environment.paths;
   const gitEntry = join(root, '.git');
   if (paths.entryKind(gitEntry) !== 'present') return false;
-  return match.localDiscard || paths.isDirectory(gitEntry);
+  if (paths.isDirectory(gitEntry)) return true;
+  const facts = match.localDiscard ? options.environment.worktreeFacts(root) : null;
+  return facts !== null && !isNonRelaxableLocalDiscard(tokens, options, facts);
 }
 
 /**
