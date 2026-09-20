@@ -51,6 +51,7 @@ import {
   createShellGitContextEnvState,
   getSegmentGitContextEnvAssignments,
   type ShellGitContextEnvState,
+  segmentTokensWithExpandedAssignments,
 } from './shell-git-env';
 import { isShellSyntaxCheck } from './shell-wrappers';
 import { stripWrapperWords } from './wrapper-prelude';
@@ -295,7 +296,7 @@ function analyzeProgram(
           ? depth + 1 >= LIMITS.recursionDepth.cap
             ? recursionLimitAnalysis(node.displayText, options, [analyzedState])
             : analyzeProgram(functionBody, depth + 1, options, originalCwd, [analyzedState])
-          : { result: null, states: [analyzedState] };
+          : { result: null, states: forkForLoopStates(node, analyzedState) };
         if (functionAnalysis.result) return functionAnalysis;
         successStates.push(
           ...getSuccessfulAnalysisStates(
@@ -624,10 +625,12 @@ function analyzeCommandView(
     options.environment.paths,
     options.budget,
   );
-  const segment = analyzedViewWords(commandView.dialect, commandView.words).map(analysisWordText);
+  const words = analyzedViewWords(commandView.dialect, commandView.words);
+  const segment = words.map(analysisWordText);
   const segmentStr = commandView.displayText;
+  const envSegment = segmentTokensWithExpandedAssignments(words, state.shellGitContextState);
   const segmentEnvAssignments = getSegmentGitContextEnvAssignments(
-    segment,
+    envSegment,
     state.shellGitContextState,
   );
 
@@ -686,7 +689,7 @@ function analyzeCommandView(
       options,
     );
     if (deferredResult) return deferredResult;
-    applyShellGitContextEnvSegment(segment, state.shellGitContextState);
+    applyShellGitContextEnvSegment(envSegment, state.shellGitContextState);
     return null;
   }
 
@@ -740,7 +743,7 @@ function analyzeCommandView(
     options,
   );
   if (postCommandResult) return postCommandResult;
-  applyShellGitContextEnvSegment(segment, state.shellGitContextState);
+  applyShellGitContextEnvSegment(envSegment, state.shellGitContextState);
   return null;
 }
 
@@ -1146,6 +1149,7 @@ function updateCwdAfterCommandView(
     commandView,
     state.effectiveCwd,
     environment,
+    state.shellGitContextState.shellAssignments,
     literalPipelineInput,
   );
   if (nextCwd === null) {
@@ -1156,6 +1160,36 @@ function updateCwdAfterCommandView(
     });
   }
   if (nextCwd !== undefined) state.effectiveCwd = nextCwd;
+}
+
+const FOR_LOOP_NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const FOR_LOOP_WORD_CAP = 8;
+
+function forkForLoopStates(view: CommandView, state: AnalysisState): AnalysisState[] {
+  const name = view.words[1]?.text;
+  if (
+    view.dialect !== 'posix' ||
+    view.words[0]?.text !== 'for' ||
+    name === undefined ||
+    !FOR_LOOP_NAME_RE.test(name)
+  ) {
+    return [state];
+  }
+  const items = view.words.slice(3);
+  const bindable =
+    view.words[2]?.text === 'in' &&
+    items.length >= 1 &&
+    items.length <= FOR_LOOP_WORD_CAP &&
+    items.every((word) => word.provenance === 'literal' && !/[\s$`*?[{}~'"\\]/.test(word.text));
+  if (!bindable) {
+    state.shellGitContextState.shellAssignments.delete(name);
+    return [state];
+  }
+  return items.map((word) => {
+    const forked = cloneAnalysisState(state);
+    forked.shellGitContextState.shellAssignments.set(name, word.text);
+    return forked;
+  });
 }
 
 function cloneAnalysisState(state: AnalysisState): AnalysisState {
@@ -1193,6 +1227,12 @@ function analysisStatesEqual(left: AnalysisState, right: AnalysisState): boolean
     optionalMapsEqual(
       left.shellGitContextState.shellAssignments,
       right.shellGitContextState.shellAssignments,
+    ) &&
+    left.shellGitContextState.bodyDepth === right.shellGitContextState.bodyDepth &&
+    left.shellGitContextState.bodyAssignments.size ===
+      right.shellGitContextState.bodyAssignments.size &&
+    [...left.shellGitContextState.bodyAssignments].every((name) =>
+      right.shellGitContextState.bodyAssignments.has(name),
     )
   );
 }

@@ -153,6 +153,21 @@ test('a linked worktree relaxes the reset rule on both sides', () => {
   ).toContain('worktree-relaxation');
 });
 
+test('a literal for list records the later segments once per forked state', () => {
+  const result = compareSides(fixture(), 'for c in a b; do echo $c; done');
+  expect(result.result).toBe('allowed');
+  const stepTypes = (result.trace as { segments: { steps: { type: string }[] }[] }).segments.map(
+    (segment) => segment.steps.map((step) => step.type),
+  );
+  expect(stepTypes[0]).toStrictEqual(['fallback-scan', 'custom-rules-check']);
+  expect(stepTypes[1]).toStrictEqual([
+    'fallback-scan',
+    'custom-rules-check',
+    'fallback-scan',
+    'custom-rules-check',
+  ]);
+});
+
 const limitCase = (slug: string) => {
   const explainCase = EXPLAIN_CASES.find((entry) => entry.slug === slug);
   if (!explainCase) throw new Error(`no explain case named ${slug}`);

@@ -18,8 +18,11 @@ import { type PipelineContractCase, pipelineContractCases } from './pipeline-con
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'next-gate-contract-'));
 const workspace = join(fixtureRoot, 'workspace');
 const repository = join(fixtureRoot, 'repo');
-writeTree(fixtureRoot, { workspace: null, repo: null });
-execFileSync('git', ['init', '--quiet', repository]);
+const tempRepos = [join(fixtureRoot, 'temp-a'), join(fixtureRoot, 'temp-b')] as const;
+writeTree(fixtureRoot, { workspace: null, repo: null, 'temp-a': null, 'temp-b': null });
+for (const path of [repository, ...tempRepos]) {
+  execFileSync('git', ['init', '--quiet', path]);
+}
 
 afterAll(() => {
   rmSync(fixtureRoot, { recursive: true, force: true });
@@ -103,7 +106,11 @@ function expectContract(
 }
 
 describe('behavioral contract through the ported gate', () => {
-  for (const contractCase of behavioralContractCases({ cwd: workspace, home: homedir() })) {
+  for (const contractCase of behavioralContractCases({
+    cwd: workspace,
+    home: homedir(),
+    tempRepos,
+  })) {
     test(contractCase.name, () => {
       const options = contractCase.options;
       expectContract(

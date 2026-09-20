@@ -153,9 +153,10 @@ interpreter bodies").
 ### RR-6: Exact Shell-Expansion Emulation
 
 Glob, brace, extglob, arithmetic, and `IFS` word-splitting semantics. Standard applies bounded
-conservative checks and the documented compatibility exceptions but never exact expansion
-emulation; crafted expansion tricks that survive those checks are residual, and strict-tier
-fail-closed behavior owns the adversarial case.
+conservative checks and the documented compatibility exceptions (the only expansion it performs is
+literal `$VAR`/`${VAR}` substitution of a `cd` operand from literal assignments and literal `for`
+lists of at most eight words) but never exact expansion emulation; crafted expansion tricks that
+survive those checks are residual, and strict-tier fail-closed behavior owns the adversarial case.
 
 Adjudicated 2026-07-22. Sources: `SECURITY.md` non-goals ("does not expand shell globs or
 braces"); `docs/rm-temp-target-security-findings.md` section 2.
@@ -164,8 +165,10 @@ braces"); `docs/rm-temp-target-security-findings.md` section 2.
 
 Aliases, shell functions, `PATH` or `IFS` mutation, sourced files, and disabled built-ins crafted
 to change what command text means at execution time. Tracking is limited to simple assignment-only
-variables, explicit `cd`, and the documented shell-state factors; the linear dangerous-text scans
-still catch recognizable destructive text regardless of surrounding structure.
+variables (a binding made inside a `then`/`do`/`case` body is forgotten when that body closes),
+literal `for` lists of at most eight words, explicit `cd` whose operand is literal or expands from
+those variables, and the documented shell-state factors; the linear dangerous-text scans still
+catch recognizable destructive text regardless of surrounding structure.
 
 Adjudicated 2026-07-22. Sources: `REVIEW.md` threat model (runtime mutation); `SECURITY.md`
 policy-file protection scope.

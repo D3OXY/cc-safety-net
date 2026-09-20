@@ -34,6 +34,7 @@ export type TraceStep =
       reason?: string;
     }
   | { type: 'worktree-relaxation'; originalReason: string; gitCwd: string }
+  | { type: 'temp-root-relaxation'; originalReason: string; gitCwd: string }
   | { type: 'tmpdir-check'; tmpdirValue: string | null; allowTmpdirVar: boolean }
   | { type: 'fallback-scan'; tokensScanned: string[]; embeddedCommandFound?: string }
   | { type: 'custom-rules-check'; rulesChecked: boolean; matched: boolean; reason?: string }

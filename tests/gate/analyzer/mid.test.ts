@@ -243,6 +243,10 @@ describe('the shell Git-context tracker', () => {
         env: [['TMPDIR', '/tmp']],
         effective: [['TMPDIR', '/tmp/extra']],
       },
+      { tokens: ['do', 'R=/x'], effective: [['R', '/x']] },
+      { tokens: ['then', 'R=/x'], effective: [['R', '/x']] },
+      { tokens: ['else', 'R=/x'], effective: [['R', '/x']] },
+      { tokens: ['do', 'R=/x', 'cmd'], effective: [] },
       { tokens: ['1BAD=x'], effective: [] },
       { tokens: [''], effective: [] },
     ];
@@ -258,6 +262,14 @@ describe('the shell Git-context tracker', () => {
         row.effective.map(([name, value]) => [name, value]),
       );
     }
+  });
+
+  test('an assignment after a compound keyword persists like an assignment-only segment', () => {
+    const state = createShellGitContextEnvState(new Map());
+    applyShellGitContextEnvSegment(['do', 'R=/x'], state);
+    expect(snapshot(state).shell).toStrictEqual([['R', '/x']]);
+    applyShellGitContextEnvSegment(['do', 'S=/y', 'cmd'], state);
+    expect(snapshot(state).shell).toStrictEqual([['R', '/x']]);
   });
 
   test('a segment reports its own assignments without changing the walked state', () => {
