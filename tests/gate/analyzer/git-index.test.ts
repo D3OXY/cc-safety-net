@@ -511,6 +511,38 @@ describe('temp-root relaxation', () => {
     }
   });
 
+  test('the repository root, not the invocation directory, must be a temp-root descendant', () => {
+    const relaxationIn = (entries: Record<string, 'directory'>, cwd: string) =>
+      analyzeGitDetailed(textCommandWords(['git', 'reset', '--hard']), {
+        environment: createTestEnvironment({ entries: new Map(Object.entries(entries)) }),
+        cwd,
+        originalCwd: '/home/user/ws',
+      }).relaxation?.kind;
+    const workspace = {
+      '/home': 'directory',
+      '/home/user': 'directory',
+      '/home/user/ws': 'directory',
+    } as const;
+    expect(
+      relaxationIn(
+        {
+          ...workspace,
+          '/tmp': 'directory',
+          '/tmp/repo': 'directory',
+          '/tmp/repo/.git': 'directory',
+          '/tmp/repo/sub': 'directory',
+        },
+        '/tmp/repo/sub',
+      ),
+    ).toBe('temp-root');
+    expect(
+      relaxationIn(
+        { ...workspace, '/tmp': 'directory', '/tmp/.git': 'directory', '/tmp/subdir': 'directory' },
+        '/tmp/subdir',
+      ),
+    ).toBeUndefined();
+  });
+
   test('a relaxation names the reason it lifts and the temp-root directory git runs in', () => {
     const detailed = relaxationFor('git reset --hard');
     expect(detailed.relaxation?.originalReason).toContain(
