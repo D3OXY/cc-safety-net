@@ -450,21 +450,30 @@ describe('temp-root relaxation', () => {
       assignments?: ReadonlyMap<string, string>;
       shellAssignments?: ReadonlyMap<string, string>;
       dynamicArguments?: boolean;
+      /** How a `$VAR` word reached the analyzer: an expansion, or literal text the shell keeps. */
+      variableProvenance?: 'variable' | 'literal';
     } = {},
   ) =>
-    analyzeGitDetailed(textCommandWords(line.split(' ')), {
-      environment: createTestEnvironment({
-        env: new Map(Object.entries(options.variables ?? {})),
-        home: tempRoot,
-        tmpdir: tmpdir(),
-        paths: processPathResolver,
-      }),
-      cwd: 'cwd' in options ? options.cwd : repo,
-      originalCwd: 'originalCwd' in options ? options.originalCwd : workspace,
-      envAssignments: options.assignments,
-      shellAssignments: options.shellAssignments,
-      dynamicArguments: options.dynamicArguments,
-    });
+    analyzeGitDetailed(
+      textCommandWords(line.split(' ')).map((word) =>
+        word.text.includes('$')
+          ? { ...word, provenance: options.variableProvenance ?? 'variable' }
+          : word,
+      ),
+      {
+        environment: createTestEnvironment({
+          env: new Map(Object.entries(options.variables ?? {})),
+          home: tempRoot,
+          tmpdir: tmpdir(),
+          paths: processPathResolver,
+        }),
+        cwd: 'cwd' in options ? options.cwd : repo,
+        originalCwd: 'originalCwd' in options ? options.originalCwd : workspace,
+        envAssignments: options.assignments,
+        shellAssignments: options.shellAssignments,
+        dynamicArguments: options.dynamicArguments,
+      },
+    );
 
   const rows: readonly {
     readonly line: string;
@@ -527,6 +536,15 @@ describe('temp-root relaxation', () => {
       relaxed: true,
     },
     { line: 'git worktree remove --force $WT', options: { cwd: workspace }, relaxed: false },
+    {
+      line: 'git worktree remove --force $WT',
+      options: {
+        cwd: workspace,
+        shellAssignments: new Map([['WT', linked]]),
+        variableProvenance: 'literal',
+      },
+      relaxed: false,
+    },
     {
       line: 'git worktree remove --force $WT/*',
       options: { cwd: workspace, shellAssignments: new Map([['WT', linked]]) },

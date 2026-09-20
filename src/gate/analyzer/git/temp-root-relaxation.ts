@@ -1,6 +1,8 @@
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { PathResolver } from '@/core/environment';
 import { isPathOrSubpath, isTrustedTempPath, isTrustedTempRootPath } from '@/core/paths/tmpdir';
+import type { CommandWord } from '@/core/shell/model';
+import { analysisWordText } from '../command-words';
 import { substituteKnownShellVariables } from '../shell-git-env';
 import { extractGitSubcommandAndRest, splitAtDoubleDash } from './parse';
 import type { GitRuleMatch } from './rules';
@@ -8,10 +10,11 @@ import { getGitExecutionContext, hasGitContextEnvOverride } from './worktree';
 import type { GitAnalyzeOptions, GitRelaxation } from './worktree-relaxation';
 
 export function getGitTempRootRelaxationForMatch(
-  tokens: readonly string[],
+  words: readonly CommandWord[],
   match: GitRuleMatch,
   options: GitAnalyzeOptions,
 ): GitRelaxation | null {
+  const tokens = words.map(analysisWordText);
   const paths = options.environment.paths;
   const context = getGitExecutionContext(tokens, options.cwd, paths);
   const workspace = options.originalCwd ? paths.realpath(resolve(options.originalCwd)) : null;
@@ -30,7 +33,7 @@ export function getGitTempRootRelaxationForMatch(
   // subject is the operand rather than the repository root.
   const subject =
     match.id === 'git.worktree-remove-force'
-      ? worktreeRemoveOperand(tokens, options.shellAssignments, paths)
+      ? worktreeRemoveOperand(words, options.shellAssignments, paths)
       : findGitRepositoryRoot(context.gitCwd, paths);
   if (
     subject === null ||
@@ -53,18 +56,22 @@ export function getGitTempRootRelaxationForMatch(
  * assignments, which must already be a directory rather than a symlink. A relative operand is
  * refused: git also accepts a unique trailing path component of any registered worktree, so
  * `remove --force victim` can name a worktree far from the cwd. A missing or symlinked operand is
- * refused because git deletes the registered worktree the operand resolves to when it runs.
+ * refused because git deletes the registered worktree the operand resolves to when it runs. Only a
+ * word the parser marked as a variable expansion is substituted; a quoted or escaped `$` reaches
+ * git literally and keeps the rule.
  */
 function worktreeRemoveOperand(
-  tokens: readonly string[],
+  words: readonly CommandWord[],
   shellAssignments: ReadonlyMap<string, string> | undefined,
   paths: PathResolver,
 ): string | null {
-  const rest = extractGitSubcommandAndRest(tokens).rest;
+  const rest = extractGitSubcommandAndRest(words.map(analysisWordText)).rest;
   const { before, after } = splitAtDoubleDash(rest.slice(rest.indexOf('remove') + 1));
   const operands = [...before.filter((token) => !token.startsWith('-')), ...after];
   const operand = operands.length === 1 ? (operands[0] ?? '') : '';
-  const expanded = substituteKnownShellVariables(operand, shellAssignments ?? new Map());
+  const expanded = words.some((word) => word.provenance === 'variable' && word.text === operand)
+    ? substituteKnownShellVariables(operand, shellAssignments ?? new Map())
+    : operand;
   if (
     !isAbsolute(expanded) ||
     /[\s$`*?[]/.test(expanded) ||
