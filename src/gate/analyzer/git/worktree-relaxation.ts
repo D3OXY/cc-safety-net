@@ -17,6 +17,8 @@ export interface GitAnalyzeOptions {
   cwd?: string;
   originalCwd?: string;
   envAssignments?: ReadonlyMap<string, string>;
+  /** Literal shell assignments carried to this segment, for expanding a `$VAR` operand. */
+  shellAssignments?: ReadonlyMap<string, string>;
   worktreeMode?: boolean;
   dynamicArguments?: boolean;
   policy?: DestructiveCommandRulePolicy;
@@ -62,7 +64,7 @@ export function getGitWorktreeRelaxationForMatch(
   };
 }
 
-function isNonRelaxableLocalDiscard(
+export function isNonRelaxableLocalDiscard(
   tokens: readonly string[],
   options: GitAnalyzeOptions,
   facts: WorktreeFacts,

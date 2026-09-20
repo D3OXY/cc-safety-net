@@ -33,14 +33,15 @@ export function analyzeGitMatch(
   words: readonly CommandWord[],
   options: GitAnalyzeOptions,
 ): DestructiveCommandRuleMatch | null {
-  return evaluateGit(words.map(analysisWordText), options);
+  return evaluateGit(words, options);
 }
 
 function evaluateGit(
-  tokens: readonly string[],
+  words: readonly CommandWord[],
   options: GitAnalyzeOptions,
   onRelaxation?: (relaxation: GitRelaxation) => void,
 ): DestructiveCommandRuleMatch | null {
+  const tokens = words.map(analysisWordText);
   const aliasResolution = resolveGitCommandLineAliases(
     tokens,
     options.environment.env,
@@ -75,7 +76,7 @@ function evaluateGit(
 
   const relaxation =
     getGitWorktreeRelaxationForMatch(tokens, match, options) ??
-    getGitTempRootRelaxationForMatch(tokens, match, options);
+    getGitTempRootRelaxationForMatch(words, match, options);
   if (!relaxation) return match;
   onRelaxation?.(relaxation);
   return null;
@@ -89,7 +90,7 @@ export function analyzeGitDetailed(
   relaxation: GitRelaxation | null;
 }> {
   let relaxation: GitRelaxation | null = null;
-  const match = evaluateGit(words.map(analysisWordText), options, (value) => {
+  const match = evaluateGit(words, options, (value) => {
     relaxation = value;
   });
   return { match, relaxation };

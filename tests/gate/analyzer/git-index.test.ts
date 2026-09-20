@@ -434,6 +434,11 @@ describe('temp-root relaxation', () => {
   const symlinked = join(tempRoot, 'symlinked');
   mkdirSync(symlinked);
   symlinkSync(join(workspace, '.git'), join(symlinked, '.git'));
+  const alias = join(tempRoot, 'alias');
+  symlinkSync(linked, alias);
+  const forged = join(tempRoot, 'forged');
+  mkdirSync(forged);
+  writeFileSync(join(forged, '.git'), `gitdir: ${join(workspace, '.git')}\n`);
 
   afterAll(() => {
     rmSync(tempRoot, { recursive: true, force: true });
@@ -446,21 +451,32 @@ describe('temp-root relaxation', () => {
       originalCwd?: string;
       variables?: Record<string, string>;
       assignments?: ReadonlyMap<string, string>;
+      shellAssignments?: ReadonlyMap<string, string>;
       dynamicArguments?: boolean;
+      /** How a `$VAR` word reached the analyzer: an expansion, or literal text the shell keeps. */
+      variableProvenance?: 'variable' | 'literal';
     } = {},
   ) =>
-    analyzeGitDetailed(textCommandWords(line.split(' ')), {
-      environment: createTestEnvironment({
-        env: new Map(Object.entries(options.variables ?? {})),
-        home: tempRoot,
-        tmpdir: tmpdir(),
-        paths: processPathResolver,
-      }),
-      cwd: 'cwd' in options ? options.cwd : repo,
-      originalCwd: 'originalCwd' in options ? options.originalCwd : workspace,
-      envAssignments: options.assignments,
-      dynamicArguments: options.dynamicArguments,
-    });
+    analyzeGitDetailed(
+      textCommandWords(line.split(' ')).map((word) =>
+        word.text.includes('$')
+          ? { ...word, provenance: options.variableProvenance ?? 'variable' }
+          : word,
+      ),
+      {
+        environment: createTestEnvironment({
+          env: new Map(Object.entries(options.variables ?? {})),
+          home: tempRoot,
+          tmpdir: tmpdir(),
+          paths: processPathResolver,
+        }),
+        cwd: 'cwd' in options ? options.cwd : repo,
+        originalCwd: 'originalCwd' in options ? options.originalCwd : workspace,
+        envAssignments: options.assignments,
+        shellAssignments: options.shellAssignments,
+        dynamicArguments: options.dynamicArguments,
+      },
+    );
 
   const rows: readonly {
     readonly line: string;
@@ -499,8 +515,83 @@ describe('temp-root relaxation', () => {
     { line: 'git push --delete origin topic', relaxed: false },
     { line: 'git -C $VAR reset --hard', relaxed: false },
     { line: 'git branch -D stale', options: { cwd: linked }, relaxed: false },
-    { line: 'git reset --hard', options: { cwd: linked }, relaxed: false },
+    { line: 'git stash drop', options: { cwd: linked }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: linked }, relaxed: true },
+    { line: 'git checkout f93b82f8 -- file.txt', options: { cwd: linked }, relaxed: true },
+    { line: 'git clean -fdx', options: { cwd: linked }, relaxed: true },
+    { line: 'git reset --hard HEAD~1', options: { cwd: linked }, relaxed: false },
+    { line: 'git checkout -B main --force', options: { cwd: linked }, relaxed: false },
+    { line: 'git clean -ffdx', options: { cwd: linked }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: forged }, relaxed: false },
+    { line: 'git checkout -- .', options: { cwd: forged }, relaxed: false },
     { line: 'git branch -D feature', options: { cwd: symlinked }, relaxed: false },
+    { line: `git worktree remove --force ${linked}`, options: { cwd: workspace }, relaxed: true },
+    { line: `git worktree remove -f -- ${nested}`, options: { cwd: workspace }, relaxed: true },
+    { line: 'git worktree remove --force ../linked', options: { cwd: workspace }, relaxed: false },
+    { line: 'git worktree remove --force linked', options: { cwd: repo }, relaxed: false },
+    { line: 'git worktree remove --force ./linked', options: { cwd: repo }, relaxed: false },
+    { line: `git worktree remove --force ${alias}`, options: { cwd: workspace }, relaxed: false },
+    {
+      line: `git worktree remove --force ${join(tempRoot, 'missing')}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${join(workspace, 'file.txt')}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: 'git worktree remove --force $WT',
+      options: { cwd: workspace, shellAssignments: new Map([['WT', linked]]) },
+      relaxed: true,
+    },
+    { line: 'git worktree remove --force $WT', options: { cwd: workspace }, relaxed: false },
+    {
+      line: 'git worktree remove --force $WT',
+      options: {
+        cwd: workspace,
+        shellAssignments: new Map([['WT', linked]]),
+        variableProvenance: 'literal',
+      },
+      relaxed: false,
+    },
+    {
+      line: 'git worktree remove --force $WT/*',
+      options: { cwd: workspace, shellAssignments: new Map([['WT', linked]]) },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${workspace}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${tempRoot}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${tmpdir()}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    { line: 'git worktree remove --force', options: { cwd: workspace }, relaxed: false },
+    {
+      line: `git worktree remove --force ${linked} ${nested}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git --git-dir=.git worktree remove --force ${linked}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${linked}`,
+      options: { cwd: workspace, variables: { GIT_WORK_TREE: workspace } },
+      relaxed: false,
+    },
   ];
 
   test('a git discard in a temp-root repository outside the workspace is relaxed', () => {
@@ -541,6 +632,38 @@ describe('temp-root relaxation', () => {
         at('tmp', 'subdir'),
       ),
     ).toBeUndefined();
+  });
+
+  test('a literal dollar fragment inside a partly expanded operand withholds the relaxation', () => {
+    // `"$A"'$B'`: the shell expands $A and passes $B literally, so the analyzed path must not be
+    // the fully substituted one.
+    const [base, ...words] = textCommandWords(['$A$B', 'git', 'worktree', 'remove', '--force']);
+    if (base === undefined) throw new Error('unreachable');
+    const operand = {
+      ...base,
+      provenance: 'variable' as const,
+      quoted: true,
+      parts: [
+        { raw: '"', span: { start: 0, end: 1 }, provenance: 'literal' as const },
+        { raw: '$A', span: { start: 1, end: 3 }, provenance: 'variable' as const },
+        { raw: `"'$B'`, span: { start: 3, end: 8 }, provenance: 'literal' as const },
+      ],
+    };
+    const detailed = analyzeGitDetailed([...words, operand], {
+      environment: createTestEnvironment({
+        home: tempRoot,
+        tmpdir: tmpdir(),
+        paths: processPathResolver,
+      }),
+      cwd: workspace,
+      originalCwd: workspace,
+      shellAssignments: new Map([
+        ['A', `${tempRoot}/`],
+        ['B', 'linked'],
+      ]),
+    });
+    expect(detailed.relaxation).toBeNull();
+    expect(detailed.match?.id).toBe('git.worktree-remove-force');
   });
 
   test('a relaxation names the reason it lifts and the temp-root directory git runs in', () => {

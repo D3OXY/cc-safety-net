@@ -29,6 +29,7 @@ export type InternalOptions = AnalyzeInput & {
   literalHeredocFiles?: ReadonlyMap<string, string>;
   functionDefinitions?: ReadonlyMap<string, CommandProgram>;
   wrapperNormalizationBudget?: { iterations: number };
+  shellAssignments?: ReadonlyMap<string, string>;
 
   child?: ChildProvenance;
 };
@@ -170,6 +171,7 @@ export function gitAnalyzeOptions(context: AnalyzerRuleContext) {
     originalCwd: context.originalCwd,
     dynamicArguments: context.dynamicArguments,
     envAssignments: context.envAssignments,
+    shellAssignments: context.options.shellAssignments,
     policy: context.options.policy,
     worktreeMode: context.options.worktreeMode,
   };

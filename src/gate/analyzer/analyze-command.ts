@@ -699,6 +699,7 @@ function analyzeCommandView(
     cwd: originalCwd,
     effectiveCwd: state.effectiveCwd,
     envAssignments: segmentEnvAssignments,
+    shellAssignments: state.shellGitContextState.shellAssignments,
     literalHeredocFiles: state.literalHeredocFiles,
     functionDefinitions: state.functionDefinitions,
     hasPipelineInput,
