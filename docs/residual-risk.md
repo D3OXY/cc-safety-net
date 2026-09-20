@@ -165,10 +165,10 @@ braces"); `docs/rm-temp-target-security-findings.md` section 2.
 
 Aliases, shell functions, `PATH` or `IFS` mutation, sourced files, and disabled built-ins crafted
 to change what command text means at execution time. Tracking is limited to simple assignment-only
-variables (including those following `do`/`then`/`else`), literal `for` lists of at most eight
-words, explicit `cd` whose operand is literal or expands from those variables, and the documented
-shell-state factors; the linear dangerous-text scans
-still catch recognizable destructive text regardless of surrounding structure.
+variables (a binding made inside a `then`/`do`/`case` body is forgotten when that body closes),
+literal `for` lists of at most eight words, explicit `cd` whose operand is literal or expands from
+those variables, and the documented shell-state factors; the linear dangerous-text scans still
+catch recognizable destructive text regardless of surrounding structure.
 
 Adjudicated 2026-07-22. Sources: `REVIEW.md` threat model (runtime mutation); `SECURITY.md`
 policy-file protection scope.

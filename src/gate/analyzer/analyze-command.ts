@@ -1227,6 +1227,12 @@ function analysisStatesEqual(left: AnalysisState, right: AnalysisState): boolean
     optionalMapsEqual(
       left.shellGitContextState.shellAssignments,
       right.shellGitContextState.shellAssignments,
+    ) &&
+    left.shellGitContextState.bodyDepth === right.shellGitContextState.bodyDepth &&
+    left.shellGitContextState.bodyAssignments.size ===
+      right.shellGitContextState.bodyAssignments.size &&
+    [...left.shellGitContextState.bodyAssignments].every((name) =>
+      right.shellGitContextState.bodyAssignments.has(name),
     )
   );
 }

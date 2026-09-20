@@ -608,6 +608,28 @@ describe('analyzeCommand', () => {
     }
   });
 
+  test('a binding made inside a compound body is forgotten when the body closes', () => {
+    const scratchPosix = scratch.split(sep).join('/');
+    const workspacePosix = workspace.split(sep).join('/');
+    expect(
+      decision(`while :; do R='${scratchPosix}'; cd $R && rm -rf build; done`, standard),
+    ).toBeNull();
+    expect(
+      decision(`R='${scratchPosix}'; if true; then S=1; fi; cd $R && rm -rf build`, standard),
+    ).toBeNull();
+    for (const command of [
+      `R='${scratchPosix}'; if true; then R='${workspacePosix}'; fi; cd $R && rm -rf build`,
+      `if true; then R='${scratchPosix}'; fi; cd $R && rm -rf build`,
+      `R='${scratchPosix}'; if true; then unset R; fi; cd $R && rm -rf build`,
+      `while :; do R='${scratchPosix}'; done; cd $R && rm -rf build`,
+      `case x in x) R='${scratchPosix}';; esac; cd $R && rm -rf build`,
+      `if a; then :; elif b; then R='${scratchPosix}'; fi; cd $R && rm -rf build`,
+      `if a; then :; else R='${scratchPosix}'; fi; cd $R && rm -rf build`,
+    ]) {
+      expect(decision(command, standard)?.ruleId, command).toBe('rm.recursive-force-outside-cwd');
+    }
+  });
+
   test('a literal for list binds the loop variable in every forked state', () => {
     const scratchPosix = scratch.split(sep).join('/');
     const loop = (list: string) =>

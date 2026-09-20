@@ -12,6 +12,9 @@ export interface ShellGitContextEnvState {
   env: ReadonlyMap<string, string>;
   effectiveEnvAssignments?: ReadonlyMap<string, string>;
   shellAssignments: Map<string, string>;
+  /** Open `then`/`do`/`case` bodies; names bound inside them are forgotten when the last one closes. */
+  bodyDepth: number;
+  bodyAssignments: Set<string>;
 }
 
 interface GitContextAssignment {
@@ -33,6 +36,8 @@ const EXPORT_BUILTINS = new Set(['export', 'typeset', 'declare', 'readonly']);
 const BUILTIN_CALL_PREFIXES = new Set(['builtin', 'command', 'time']);
 
 const COMPOUND_BODY_KEYWORDS = new Set(['do', 'then', 'else']);
+const COMPOUND_OPEN_KEYWORDS = new Set(['do', 'then', 'case']);
+const COMPOUND_CLOSE_KEYWORDS = new Set(['done', 'fi', 'esac']);
 
 const SHELL_VARIABLE_RE = /\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))/g;
 
@@ -69,6 +74,8 @@ export function createShellGitContextEnvState(
     env,
     effectiveEnvAssignments: getInitialEffectiveShellEnvAssignments(env, effectiveEnvAssignments),
     shellAssignments: new Map(),
+    bodyDepth: 0,
+    bodyAssignments: new Set(),
   };
 }
 
@@ -81,6 +88,8 @@ export function cloneShellGitContextEnvState(
       ? new Map(state.effectiveEnvAssignments)
       : undefined,
     shellAssignments: new Map(state.shellAssignments),
+    bodyDepth: state.bodyDepth,
+    bodyAssignments: new Set(state.bodyAssignments),
   };
 }
 
@@ -89,11 +98,23 @@ export function applyShellGitContextEnvSegment(
   state: ShellGitContextEnvState,
 ): void {
   const segment = collectSegmentEnvAssignments(tokens, state);
+  const head = tokens[0] ?? '';
+  if (COMPOUND_OPEN_KEYWORDS.has(head)) state.bodyDepth += 1;
+  if (head === 'elif' || COMPOUND_CLOSE_KEYWORDS.has(head)) {
+    state.bodyDepth = Math.max(0, state.bodyDepth - 1);
+  }
+  if (COMPOUND_CLOSE_KEYWORDS.has(head) && state.bodyDepth === 0) {
+    state.bodyAssignments.forEach((name) => {
+      state.shellAssignments.delete(name);
+    });
+    state.bodyAssignments.clear();
+  }
 
   segment.assignments
     .filter((assignment) => assignment.persists)
     .forEach((assignment) => {
       state.shellAssignments.set(assignment.name, assignment.value);
+      if (state.bodyDepth > 0) state.bodyAssignments.add(assignment.name);
       setEffectiveGitContextAssignment(state, assignment);
     });
 
@@ -115,6 +136,10 @@ export function applyShellGitContextEnvSegment(
     return;
   }
   tokens.slice(operandsStart).forEach((name) => {
+    if (COMPOUND_BODY_KEYWORDS.has(head)) {
+      state.shellAssignments.set(name, '');
+      return;
+    }
     unsetTrackedGitContextEnvName(state, name);
   });
 }
@@ -139,14 +164,13 @@ function collectSegmentEnvAssignments(
   tokens: readonly string[],
   state: ShellGitContextEnvState,
 ): { assignments: readonly SegmentGitContextAssignment[]; commandIndex: number } {
-  const commandIndex = tokens.findIndex((token) => !isEnvAssignmentToken(token));
   const bodyStart = COMPOUND_BODY_KEYWORDS.has(tokens[0] ?? '') ? 1 : 0;
-  const assignmentsEnd = tokens.findIndex(
+  const commandIndex = tokens.findIndex(
     (token, index) => index >= bodyStart && !isEnvAssignmentToken(token),
   );
   const declaresOperands =
-    assignmentsEnd !== -1 &&
-    EXPORT_BUILTINS.has(tokens[resolveInvokedWordIndex(tokens, assignmentsEnd)] ?? '');
+    commandIndex !== -1 &&
+    EXPORT_BUILTINS.has(tokens[resolveInvokedWordIndex(tokens, commandIndex)] ?? '');
   const currentValues = getCurrentShellAssignmentValues(state);
 
   const assignments = tokens.flatMap((token, index) => {
@@ -155,8 +179,8 @@ function collectSegmentEnvAssignments(
       return [];
     }
     if (
-      assignmentsEnd !== -1 &&
-      index > assignmentsEnd &&
+      commandIndex !== -1 &&
+      index > commandIndex &&
       !declaresOperands &&
       !isGitContextEnvOverrideName(assignment.name)
     ) {
@@ -166,7 +190,7 @@ function collectSegmentEnvAssignments(
     return [
       {
         ...assignment,
-        persists: assignmentsEnd === -1 || declaresOperands,
+        persists: commandIndex === -1 || declaresOperands,
       },
     ];
   });
