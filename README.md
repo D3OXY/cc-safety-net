@@ -99,7 +99,7 @@ To set a preset, run `npx cc-safety-net gui` and open Policy.
 | Strict | Standard, plus blocks dynamic or unparseable commands the analyzer cannot verify safely. Also blocks metadata-only discovery of built-in sensitive paths. Occasional false positives on advanced shell. |
 | Paranoid | Strict, plus blocks `rm -rf` inside your project and interpreter one-liners. Expect friction; for untrusted agents or high-stakes repos. |
 
-Linked-worktree mode relaxes only local discard. Git discards inside a temp-root repository unrelated to the workspace are allowed like temp deletes, as is `git worktree remove --force` of an existing temp-root directory unrelated to the workspace. See [Modes](https://ccsafetynet.com/docs/configuration/modes).
+Linked-worktree mode relaxes only local discard. Git discards inside a temp-root repository unrelated to the workspace are allowed like temp deletes (local discards only when that repository is a linked worktree), as is `git worktree remove --force` of an existing temp-root directory unrelated to the workspace. See [Modes](https://ccsafetynet.com/docs/configuration/modes).
 
 ## Diagnostics
 

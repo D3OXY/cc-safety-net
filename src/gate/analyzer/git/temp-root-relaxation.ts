@@ -37,9 +37,7 @@ export function getGitTempRootRelaxationForMatch(
       : findGitRepositoryRoot(context.gitCwd, paths);
   if (
     subject === null ||
-    (match.id !== 'git.worktree-remove-force' &&
-      (paths.entryKind(join(subject, '.git')) !== 'present' ||
-        !paths.isDirectory(join(subject, '.git')))) ||
+    (match.id !== 'git.worktree-remove-force' && !isDisposableRepository(subject, match, paths)) ||
     !isTrustedTempPath(subject, options.environment) ||
     isTrustedTempRootPath(subject, options.environment) ||
     isPathOrSubpath(workspace, subject) ||
@@ -49,6 +47,17 @@ export function getGitTempRootRelaxationForMatch(
   }
 
   return { kind: 'temp-root', originalReason: match.reason, gitCwd: context.gitCwd };
+}
+
+/**
+ * A repository whose `.git` is a present directory entry, or a linked worktree (a present `.git`
+ * file) for a rule that only discards local state: branch, stash and tag operations in a linked
+ * worktree mutate the repository it belongs to, which may be the workspace.
+ */
+function isDisposableRepository(root: string, match: GitRuleMatch, paths: PathResolver): boolean {
+  const gitEntry = join(root, '.git');
+  if (paths.entryKind(gitEntry) !== 'present') return false;
+  return match.localDiscard || paths.isDirectory(gitEntry);
 }
 
 /**
