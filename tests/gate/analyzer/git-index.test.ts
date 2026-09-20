@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import { createTestEnvironment, processPathResolver } from '@/core/environment';
 import type { DestructiveCommandRulePolicy } from '@/core/policy/effective-rules';
 import { resolveEffectiveDestructiveCommandRules } from '@/core/policy/effective-rules';
@@ -511,45 +511,37 @@ describe('temp-root relaxation', () => {
     }
   });
 
-  test.skipIf(process.platform === 'win32')(
-    'the repository root, not the invocation directory, must be a temp-root descendant',
-    () => {
-      const relaxationIn = (entries: Record<string, 'directory'>, cwd: string) =>
-        analyzeGitDetailed(textCommandWords(['git', 'reset', '--hard']), {
-          environment: createTestEnvironment({ entries: new Map(Object.entries(entries)) }),
-          cwd,
-          originalCwd: '/home/user/ws',
-        }).relaxation?.kind;
-      const workspace = {
-        '/home': 'directory',
-        '/home/user': 'directory',
-        '/home/user/ws': 'directory',
-      } as const;
-      expect(
-        relaxationIn(
-          {
-            ...workspace,
-            '/tmp': 'directory',
-            '/tmp/repo': 'directory',
-            '/tmp/repo/.git': 'directory',
-            '/tmp/repo/sub': 'directory',
-          },
-          '/tmp/repo/sub',
-        ),
-      ).toBe('temp-root');
-      expect(
-        relaxationIn(
-          {
-            ...workspace,
-            '/tmp': 'directory',
-            '/tmp/.git': 'directory',
-            '/tmp/subdir': 'directory',
-          },
-          '/tmp/subdir',
-        ),
-      ).toBeUndefined();
-    },
-  );
+  test('the repository root, not the invocation directory, must be a temp-root descendant', () => {
+    const at = (...parts: string[]) => resolve(sep, ...parts);
+    const relaxationIn = (directories: readonly string[], cwd: string) =>
+      analyzeGitDetailed(textCommandWords(['git', 'reset', '--hard']), {
+        environment: createTestEnvironment({
+          entries: new Map(directories.map((directory) => [directory, 'directory'])),
+          tmpdir: at('tmp'),
+        }),
+        cwd,
+        originalCwd: at('home', 'user', 'ws'),
+      }).relaxation?.kind;
+    const workspace = [at('home'), at('home', 'user'), at('home', 'user', 'ws')];
+    expect(
+      relaxationIn(
+        [
+          ...workspace,
+          at('tmp'),
+          at('tmp', 'repo'),
+          at('tmp', 'repo', '.git'),
+          at('tmp', 'repo', 'sub'),
+        ],
+        at('tmp', 'repo', 'sub'),
+      ),
+    ).toBe('temp-root');
+    expect(
+      relaxationIn(
+        [...workspace, at('tmp'), at('tmp', '.git'), at('tmp', 'subdir')],
+        at('tmp', 'subdir'),
+      ),
+    ).toBeUndefined();
+  });
 
   test('a relaxation names the reason it lifts and the temp-root directory git runs in', () => {
     const detailed = relaxationFor('git reset --hard');
