@@ -1,3 +1,4 @@
+import { basename, dirname, sep } from 'node:path';
 import type { BlockIntent } from '@/core/decision';
 import type { ShellKind } from '@/core/shell/model';
 import type { AnalyzeOptions } from '@/gate/analysis';
@@ -55,7 +56,10 @@ function options(values: OptionValues): BehavioralContractCase['options'] {
 export function behavioralContractCases(paths: {
   cwd: string;
   home: string;
+  tempRepos: readonly [string, string];
 }): BehavioralContractCase[] {
+  const tempRepo = paths.tempRepos[0].split(sep).join('/');
+  const tempParent = dirname(tempRepo).split(sep).join('/');
   const recursiveCommand = Array.from({ length: 10 }).reduce<string>(
     (command) => `bash -c ${JSON.stringify(command)}`,
     'printf safe',
@@ -662,6 +666,95 @@ export function behavioralContractCases(paths: {
       command: 'printf safe',
       options: options({ cwd: paths.cwd, policy: invalidConfig }),
       expected: { kind: 'allow' },
+    },
+    {
+      name: 'allows a Git discard in a temp-root repository reached by a literal cd',
+      command: `cd ${tempRepo}; git reset --hard`,
+      options: options({ cwd: paths.cwd }),
+      expected: { kind: 'allow' },
+    },
+    {
+      name: 'allows a Git discard in a temp-root repository reached through a tracked variable',
+      command: `R=${tempRepo}; cd $R; git reset --hard HEAD~1`,
+      options: options({ cwd: paths.cwd }),
+      expected: { kind: 'allow' },
+    },
+    {
+      name: 'allows a Git discard in every temp-root repository a literal for list visits',
+      command: `for c in ${basename(tempRepo)} ${basename(paths.tempRepos[1])}; do R=${tempParent}/$c; cd $R; git clean -fdx; done`,
+      options: options({ cwd: paths.cwd }),
+      expected: { kind: 'allow' },
+    },
+    {
+      name: 'blocks a Git discard when the workspace is the temp-root repository itself',
+      command: 'git reset --hard',
+      options: options({ cwd: paths.tempRepos[0] }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.reset-hard',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys all uncommitted changes',
+        segment: 'git reset --hard',
+      },
+    },
+    {
+      name: 'blocks a force push from a temp-root repository',
+      command: `cd ${tempRepo}; git push --force origin main`,
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.push-force',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys remote history',
+        segment: 'git push --force origin main',
+      },
+    },
+    {
+      name: 'blocks a Git discard after a cd whose variable is not literal',
+      command: 'R=$(pwd); cd $R; git reset --hard',
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.reset-hard',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys all uncommitted changes',
+        segment: 'git reset --hard',
+      },
+    },
+    {
+      name: 'blocks a Git discard aimed at a temp-root repository through GIT_DIR',
+      command: `GIT_DIR=${tempRepo}/.git git reset --hard`,
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.reset-hard',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys all uncommitted changes',
+      },
+    },
+    {
+      name: 'blocks a Git discard when the for list exceeds the binding cap',
+      command: `for c in a b c d e f g h i; do R=${tempParent}/$c; cd $R; git reset --hard; done`,
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.reset-hard',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys all uncommitted changes',
+        segment: 'git reset --hard',
+      },
+    },
+    {
+      name: 'blocks a Git discard after a cd through an unbound variable',
+      command: `cd ${tempParent}/$c; git reset --hard`,
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.reset-hard',
+        intent: 'use_alternative',
+        reasonIncludes: 'destroys all uncommitted changes',
+        segment: 'git reset --hard',
+      },
     },
     ...everydayCommands.flatMap((command): BehavioralContractCase[] => [
       {

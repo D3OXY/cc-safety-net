@@ -15,13 +15,15 @@ import { getGitExecutionContext, hasGitContextEnvOverride } from './worktree';
 export interface GitAnalyzeOptions {
   environment: EnvironmentContext;
   cwd?: string;
+  originalCwd?: string;
   envAssignments?: ReadonlyMap<string, string>;
   worktreeMode?: boolean;
   dynamicArguments?: boolean;
   policy?: DestructiveCommandRulePolicy;
 }
 
-export interface GitWorktreeRelaxation {
+export interface GitRelaxation {
+  kind: 'worktree' | 'temp-root';
   originalReason: string;
   gitCwd: string;
 }
@@ -30,7 +32,7 @@ export function getGitWorktreeRelaxationForMatch(
   tokens: readonly string[],
   match: GitRuleMatch,
   options: GitAnalyzeOptions,
-): GitWorktreeRelaxation | null {
+): GitRelaxation | null {
   if (
     !match.localDiscard ||
     !options.worktreeMode ||
@@ -54,6 +56,7 @@ export function getGitWorktreeRelaxationForMatch(
   }
 
   return {
+    kind: 'worktree',
     originalReason: match.reason,
     gitCwd: context.gitCwd,
   };

@@ -19,6 +19,9 @@ const plain = join(workspace, 'plain');
 for (const directory of [
   agentHome,
   scratch,
+  join(scratch, 'a'),
+  join(scratch, 'b'),
+  join(scratch, 'with space'),
   project,
   join(project, '.git'),
   join(plain, 'helpers'),
@@ -566,6 +569,58 @@ describe('analyzeCommand', () => {
     expect(decision('cd .. && rm -rf build', standard)?.ruleId).toBe(
       'rm.recursive-force-outside-cwd',
     );
+  });
+
+  test('a cd operand built from literal assignments is tracked', () => {
+    const scratchPosix = scratch.split(sep).join('/');
+    const workspacePosix = workspace.split(sep).join('/');
+    expect(decision(`R='${scratchPosix}'; cd $R && rm -rf build`, standard)).toBeNull();
+    expect(decision(`R='${scratchPosix}'; cd \${R} && rm -rf build`, standard)).toBeNull();
+    expect(
+      decision(`SP='${workspacePosix}'; R=$SP/scratch; cd $R && rm -rf build`, standard),
+    ).toBeNull();
+    expect(decision(`R='${scratchPosix}/../scratch'; cd $R && rm -rf build`, standard)).toBeNull();
+    expect(decision(`do R='${scratchPosix}'; cd $R && rm -rf build`, standard)).toBeNull();
+    expect(decision(`cd '${scratchPosix}/with space' && rm -rf build`, standard)).toBeNull();
+    expect(
+      decision(`R='${scratchPosix}'; CDPATH=${workspacePosix} cd $R && rm -rf build`, standard),
+    ).toBeNull();
+    for (const command of [
+      'R=$MISSING_NAME/x; cd $R && rm -rf build',
+      'R=$(pwd); cd $R && rm -rf build',
+      `R='${scratchPosix}'/*; cd $R && rm -rf build`,
+      `R='${scratchPosix} x'; cd "$R" && rm -rf build`,
+      `R='~'; cd $R && rm -rf build`,
+      'A=$B; B=$A; cd $A && rm -rf build',
+      'cd $1 && rm -rf build',
+      'cd "$@" && rm -rf build',
+      `R='${scratchPosix}'; cd \${R:-x} && rm -rf build`,
+      `R='${scratchPosix}'; cd $R$(id -u) && rm -rf build`,
+      `R='${scratchPosix}'; cd '$R' && rm -rf build`,
+      `R='${scratchPosix}'; cd \\$R && rm -rf build`,
+    ]) {
+      expect(decision(command, standard)?.ruleId, command).toBe('rm.recursive-force-outside-cwd');
+    }
+  });
+
+  test('a literal for list binds the loop variable in every forked state', () => {
+    const scratchPosix = scratch.split(sep).join('/');
+    const loop = (list: string) =>
+      `for c in ${list}; do R='${scratchPosix}'/$c; cd $R && rm -rf build; done`;
+    expect(decision(loop('a b'), standard)).toBeNull();
+    expect(decision(`c=missing; ${loop('a b')}`, standard)).toBeNull();
+    expect(
+      decision(`for c in a b; do :; done; R='${scratchPosix}'/$c; cd $R && rm -rf build`, standard),
+    ).toBeNull();
+    for (const command of [
+      loop('a missing'),
+      loop('a b a b a b a b a'),
+      `c=a; ${loop('$(ls)')}`,
+      `c=a; for c; do R='${scratchPosix}'/$c; cd $R && rm -rf build; done`,
+      `R='${scratchPosix}'/$c; cd $R && rm -rf build`,
+    ]) {
+      expect(decision(command, standard)?.ruleId, command).toBe('rm.recursive-force-outside-cwd');
+    }
   });
 
   test('a bare cd operand is not tracked while CDPATH can redirect it', () => {

@@ -28,6 +28,7 @@ export function corpusCommands(): readonly string[] {
   const analyzerCommands = behavioralContractCases({
     cwd: PIPELINE_PATHS.workspace,
     home: PIPELINE_PATHS.home,
+    tempRepos: ['/tmp/a', '/tmp/b'],
   }).map((row) => row.command);
   const pipelineCommands = corpusToolInputs().flatMap((row) => {
     const command = getCommandFromToolInput(row.input);

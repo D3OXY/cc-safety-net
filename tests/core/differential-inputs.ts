@@ -19,9 +19,11 @@ const HOME = '/srv/home/tester';
 const WORKSPACE = '/srv/work/space';
 
 export function corpusStrings(): string[] {
-  const commands = behavioralContractCases({ cwd: WORKSPACE, home: HOME }).map(
-    (row) => row.command,
-  );
+  const commands = behavioralContractCases({
+    cwd: WORKSPACE,
+    home: HOME,
+    tempRepos: ['/srv/tmp/a', '/srv/tmp/b'],
+  }).map((row) => row.command);
   const inputs = pipelineContractCases({
     workspace: WORKSPACE,
     repo: '/srv/work/repo',

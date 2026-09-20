@@ -922,7 +922,7 @@ function recordCommandAnalyzerTrace(
   });
   if (relaxation) {
     context.options.trace?.recordSegment({
-      type: 'worktree-relaxation',
+      type: relaxation.kind === 'worktree' ? 'worktree-relaxation' : 'temp-root-relaxation',
       originalReason: relaxation.originalReason,
       gitCwd: relaxation.gitCwd,
     });
@@ -999,6 +999,7 @@ export function resolveCwdAfterCommandView(
   commandView: Pick<CommandView, 'dialect' | 'words'>,
   cwd: string | null | undefined,
   environment: EnvironmentContext,
+  shellAssignments: ReadonlyMap<string, string>,
   literalPipelineInput?: string,
 ): string | null | undefined {
   if (commandView.dialect === 'powershell') {
@@ -1031,8 +1032,14 @@ export function resolveCwdAfterCommandView(
   if (options.some((token) => !/^-[LP]+$/.test(token))) return null;
   const rest = optionEnd === -1 ? [] : operands.slice(optionEnd);
   const targets = rest[0] === '--' ? rest.slice(1) : rest;
-  const target = targets[0];
-  if (targets.length !== 1 || target === undefined) return null;
+  if (targets.length !== 1) return null;
+  const rawTarget = targets[0] ?? '';
+  const target = commandView.words.some(
+    (word) => word.provenance === 'variable' && word.text === rawTarget,
+  )
+    ? expandCdOperand(rawTarget, shellAssignments)
+    : rawTarget;
+  if (target === null) return null;
   if (
     !/^(?:[./]|[A-Za-z]:[\\/])/.test(target) &&
     (assignsCdpath || environment.env.has('CDPATH'))
@@ -1040,6 +1047,28 @@ export function resolveCwdAfterCommandView(
     return null;
   }
   return resolveKnownCwdTarget(target, cwd, environment.paths);
+}
+
+const CD_VARIABLE_RE = /\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))/g;
+
+function expandCdOperand(
+  target: string,
+  assignments: ReadonlyMap<string, string>,
+  depth = 0,
+): string | null {
+  if (/[\s`*?[~]/.test(target)) return null;
+  if (!target.includes('$')) return target;
+  if (depth === 8) return null;
+  const names = [...target.matchAll(CD_VARIABLE_RE)].map((match) => match[1] ?? match[2] ?? '');
+  if (names.length === 0 || names.some((name) => !assignments.has(name))) return null;
+  return expandCdOperand(
+    target.replace(
+      CD_VARIABLE_RE,
+      (_match, braced?: string, bare?: string) => assignments.get(braced ?? bare ?? '') ?? '',
+    ),
+    assignments,
+    depth + 1,
+  );
 }
 
 function resolveKnownCwdTarget(

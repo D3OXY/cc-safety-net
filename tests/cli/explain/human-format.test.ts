@@ -1,7 +1,10 @@
 import { afterEach, expect, test } from 'bun:test';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { formatTraceHuman } from '@/cli/explain/format';
 import { explainCommand } from '@/gate/explain';
-import { withLinkedWorktreeFixture } from '../../helpers';
+import { runGit, withLinkedWorktreeFixture } from '../../helpers';
 import { policySnapshot } from '../../helpers/policy';
 import {
   createTempRoot,
@@ -83,4 +86,29 @@ test('human explain identifies a paranoid interpreter denial', () => {
   const text = formatTraceHuman(result);
   expect(text).toContain('Interpreter: python');
   expect(text).toContain('BLOCKED (paranoid mode)');
+});
+
+test('human explain names the temp-root repository that permits a git discard', () => {
+  const home = createTempRoot('explain-temp-root-');
+  const root = mkdtempSync(join(tmpdir(), 'explain-temp-root-repo-'));
+  const repo = join(root, 'repo');
+  const workspace = join(root, 'workspace');
+  mkdirSync(repo, { recursive: true });
+  mkdirSync(workspace, { recursive: true });
+  runGit(['init', '--quiet'], repo);
+
+  const result = explainCommand(
+    `cd ${repo}; git reset --hard`,
+    { cwd: workspace },
+    environmentFor(home, isolationEnv(home, { TMPDIR: tmpdir() })),
+  );
+  expect(result.result).toBe('allowed');
+  expect(result.trace?.segments[1]?.steps.map((step) => step.type)).toContain(
+    'temp-root-relaxation',
+  );
+  const text = formatTraceHuman(result);
+  expect(text).toContain('Temp-root relaxation');
+  expect(text).toContain(realpathSync(repo));
+  expect(text).toContain('Allowed git discard in a temp-root repository');
+  rmSync(root, { recursive: true, force: true });
 });

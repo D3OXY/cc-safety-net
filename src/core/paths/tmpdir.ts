@@ -133,7 +133,7 @@ function tryResolveExistingPathComponents(path: string, paths: PathResolver): st
   }
 }
 
-function isPathOrSubpath(path: string, basePath: string): boolean {
+export function isPathOrSubpath(path: string, basePath: string): boolean {
   const normalizedPath = normalizePathForComparison(path);
   const normalizedBasePath = normalizePathForComparison(basePath);
   if (normalizedPath === normalizedBasePath) {

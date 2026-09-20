@@ -1,4 +1,7 @@
 import { afterAll, describe, expect, test } from 'bun:test';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createTestEnvironment, processPathResolver } from '@/core/environment';
 import type { DestructiveCommandRulePolicy } from '@/core/policy/effective-rules';
 import { resolveEffectiveDestructiveCommandRules } from '@/core/policy/effective-rules';
@@ -353,6 +356,7 @@ describe('git configuration read through the environment', () => {
     expect(relaxed(['git', 'reset', '--hard'])).toStrictEqual({
       match: null,
       relaxation: {
+        kind: 'worktree',
         originalReason:
           "git reset --hard destroys all uncommitted changes permanently. Use 'git stash' first.",
         gitCwd: expect.any(String),
@@ -408,5 +412,106 @@ describe('git configuration read through the environment', () => {
         envAssignments: new Map([['GIT_DIR', '/elsewhere/.git']]),
       }).match?.id,
     ).toBe('git.reset-hard');
+  });
+});
+
+describe('temp-root relaxation', () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), 'git-temp-root-'));
+  const repo = join(tempRoot, 'repo');
+  const nested = join(repo, 'nested');
+  const other = join(repo, 'other');
+  const workspace = join(tempRoot, 'workspace');
+  mkdirSync(nested, { recursive: true });
+  mkdirSync(other, { recursive: true });
+  mkdirSync(workspace, { recursive: true });
+  runGit(['init', '--quiet'], repo);
+  const linked = join(tempRoot, 'linked');
+  runGit(['init', '--quiet'], workspace);
+  writeFileSync(join(workspace, 'file.txt'), 'seed\n');
+  runGit(['add', 'file.txt'], workspace);
+  runGit(['-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'initial'], workspace);
+  runGit(['worktree', 'add', '--quiet', linked, '-b', 'feat'], workspace);
+
+  afterAll(() => {
+    rmSync(tempRoot, { recursive: true, force: true });
+  });
+
+  const relaxationFor = (
+    line: string,
+    options: {
+      cwd?: string;
+      originalCwd?: string;
+      variables?: Record<string, string>;
+      assignments?: ReadonlyMap<string, string>;
+      dynamicArguments?: boolean;
+    } = {},
+  ) =>
+    analyzeGitDetailed(textCommandWords(line.split(' ')), {
+      environment: createTestEnvironment({
+        env: new Map(Object.entries(options.variables ?? {})),
+        home: tempRoot,
+        tmpdir: tmpdir(),
+        paths: processPathResolver,
+      }),
+      cwd: 'cwd' in options ? options.cwd : repo,
+      originalCwd: 'originalCwd' in options ? options.originalCwd : workspace,
+      envAssignments: options.assignments,
+      dynamicArguments: options.dynamicArguments,
+    });
+
+  const rows: readonly {
+    readonly line: string;
+    readonly options?: Parameters<typeof relaxationFor>[1];
+    readonly relaxed: boolean;
+  }[] = [
+    { line: 'git reset --hard', relaxed: true },
+    { line: 'git reset -q --hard $old', relaxed: true },
+    { line: 'git clean -ffdx', relaxed: true },
+    { line: 'git branch -D feature', relaxed: true },
+    { line: 'git stash drop', relaxed: true },
+    { line: 'git tag -d v1', relaxed: true },
+    { line: 'git checkout --recurse-submodules -- .', relaxed: true },
+    { line: 'git reset --hard', options: { dynamicArguments: true }, relaxed: true },
+    { line: `git -C ${repo} reset --hard`, options: { cwd: workspace }, relaxed: true },
+    { line: 'git reset --hard', options: { originalCwd: repo }, relaxed: false },
+    { line: 'git reset --hard', options: { originalCwd: nested }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: nested, originalCwd: repo }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: nested, originalCwd: other }, relaxed: false },
+    { line: 'git reset --hard', options: { originalCwd: undefined }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: undefined }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: '/tmp', originalCwd: workspace }, relaxed: false },
+    { line: 'git --git-dir=.git reset --hard', relaxed: false },
+    { line: 'git --work-tree=. reset --hard', relaxed: false },
+    {
+      line: 'git reset --hard',
+      options: { assignments: new Map([['GIT_DIR', join(repo, '.git')]]) },
+      relaxed: false,
+    },
+    {
+      line: 'git reset --hard',
+      options: { variables: { GIT_WORK_TREE: repo } },
+      relaxed: false,
+    },
+    { line: 'git push --force origin main', relaxed: false },
+    { line: 'git push --delete origin topic', relaxed: false },
+    { line: 'git -C $VAR reset --hard', relaxed: false },
+    { line: 'git branch -D stale', options: { cwd: linked }, relaxed: false },
+    { line: 'git reset --hard', options: { cwd: linked }, relaxed: false },
+  ];
+
+  test('a git discard in a temp-root repository outside the workspace is relaxed', () => {
+    for (const row of rows) {
+      const detailed = relaxationFor(row.line, row.options);
+      expect(detailed.relaxation?.kind === 'temp-root', row.line).toBe(row.relaxed);
+      expect(detailed.match === null, row.line).toBe(row.relaxed);
+    }
+  });
+
+  test('a relaxation names the reason it lifts and the temp-root directory git runs in', () => {
+    const detailed = relaxationFor('git reset --hard');
+    expect(detailed.relaxation?.originalReason).toContain(
+      'git reset --hard destroys all uncommitted changes',
+    );
+    expect(detailed.relaxation?.gitCwd).toBe(realpathSync(repo));
   });
 });

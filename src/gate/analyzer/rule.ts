@@ -167,6 +167,7 @@ export function gitAnalyzeOptions(context: AnalyzerRuleContext) {
   return {
     environment: context.options.environment,
     cwd: context.cwd,
+    originalCwd: context.originalCwd,
     dynamicArguments: context.dynamicArguments,
     envAssignments: context.envAssignments,
     policy: context.options.policy,

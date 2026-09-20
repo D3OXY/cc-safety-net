@@ -30,6 +30,8 @@ const EXPORT_BUILTINS = new Set(['export', 'typeset', 'declare', 'readonly']);
 
 const BUILTIN_CALL_PREFIXES = new Set(['builtin', 'command', 'time']);
 
+const COMPOUND_BODY_KEYWORDS = new Set(['do', 'then', 'else']);
+
 export function createShellGitContextEnvState(
   env: ReadonlyMap<string, string>,
   effectiveEnvAssignments?: ReadonlyMap<string, string>,
@@ -109,9 +111,13 @@ function collectSegmentEnvAssignments(
   state: ShellGitContextEnvState,
 ): { assignments: readonly SegmentGitContextAssignment[]; commandIndex: number } {
   const commandIndex = tokens.findIndex((token) => !isEnvAssignmentToken(token));
+  const bodyStart = COMPOUND_BODY_KEYWORDS.has(tokens[0] ?? '') ? 1 : 0;
+  const assignmentsEnd = tokens.findIndex(
+    (token, index) => index >= bodyStart && !isEnvAssignmentToken(token),
+  );
   const declaresOperands =
-    commandIndex !== -1 &&
-    EXPORT_BUILTINS.has(tokens[resolveInvokedWordIndex(tokens, commandIndex)] ?? '');
+    assignmentsEnd !== -1 &&
+    EXPORT_BUILTINS.has(tokens[resolveInvokedWordIndex(tokens, assignmentsEnd)] ?? '');
   const currentValues = getCurrentShellAssignmentValues(state);
 
   const assignments = tokens.flatMap((token, index) => {
@@ -120,8 +126,8 @@ function collectSegmentEnvAssignments(
       return [];
     }
     if (
-      commandIndex !== -1 &&
-      index > commandIndex &&
+      assignmentsEnd !== -1 &&
+      index > assignmentsEnd &&
       !declaresOperands &&
       !isGitContextEnvOverrideName(assignment.name)
     ) {
@@ -131,7 +137,7 @@ function collectSegmentEnvAssignments(
     return [
       {
         ...assignment,
-        persists: commandIndex === -1 || declaresOperands,
+        persists: assignmentsEnd === -1 || declaresOperands,
       },
     ];
   });

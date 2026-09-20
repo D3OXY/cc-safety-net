@@ -182,6 +182,14 @@ export function formatStepStyleD(
       return { lines, incrementStep: true };
     }
 
+    case 'temp-root-relaxation': {
+      lines.push('');
+      lines.push(`STEP ${stepNum} ${box.h} Temp-root relaxation`);
+      lines.push(`  Git cwd: ${step.gitCwd}`);
+      lines.push(`  Result: Allowed git discard in a temp-root repository`);
+      return { lines, incrementStep: true };
+    }
+
     case 'tmpdir-check':
       return null;
 
