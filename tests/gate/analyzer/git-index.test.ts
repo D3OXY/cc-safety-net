@@ -506,6 +506,8 @@ describe('temp-root relaxation', () => {
     { line: `git worktree remove --force ${linked}`, options: { cwd: workspace }, relaxed: true },
     { line: `git worktree remove -f -- ${nested}`, options: { cwd: workspace }, relaxed: true },
     { line: 'git worktree remove --force ../linked', options: { cwd: workspace }, relaxed: false },
+    { line: 'git worktree remove --force linked', options: { cwd: repo }, relaxed: false },
+    { line: 'git worktree remove --force ./linked', options: { cwd: repo }, relaxed: false },
     {
       line: 'git worktree remove --force $WT',
       options: { cwd: workspace, shellAssignments: new Map([['WT', linked]]) },

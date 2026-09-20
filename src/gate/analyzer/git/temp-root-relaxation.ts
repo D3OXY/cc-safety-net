@@ -1,4 +1,4 @@
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { PathResolver } from '@/core/environment';
 import {
   isPathOrSubpath,
@@ -35,7 +35,7 @@ export function getGitTempRootRelaxationForMatch(
   // subject is the operand rather than the repository root.
   const subject =
     match.id === 'git.worktree-remove-force'
-      ? worktreeRemoveOperand(tokens, context.gitCwd, options.shellAssignments, paths)
+      ? worktreeRemoveOperand(tokens, options.shellAssignments, paths)
       : findGitRepositoryRoot(context.gitCwd, paths);
   if (
     subject === null ||
@@ -53,10 +53,13 @@ export function getGitTempRootRelaxationForMatch(
   return { kind: 'temp-root', originalReason: match.reason, gitCwd: context.gitCwd };
 }
 
-/** The single literal path `git worktree remove` targets, expanded from the carried assignments. */
+/**
+ * The single absolute literal path `git worktree remove` targets, expanded from the carried
+ * assignments. A relative operand is refused: git also accepts a unique trailing path component of
+ * any registered worktree, so `remove --force victim` can name a worktree far from the cwd.
+ */
 function worktreeRemoveOperand(
   tokens: readonly string[],
-  gitCwd: string,
   shellAssignments: ReadonlyMap<string, string> | undefined,
   paths: PathResolver,
 ): string | null {
@@ -65,15 +68,8 @@ function worktreeRemoveOperand(
   const operands = [...before.filter((token) => !token.startsWith('-')), ...after];
   const operand = operands.length === 1 ? (operands[0] ?? '') : '';
   const expanded = substituteKnownShellVariables(operand, shellAssignments ?? new Map());
-  if (
-    expanded === '' ||
-    expanded.startsWith('~') ||
-    /[\s$`*?[]/.test(expanded) ||
-    expanded.split(/[\\/]+/).includes('..')
-  ) {
-    return null;
-  }
-  return tryResolveExistingPathComponents(resolve(gitCwd, expanded), paths);
+  if (!isAbsolute(expanded) || /[\s$`*?[]/.test(expanded)) return null;
+  return tryResolveExistingPathComponents(expanded, paths);
 }
 
 /** The nearest directory at or above `directory` that holds a `.git` entry of any kind. */
