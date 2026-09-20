@@ -745,6 +745,30 @@ export function behavioralContractCases(paths: {
       },
     },
     {
+      name: 'allows a forced worktree removal whose operand is a temp-root path unrelated to the workspace',
+      command: `git worktree remove --force ${tempRepo}`,
+      options: options({ cwd: paths.cwd }),
+      expected: { kind: 'allow' },
+    },
+    {
+      name: 'allows a forced worktree removal whose operand is a tracked variable naming a temp-root path',
+      command: `S=${tempParent}; git worktree remove -f $S/${basename(tempRepo)}`,
+      options: options({ cwd: paths.cwd }),
+      expected: { kind: 'allow' },
+    },
+    {
+      name: 'blocks a forced worktree removal whose operand contains the workspace',
+      command: `git worktree remove --force ${tempParent}`,
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.worktree-remove-force',
+        intent: 'use_alternative',
+        reasonIncludes: 'can delete uncommitted changes',
+        segment: `git worktree remove --force ${tempParent}`,
+      },
+    },
+    {
       name: 'blocks a Git discard after a cd through an unbound variable',
       command: `cd ${tempParent}/$c; git reset --hard`,
       options: options({ cwd: paths.cwd }),

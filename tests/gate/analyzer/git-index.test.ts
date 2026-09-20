@@ -446,6 +446,7 @@ describe('temp-root relaxation', () => {
       originalCwd?: string;
       variables?: Record<string, string>;
       assignments?: ReadonlyMap<string, string>;
+      shellAssignments?: ReadonlyMap<string, string>;
       dynamicArguments?: boolean;
     } = {},
   ) =>
@@ -459,6 +460,7 @@ describe('temp-root relaxation', () => {
       cwd: 'cwd' in options ? options.cwd : repo,
       originalCwd: 'originalCwd' in options ? options.originalCwd : workspace,
       envAssignments: options.assignments,
+      shellAssignments: options.shellAssignments,
       dynamicArguments: options.dynamicArguments,
     });
 
@@ -501,6 +503,51 @@ describe('temp-root relaxation', () => {
     { line: 'git branch -D stale', options: { cwd: linked }, relaxed: false },
     { line: 'git reset --hard', options: { cwd: linked }, relaxed: false },
     { line: 'git branch -D feature', options: { cwd: symlinked }, relaxed: false },
+    { line: `git worktree remove --force ${linked}`, options: { cwd: workspace }, relaxed: true },
+    { line: `git worktree remove -f -- ${nested}`, options: { cwd: workspace }, relaxed: true },
+    { line: 'git worktree remove --force ../linked', options: { cwd: workspace }, relaxed: false },
+    {
+      line: 'git worktree remove --force $WT',
+      options: { cwd: workspace, shellAssignments: new Map([['WT', linked]]) },
+      relaxed: true,
+    },
+    { line: 'git worktree remove --force $WT', options: { cwd: workspace }, relaxed: false },
+    {
+      line: 'git worktree remove --force $WT/*',
+      options: { cwd: workspace, shellAssignments: new Map([['WT', linked]]) },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${workspace}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${tempRoot}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${tmpdir()}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    { line: 'git worktree remove --force', options: { cwd: workspace }, relaxed: false },
+    {
+      line: `git worktree remove --force ${linked} ${nested}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git --git-dir=.git worktree remove --force ${linked}`,
+      options: { cwd: workspace },
+      relaxed: false,
+    },
+    {
+      line: `git worktree remove --force ${linked}`,
+      options: { cwd: workspace, variables: { GIT_WORK_TREE: workspace } },
+      relaxed: false,
+    },
   ];
 
   test('a git discard in a temp-root repository outside the workspace is relaxed', () => {
