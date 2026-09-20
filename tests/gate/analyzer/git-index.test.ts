@@ -634,6 +634,38 @@ describe('temp-root relaxation', () => {
     ).toBeUndefined();
   });
 
+  test('a literal dollar fragment inside a partly expanded operand withholds the relaxation', () => {
+    // `"$A"'$B'`: the shell expands $A and passes $B literally, so the analyzed path must not be
+    // the fully substituted one.
+    const [base, ...words] = textCommandWords(['$A$B', 'git', 'worktree', 'remove', '--force']);
+    if (base === undefined) throw new Error('unreachable');
+    const operand = {
+      ...base,
+      provenance: 'variable' as const,
+      quoted: true,
+      parts: [
+        { raw: '"', span: { start: 0, end: 1 }, provenance: 'literal' as const },
+        { raw: '$A', span: { start: 1, end: 3 }, provenance: 'variable' as const },
+        { raw: `"'$B'`, span: { start: 3, end: 8 }, provenance: 'literal' as const },
+      ],
+    };
+    const detailed = analyzeGitDetailed([...words, operand], {
+      environment: createTestEnvironment({
+        home: tempRoot,
+        tmpdir: tmpdir(),
+        paths: processPathResolver,
+      }),
+      cwd: workspace,
+      originalCwd: workspace,
+      shellAssignments: new Map([
+        ['A', `${tempRoot}/`],
+        ['B', 'linked'],
+      ]),
+    });
+    expect(detailed.relaxation).toBeNull();
+    expect(detailed.match?.id).toBe('git.worktree-remove-force');
+  });
+
   test('a relaxation names the reason it lifts and the temp-root directory git runs in', () => {
     const detailed = relaxationFor('git reset --hard');
     expect(detailed.relaxation?.originalReason).toContain(

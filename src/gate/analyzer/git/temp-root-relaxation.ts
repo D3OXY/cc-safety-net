@@ -93,9 +93,15 @@ function worktreeRemoveOperand(
   const { before, after } = splitAtDoubleDash(rest.slice(rest.indexOf('remove') + 1));
   const operands = [...before.filter((token) => !token.startsWith('-')), ...after];
   const operand = operands.length === 1 ? (operands[0] ?? '') : '';
-  const expanded = words.some((word) => word.provenance === 'variable' && word.text === operand)
-    ? substituteKnownShellVariables(operand, shellAssignments ?? new Map())
-    : operand;
+  const operandWord = words.find((word) => word.text === operand);
+  // Substitute only when every `$` in the word belongs to an expansion the parser saw; a literal
+  // fragment such as `'$B'` in `"$A"'$B'` reaches git unexpanded, so the text is left as is and
+  // the dynamic-text check below keeps the rule.
+  const expanded =
+    operandWord?.provenance === 'variable' &&
+    operandWord.parts.every((part) => part.provenance !== 'literal' || !/[$`]/.test(part.raw))
+      ? substituteKnownShellVariables(operand, shellAssignments ?? new Map())
+      : operand;
   if (
     !isAbsolute(expanded) ||
     /[\s$`*?[]/.test(expanded) ||
