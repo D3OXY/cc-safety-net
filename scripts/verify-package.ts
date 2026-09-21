@@ -396,7 +396,10 @@ function verifyIsolatedConsumers(tarball: string): void {
       source:
         "import plugin from 'cc-safety-net/opencode/v2';\nimport type { Plugin } from '@opencode/plugin/effect/plugin';\nconst registered: Plugin = plugin;\nvoid registered;\n",
     },
-  ].filter((fixture) => VERIFY_OPENCODE_V2 || !fixture.peers.includes('@opencode/plugin@2.0.6'))) {
+  ].filter(
+    (fixture) =>
+      VERIFY_OPENCODE_V2 || !fixture.peers.some((peer) => peer.startsWith('@opencode/plugin@')),
+  )) {
     const directory = mkdtempSync(join(tmpdir(), 'cc-safety-net-consumer-'));
     try {
       run(['npm', 'init', '--yes'], directory);
