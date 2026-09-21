@@ -268,6 +268,16 @@ describe('git configuration read through the environment', () => {
       policy: options.policy,
     });
 
+  test('an alias expanded after a leading -C keeps that directory for the checkout operand', () => {
+    const elsewhere = mkdtempSync(join(tmpdir(), 'ccsn-checkout-alias-'));
+    writeFileSync(join(elsewhere, 'only-here.ts'), '');
+    expect(
+      analyze(['git', '-C', elsewhere, '-c', 'alias.co=checkout', 'co', 'only-here.ts'])?.id,
+    ).toBe('git.checkout-double-dash');
+    expect(analyze(['git', '-c', 'alias.co=checkout', 'co', 'only-here.ts'])).toBeNull();
+    rmSync(elsewhere, { recursive: true, force: true });
+  });
+
   test('an alias defined through the environment is expanded before the rules run', () => {
     expect(analyze([])).toBeNull();
     expect(

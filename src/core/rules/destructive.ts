@@ -41,7 +41,7 @@ const DESTRUCTIVE_COMMAND_RULE_DEFINITIONS = [
     id: 'git.checkout-double-dash',
     category: 'Git',
     label: 'Git checkout path restore',
-    description: 'Blocks checkout path restores after --.',
+    description: 'Blocks checkout path restores, with or without --.',
     example: 'git checkout -- src/app.ts',
     intent: 'use_alternative',
   },

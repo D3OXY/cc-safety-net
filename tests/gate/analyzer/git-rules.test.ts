@@ -13,10 +13,12 @@ function argvOf(line: string): string[] {
   return line.split(/\s+/).filter((word) => word.length > 0);
 }
 
+const noPath = () => false;
+
 describe('git rule dispatch', () => {
   test('restore help remains non-destructive inside a short option cluster', () => {
-    expect(analyzeGitRule(['git', 'restore', '-Wh', '.'])).toBeNull();
-    expect(analyzeGitRule(['git', 'restore', '-W', '.'])?.id).toBe('git.restore-worktree');
+    expect(analyzeGitRule(['git', 'restore', '-Wh', '.'], noPath)).toBeNull();
+    expect(analyzeGitRule(['git', 'restore', '-W', '.'], noPath)?.id).toBe('git.restore-worktree');
   });
   test('the dispatch table names every subcommand with a rule', () => {
     expect([...GIT_RULE_SUBCOMMANDS].sort()).toStrictEqual([
@@ -38,20 +40,33 @@ describe('git rule dispatch', () => {
   });
 
   test('a matched rule carries its reason, intent and whether it discards local work', () => {
-    expect(analyzeGitRule(argvOf('git reset --hard'))).toStrictEqual({
+    expect(analyzeGitRule(argvOf('git reset --hard'), noPath)).toStrictEqual({
       id: 'git.reset-hard',
       reason:
         "git reset --hard destroys all uncommitted changes permanently. Use 'git stash' first.",
       intent: 'use_alternative',
       localDiscard: true,
     });
-    expect(analyzeGitRule(argvOf('git push --force origin main'))).toStrictEqual({
+    expect(analyzeGitRule(argvOf('git push --force origin main'), noPath)).toStrictEqual({
       id: 'git.push-force',
       reason:
         'git push --force destroys remote history. Use --force-with-lease for safer force push.',
       intent: 'use_alternative',
       localDiscard: false,
     });
+  });
+
+  test('a single checkout operand that exists in the working tree is a path restore', () => {
+    const exists = (operand: string) => operand === 'README.md';
+    expect(analyzeGitRule(argvOf('git checkout README.md'), exists)?.id).toBe(
+      'git.checkout-double-dash',
+    );
+    expect(analyzeGitRule(argvOf('git checkout README.md'), noPath)).toBeNull();
+    expect(analyzeGitRule(argvOf('git checkout -b README.md'), exists)).toBeNull();
+    expect(analyzeGitRule(argvOf('git checkout --detach README.md'), exists)).toBeNull();
+    expect(analyzeGitRule(argvOf('git checkout -d README.md'), exists)).toBeNull();
+    expect(analyzeGitRule(argvOf('git checkout -t README.md'), exists)).toBeNull();
+    expect(analyzeGitRule(argvOf('git checkout main'), exists)).toBeNull();
   });
 
   test('each command line reaches the rule its subcommand and options select', () => {
@@ -77,6 +92,22 @@ describe('git rule dispatch', () => {
       { line: 'git checkout --pathspec-from-file=list', id: 'git.checkout-pathspec-from-file' },
       { line: 'git checkout main other', id: 'git.checkout-ambiguous' },
       { line: 'git checkout main', id: null },
+      { line: 'git checkout .', id: 'git.checkout-double-dash' },
+      { line: 'git checkout ..', id: 'git.checkout-double-dash' },
+      { line: 'git checkout ./src/app.ts', id: 'git.checkout-double-dash' },
+      { line: 'git checkout ../shared', id: 'git.checkout-double-dash' },
+      { line: 'git checkout src/', id: 'git.checkout-double-dash' },
+      { line: 'git checkout /abs/path.ts', id: 'git.checkout-double-dash' },
+      { line: 'git checkout :/', id: 'git.checkout-double-dash' },
+      { line: 'git checkout :(top)src', id: 'git.checkout-double-dash' },
+      { line: 'git checkout C:/repo/src', id: 'git.checkout-double-dash' },
+      { line: 'git checkout .\\src', id: 'git.checkout-double-dash' },
+      { line: 'git checkout *.ts', id: 'git.checkout-double-dash' },
+      { line: 'git checkout src/*.ts', id: 'git.checkout-double-dash' },
+      { line: 'git checkout file?.ts', id: 'git.checkout-double-dash' },
+      { line: 'git checkout [ab].ts', id: 'git.checkout-double-dash' },
+      { line: 'git checkout feature/x', id: null },
+      { line: 'git checkout release/v1.2', id: null },
       { line: 'git checkout --recurse-submodules on-demand one', id: null },
       { line: 'git checkout --recurse-submodules bogus one', id: 'git.checkout-ambiguous' },
       { line: 'git switch --discard-changes main', id: 'git.switch-discard-changes' },
@@ -116,7 +147,7 @@ describe('git rule dispatch', () => {
       { line: 'git -c alias.co=checkout co -- .', id: null },
     ];
     for (const row of rows) {
-      expect(analyzeGitRule(argvOf(row.line))?.id ?? null, row.line).toBe(row.id);
+      expect(analyzeGitRule(argvOf(row.line), noPath)?.id ?? null, row.line).toBe(row.id);
     }
   });
 
@@ -153,7 +184,7 @@ describe('git alias resolution', () => {
     expect(resolution.expanded).toBeTrue();
     expect(resolution.blockedReason).toBeNull();
     expect(resolution.tokens).toStrictEqual(['git', 'checkout', '--force', 'main']);
-    expect(analyzeGitRule(resolution.tokens)?.id).toBe('git.checkout-force');
+    expect(analyzeGitRule(resolution.tokens, noPath)?.id).toBe('git.checkout-force');
   });
 
   test('an alias the reader cannot resolve is reported as a blocked reason', () => {
@@ -237,7 +268,7 @@ describe('worktree relaxation', () => {
       } = {},
     ) => {
       const argv = argvOf(line);
-      const match = analyzeGitRule(argv);
+      const match = analyzeGitRule(argv, noPath);
       if (!match) throw new Error(`expected a rule for ${line}`);
       return getGitWorktreeRelaxationForMatch(argv, match, {
         environment: pairedEnvironments(options.variables ?? {}, fixture.rootDir),
@@ -313,7 +344,7 @@ describe('worktree relaxation', () => {
 
   test('a relaxation names the reason it lifts and the directory Git runs in', () => {
     const argv = argvOf('git checkout -- .');
-    const match = analyzeGitRule(argv);
+    const match = analyzeGitRule(argv, noPath);
     if (!match) throw new Error('expected a git.checkout-double-dash match');
     const environments = pairedEnvironments({}, fixture.rootDir);
     const relaxation = getGitWorktreeRelaxationForMatch(argv, match, {

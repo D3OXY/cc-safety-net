@@ -5,6 +5,8 @@ import { extractGitSubcommandAndRest, splitAtDoubleDash } from './parse';
 
 const REASON_CHECKOUT_DOUBLE_DASH =
   "git checkout -- discards uncommitted changes permanently. Use 'git stash' first.";
+const REASON_CHECKOUT_PATH =
+  "git checkout <path> discards uncommitted changes permanently. Use 'git stash' first, or 'git switch' to change branches.";
 const REASON_CHECKOUT_FORCE =
   "git checkout --force discards uncommitted changes. Use 'git stash' first.";
 const REASON_CHECKOUT_REF_PATH =
@@ -105,7 +107,11 @@ export const GIT_RULE_SUBCOMMANDS = new Set([
   'worktree',
 ]);
 
-export function analyzeGitRule(tokens: readonly string[]): GitRuleMatch | null {
+/** `isCheckoutPath` reports whether a bare checkout operand names an entry in the working tree. */
+export function analyzeGitRule(
+  tokens: readonly string[],
+  isCheckoutPath: (operand: string) => boolean,
+): GitRuleMatch | null {
   const { subcommand, rest } = extractGitSubcommandAndRest(tokens);
 
   if (!subcommand) {
@@ -114,7 +120,7 @@ export function analyzeGitRule(tokens: readonly string[]): GitRuleMatch | null {
 
   switch (subcommand.toLowerCase()) {
     case 'checkout':
-      return localDiscard(analyzeGitCheckout(rest));
+      return localDiscard(analyzeGitCheckout(rest, isCheckoutPath));
     case 'switch':
       return localDiscard(analyzeGitSwitch(rest));
     case 'restore':
@@ -154,7 +160,10 @@ function sharedState(match: DestructiveCommandRuleMatch | null): GitRuleMatch | 
   return match ? { ...match, localDiscard: false } : null;
 }
 
-function analyzeGitCheckout(tokens: readonly string[]): DestructiveCommandRuleMatch | null {
+function analyzeGitCheckout(
+  tokens: readonly string[],
+  isCheckoutPath: (operand: string) => boolean,
+): DestructiveCommandRuleMatch | null {
   const { index: doubleDashIdx, before: beforeDash } = splitAtDoubleDash(tokens);
   const shortOpts = extractShortOpts(beforeDash, {
     shortOptsWithValue: CHECKOUT_SHORT_OPTS_WITH_VALUE,
@@ -190,7 +199,36 @@ function analyzeGitCheckout(tokens: readonly string[]): DestructiveCommandRuleMa
     return destructiveCommandMatch('git.checkout-ambiguous', REASON_CHECKOUT_AMBIGUOUS);
   }
 
+  // A lone operand is a branch switch unless it is spelled as a path or names an existing entry.
+  const operand = positionalArgs[0];
+  if (
+    operand === undefined ||
+    shortOpts.has('-d') ||
+    shortOpts.has('-t') ||
+    tokens.some(
+      (token) => matchesGitLongOption(token, '--detach') || matchesGitLongOption(token, '--track'),
+    )
+  ) {
+    return null;
+  }
+  if (isPathspecShaped(operand) || isCheckoutPath(operand)) {
+    return destructiveCommandMatch('git.checkout-double-dash', REASON_CHECKOUT_PATH);
+  }
+
   return null;
+}
+
+function isPathspecShaped(operand: string): boolean {
+  return (
+    operand === '.' ||
+    operand === '..' ||
+    /^\.\.?[/\\]/.test(operand) ||
+    /^([/\\]|[A-Za-z]:[/\\])/.test(operand) ||
+    operand.endsWith('/') ||
+    operand.startsWith(':') ||
+    // Refnames cannot contain glob characters, so a glob operand is always a pathspec.
+    /[*?[]/.test(operand)
+  );
 }
 
 function analyzeGitSwitch(tokens: readonly string[]): DestructiveCommandRuleMatch | null {

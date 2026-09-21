@@ -19,7 +19,12 @@ const fixtureRoot = mkdtempSync(join(tmpdir(), 'next-gate-contract-'));
 const workspace = join(fixtureRoot, 'workspace');
 const repository = join(fixtureRoot, 'repo');
 const tempRepos = [join(fixtureRoot, 'temp-a'), join(fixtureRoot, 'temp-b')] as const;
-writeTree(fixtureRoot, { workspace: null, repo: null, 'temp-a': null, 'temp-b': null });
+writeTree(fixtureRoot, {
+  'workspace/src/app.ts': '',
+  repo: null,
+  'temp-a': null,
+  'temp-b': null,
+});
 for (const path of [repository, ...tempRepos]) {
   execFileSync('git', ['init', '--quiet', path]);
 }

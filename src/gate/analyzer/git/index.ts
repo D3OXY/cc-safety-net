@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { filterDestructiveCommandMatch } from '@/core/policy/effective-rules';
 import { destructiveCommandMatch } from '@/core/rules/destructive';
 import type { DestructiveCommandRuleMatch } from '@/core/rules/types';
@@ -12,6 +13,7 @@ import {
 } from './parse';
 import { analyzeGitRule, matchesGitLongOption } from './rules';
 import { getGitTempRootRelaxationForMatch } from './temp-root-relaxation';
+import { getGitExecutionContext } from './worktree';
 import {
   type GitAnalyzeOptions,
   type GitRelaxation,
@@ -64,7 +66,13 @@ function evaluateGit(
     return destructiveCommandMatch('git.ssh-env', REASON_GIT_SSH_ENV);
   }
 
-  const match = analyzeGitRule(resolvedTokens);
+  const match = analyzeGitRule(resolvedTokens, (operand) => {
+    // Alias expansion drops leading global options, so -C is read from the original tokens.
+    const gitCwd = getGitExecutionContext(tokens, options.cwd, options.environment.paths).gitCwd;
+    return (
+      gitCwd !== null && options.environment.paths.entryKind(resolve(gitCwd, operand)) !== 'missing'
+    );
+  });
 
   if (!match) {
     return null;
