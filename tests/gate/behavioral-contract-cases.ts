@@ -137,6 +137,18 @@ export function behavioralContractCases(paths: {
       },
     },
     {
+      name: 'blocks a quoted glob checkout that git expands itself',
+      command: "git checkout '*.ts'",
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'git.checkout-double-dash',
+        intent: 'use_alternative',
+        reasonIncludes: 'discards uncommitted changes',
+        segment: 'git checkout *.ts',
+      },
+    },
+    {
       name: 'blocks checkout of a path that exists in the working tree',
       command: 'git checkout src/app.ts',
       options: options({ cwd: paths.cwd }),

@@ -224,7 +224,9 @@ function isPathspecShaped(operand: string): boolean {
     /^\.\.?[/\\]/.test(operand) ||
     /^([/\\]|[A-Za-z]:[/\\])/.test(operand) ||
     operand.endsWith('/') ||
-    operand.startsWith(':')
+    operand.startsWith(':') ||
+    // Refnames cannot contain glob characters, so a glob operand is always a pathspec.
+    /[*?[]/.test(operand)
   );
 }
 
