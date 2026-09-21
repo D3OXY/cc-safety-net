@@ -203,6 +203,7 @@ function analyzeGitCheckout(
   const operand = positionalArgs[0];
   if (
     operand === undefined ||
+    shortOpts.has('-d') ||
     shortOpts.has('-t') ||
     tokens.some(
       (token) => matchesGitLongOption(token, '--detach') || matchesGitLongOption(token, '--track'),

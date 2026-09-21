@@ -64,6 +64,7 @@ describe('git rule dispatch', () => {
     expect(analyzeGitRule(argvOf('git checkout README.md'), noPath)).toBeNull();
     expect(analyzeGitRule(argvOf('git checkout -b README.md'), exists)).toBeNull();
     expect(analyzeGitRule(argvOf('git checkout --detach README.md'), exists)).toBeNull();
+    expect(analyzeGitRule(argvOf('git checkout -d README.md'), exists)).toBeNull();
     expect(analyzeGitRule(argvOf('git checkout -t README.md'), exists)).toBeNull();
     expect(analyzeGitRule(argvOf('git checkout main'), exists)).toBeNull();
   });
