@@ -27,6 +27,10 @@ const PACKAGE_ROOT_FILES = [
 // tarball is materially larger than the entries alone.
 // Current size is 433,762 bytes; the cap leaves ~123 KB of headroom.
 const MAX_TARBALL_BYTES = 560_000;
+// The OpenCode v2 peers pull ~55k files through npm, which Windows runners extract at roughly
+// 20x the Linux cost (14-31 min vs ~1 min). The v2 host check and its consumer fixture are
+// platform-independent module wiring, so Windows verifies the tarball without them.
+const VERIFY_OPENCODE_V2 = process.platform !== 'win32';
 
 interface PackResult {
   filename: string;
@@ -124,9 +128,9 @@ export async function verifyPackage(): Promise<void> {
         '--no-fund',
         tarball,
         '@opencode-ai/plugin@1.18.29',
-        '@opencode/plugin@2.0.6',
-        '@opencode/core@2.0.6',
-        '@effect/platform-node@4.0.0-rc.112',
+        ...(VERIFY_OPENCODE_V2
+          ? ['@opencode/plugin@2.0.6', '@opencode/core@2.0.6', '@effect/platform-node@4.0.0-rc.112']
+          : []),
         '@types/node@18',
         '@types/json-schema',
         'typescript@5',
@@ -155,14 +159,21 @@ export async function verifyPackage(): Promise<void> {
       amp: join(packageRoot, 'dist', 'amp', AMP_PLUGIN_ENTRY),
       env: packageVerificationEnv,
     });
-    const v2 = run(
-      [process.execPath, '--eval', OPENCODE_V2_HOST_SCRIPT, join(packageRoot, 'dist', 'index.js')],
-      directory,
-      [0],
-      undefined,
-      packageVerificationEnv,
-    );
-    console.log(v2.stdout.toString().trim());
+    if (VERIFY_OPENCODE_V2) {
+      const v2 = run(
+        [
+          process.execPath,
+          '--eval',
+          OPENCODE_V2_HOST_SCRIPT,
+          join(packageRoot, 'dist', 'index.js'),
+        ],
+        directory,
+        [0],
+        undefined,
+        packageVerificationEnv,
+      );
+      console.log(v2.stdout.toString().trim());
+    }
     const overLimitRulebook = join(
       directory,
       '.cc-safety-net',
@@ -385,7 +396,10 @@ function verifyIsolatedConsumers(tarball: string): void {
       source:
         "import plugin from 'cc-safety-net/opencode/v2';\nimport type { Plugin } from '@opencode/plugin/effect/plugin';\nconst registered: Plugin = plugin;\nvoid registered;\n",
     },
-  ]) {
+  ].filter(
+    (fixture) =>
+      VERIFY_OPENCODE_V2 || !fixture.peers.some((peer) => peer.startsWith('@opencode/plugin@')),
+  )) {
     const directory = mkdtempSync(join(tmpdir(), 'cc-safety-net-consumer-'));
     try {
       run(['npm', 'init', '--yes'], directory);
