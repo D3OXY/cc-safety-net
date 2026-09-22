@@ -19,7 +19,7 @@ const enabled =
   (side: Parameters<typeof seedFiles>[0]) =>
     seedFiles(side, { 'home/.claude/settings.json': PLUGIN_SETTINGS, ...extra });
 
-const runStatusline = async (row: CliRow) => await runCliDifferential(row);
+const runStatusline = async (row: CliRow) => runCliDifferential(row);
 
 describe('statusline', () => {
   test('a disabled plugin is the whole answer', async () => {

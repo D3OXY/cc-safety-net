@@ -97,14 +97,13 @@ describe('the raw-text matcher', () => {
 });
 
 describe('the linear scanners', () => {
-  test.each([
-    String.raw`\x0a`,
-    String.raw`\u000a`,
-    String.raw`\012`,
-  ])('an encoded newline %s separates recursive and force flags', (newline) => {
-    expect(hasLinearInterpreterDanger(`rm --recursive${newline} --force`, 'rm')).toBe(false);
-    expect(hasLinearInterpreterDanger('rm --recursive --force', 'rm')).toBe(true);
-  });
+  test.each([String.raw`\x0a`, String.raw`\u000a`, String.raw`\012`])(
+    'an encoded newline %s separates recursive and force flags',
+    (newline) => {
+      expect(hasLinearInterpreterDanger(`rm --recursive${newline} --force`, 'rm')).toBe(false);
+      expect(hasLinearInterpreterDanger('rm --recursive --force', 'rm')).toBe(true);
+    },
+  );
 
   test('Git global options consume values without combining separate commands', () => {
     expect(hasLinearDangerousText('git --no-pager -- reset --hard', 'reset-hard')).toBe(true);

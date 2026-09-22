@@ -882,7 +882,10 @@ describe('fault hooks', () => {
   beforeEach(() => {
     originalFetch = globalThis.fetch;
     globalThis.fetch = ((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) =>
-      originalFetch(github.resolveUrl(String(input)), init)) as typeof fetch;
+      originalFetch(
+        github.resolveUrl(input instanceof Request ? input.url : String(input)),
+        init,
+      )) as typeof fetch;
   });
 
   afterEach(() => {

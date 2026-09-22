@@ -39,9 +39,7 @@ export function unbundledRuntimeImports(source: string): string[] {
 async function listFiles(directory: string): Promise<string[]> {
   return (
     await Promise.all(
-      (
-        await readdir(directory, { withFileTypes: true })
-      ).map(async (entry) => {
+      (await readdir(directory, { withFileTypes: true })).map(async (entry) => {
         const path = resolve(directory, entry.name);
         if (entry.isDirectory()) return listFiles(path);
         return [relative(process.cwd(), path).replaceAll('\\', '/')];

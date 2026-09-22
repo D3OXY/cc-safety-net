@@ -597,20 +597,19 @@ test.each([
   expect(fileAt(result.tree, config)).toBe(content);
 });
 
-test.each([
-  '1.18.28',
-  '2.0.5',
-  'unknown',
-])('rejects unsupported OpenCode %s before installing', async (version) => {
-  const result = await flow({
-    invoke: 'install',
-    args: ['--opencode'],
-    script: [{ command: 'opencode', args: ['--version'], stdout: version }],
-  });
-  expect(result.exitCode).toBe(1);
-  expect(result.log).toEqual(['opencode --version\t<root>']);
-  expect(result.errors.join('\n')).toContain('OpenCode 1.18.29+ or 2.0.6+');
-});
+test.each(['1.18.28', '2.0.5', 'unknown'])(
+  'rejects unsupported OpenCode %s before installing',
+  async (version) => {
+    const result = await flow({
+      invoke: 'install',
+      args: ['--opencode'],
+      script: [{ command: 'opencode', args: ['--version'], stdout: version }],
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.log).toEqual(['opencode --version\t<root>']);
+    expect(result.errors.join('\n')).toContain('OpenCode 1.18.29+ or 2.0.6+');
+  },
+);
 
 test('uninstalling OpenCode drops our entry and leaves the JSONC comments alone', async () => {
   const config = '.config/opencode/opencode.jsonc';

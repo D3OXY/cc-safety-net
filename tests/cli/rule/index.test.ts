@@ -717,14 +717,18 @@ describe('wrapper', () => {
     ['remove drops the command', rulesConfig([], { transparent_wrappers: ['rtk'] })],
     ['removing a command that was never there still reports the removal', rulesConfig([])],
   ] as const) {
-    test(name, async () => {
-      const outcome = await rule(['wrapper', 'remove', 'rtk'], {
-        [`${P}/rule.json`]: configured,
-      });
-      expect(outcome.exitCode).toBe(0);
-      expect(outcome.stdout).toBe('Removed transparent wrapper: rtk\n');
-      expect(fileAt(outcome, `${P}/rule.json`)).toBe(rulesConfig([]));
-    }, 60_000);
+    test(
+      name,
+      async () => {
+        const outcome = await rule(['wrapper', 'remove', 'rtk'], {
+          [`${P}/rule.json`]: configured,
+        });
+        expect(outcome.exitCode).toBe(0);
+        expect(outcome.stdout).toBe('Removed transparent wrapper: rtk\n');
+        expect(fileAt(outcome, `${P}/rule.json`)).toBe(rulesConfig([]));
+      },
+      60_000,
+    );
   }
 
   test('list says so when nothing is trusted', async () => {

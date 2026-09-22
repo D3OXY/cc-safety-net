@@ -1032,7 +1032,7 @@ function extractFindCommandTargets(
   const expressionIndex = tokens.findIndex(
     (token) => token.startsWith('-') || token === '(' || token === '!' || token === ';',
   );
-  const targets = [...tokens.slice(0, expressionIndex === -1 ? tokens.length : expressionIndex)];
+  const targets = tokens.slice(0, expressionIndex === -1 ? tokens.length : expressionIndex);
   for (let i = 0; i < tokens.length; i++) {
     if (!FIND_EXEC_PRIMARIES.has(tokens[i] ?? '')) continue;
     const execTokens = tokens.slice(i + 1);
@@ -1603,7 +1603,7 @@ function stripLeadingWrappersAndEnvAssignments(tokens: readonly string[]): strin
   const firstCommandIndex = tokens.findIndex(
     (token) => !isWrapperToken(token) && !/^[A-Za-z_][A-Za-z0-9_]*=.*/.test(token),
   );
-  return firstCommandIndex === -1 ? [] : [...tokens.slice(firstCommandIndex)];
+  return firstCommandIndex === -1 ? [] : tokens.slice(firstCommandIndex);
 }
 
 function isWrapperToken(token: string): boolean {

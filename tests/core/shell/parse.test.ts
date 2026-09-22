@@ -35,17 +35,17 @@ describe('core/shell/parse', () => {
     ]);
   });
 
-  test.each([
-    'echo; f() { :; }',
-    'echo > output',
-  ])('counts function names and redirect targets toward the word limit: %s', (source) => {
-    const program = parseCommand(source, 'posix', {
-      ...DEFAULT_COMMAND_PARSER_LIMITS,
-      maxWords: 1,
-    });
-    expect(program.status).toBe('limited');
-    expect(program.issues.map((issue) => issue.code)).toContain('word-limit');
-  });
+  test.each(['echo; f() { :; }', 'echo > output'])(
+    'counts function names and redirect targets toward the word limit: %s',
+    (source) => {
+      const program = parseCommand(source, 'posix', {
+        ...DEFAULT_COMMAND_PARSER_LIMITS,
+        maxWords: 1,
+      });
+      expect(program.status).toBe('limited');
+      expect(program.issues.map((issue) => issue.code)).toContain('word-limit');
+    },
+  );
 
   test('the caps a parse runs under', () => {
     expect(DEFAULT_COMMAND_PARSER_LIMITS).toEqual({

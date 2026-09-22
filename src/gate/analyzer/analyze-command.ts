@@ -392,7 +392,8 @@ function isolateFilesystemState(
 }
 
 function powerShellBraceStateIsIsolated(program: CommandProgram, nodeIndex: number): boolean {
-  const header = [...program.nodes.slice(0, nodeIndex)]
+  const header = program.nodes
+    .slice(0, nodeIndex)
     .reverse()
     .find((node) => node.kind === 'command' || node.kind === 'connector');
   if (!header || header.kind !== 'command') return true;
@@ -928,7 +929,7 @@ function getTeeArguments(words: readonly CommandWord[]):
     }
     if (parsesOptions && !word.quoted && word.raw === word.text && /^-[^-]/.test(word.text)) {
       append ||= word.text.slice(1).includes('a');
-      hasUnsupportedOptions ||= [...word.text.slice(1)].some(
+      hasUnsupportedOptions ||= Array.from(word.text.slice(1)).some(
         (option) => option !== 'a' && option !== 'i',
       );
       continue;

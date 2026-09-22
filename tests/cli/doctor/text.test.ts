@@ -77,23 +77,23 @@ test('text doctor shows active custom rules and project safety reductions', asyn
   expect(text).toMatch(/\d+ findings?: .*warning/);
 });
 
-test.each([
-  false,
-  true,
-])('text doctor reports integration configuration: %s', async (configured) => {
-  const home = createTempRoot('doctor-text-');
-  writeTree(home, { bin: null, project: null });
-  const result = await runTextDoctor(home, configured);
-  expect(result.returned).toBe(configured ? 0 : 1);
-  expect(result.error).toEqual([]);
-  const text = result.log.join('\n');
-  expect(text).toContain('Synthetic self-test: 3/3 passed');
-  expect(text).toContain('Effective rules: (none - using built-in rules only)');
-  expect(text).toContain('Selected preset: standard');
-  expect(text).toContain('No blocked commands in the last 7 days');
-  expect(text).toMatch(/npm\s+│ not found/);
-  expect(text).toContain(
-    configured ? 'No findings from inspected doctor facts.' : 'integration.none-configured',
-  );
-  expect(text).toContain(configured ? 'Verified' : '1 finding: 1 error.');
-});
+test.each([false, true])(
+  'text doctor reports integration configuration: %s',
+  async (configured) => {
+    const home = createTempRoot('doctor-text-');
+    writeTree(home, { bin: null, project: null });
+    const result = await runTextDoctor(home, configured);
+    expect(result.returned).toBe(configured ? 0 : 1);
+    expect(result.error).toEqual([]);
+    const text = result.log.join('\n');
+    expect(text).toContain('Synthetic self-test: 3/3 passed');
+    expect(text).toContain('Effective rules: (none - using built-in rules only)');
+    expect(text).toContain('Selected preset: standard');
+    expect(text).toContain('No blocked commands in the last 7 days');
+    expect(text).toMatch(/npm\s+│ not found/);
+    expect(text).toContain(
+      configured ? 'No findings from inspected doctor facts.' : 'integration.none-configured',
+    );
+    expect(text).toContain(configured ? 'Verified' : '1 finding: 1 error.');
+  },
+);

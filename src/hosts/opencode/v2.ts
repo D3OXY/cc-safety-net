@@ -67,6 +67,7 @@ export function createOpenCodeV2Plugin() {
             execute: (input) =>
               ctx.session
                 .prompt({
+                  // oxlint-disable-next-line typescript/no-misused-spread -- forwarded as data; OpenCode reads the prompt's fields, never its prototype.
                   ...input.prompt,
                   sessionID: input.sessionID,
                   delivery: input.delivery,

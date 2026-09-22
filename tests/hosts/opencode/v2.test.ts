@@ -108,12 +108,15 @@ test.each([
     { patchText: '*** Begin Patch\n*** Delete File: .git/hooks/pre-commit\n*** End Patch' },
     'git',
   ],
-] as const)('v2 blocks %s with a typed tool error before any side effect', async (tool, input, reason) => {
-  const result = await callTool(host(), tool, input);
-  expect(result.returned).toBeInstanceOf(Tool.Error);
-  expect(result.returned instanceof Tool.Error ? result.returned.message : '').toContain(reason);
-  expect(result.entries[0]?.entry).toMatchObject({ sessionId: 'ses_v2-test', decision: 'deny' });
-});
+] as const)(
+  'v2 blocks %s with a typed tool error before any side effect',
+  async (tool, input, reason) => {
+    const result = await callTool(host(), tool, input);
+    expect(result.returned).toBeInstanceOf(Tool.Error);
+    expect(result.returned instanceof Tool.Error ? result.returned.message : '').toContain(reason);
+    expect(result.entries[0]?.entry).toMatchObject({ sessionId: 'ses_v2-test', decision: 'deny' });
+  },
+);
 
 test('v2 records effective cwd', async () => {
   const runtime = host();
@@ -141,39 +144,38 @@ test('PowerShell relative Git metadata moves are blocked without auto-detection'
   expect(result.returned instanceof Tool.Error ? result.returned.message : '').toContain('BLOCKED');
 });
 
-test.each([
-  '/bin/fish',
-  '/bin/pwsh',
-  'cmd.exe',
-])('a POSIX adapter rejects actual shell %s before spawn', async (shell) => {
-  const runtime = host({ shell: 'posix' });
-  let spawned = false;
-  await expect(
-    Effect.runPromise(
-      Effect.scoped(
-        runtime.register.pipe(
-          Effect.andThen(() =>
-            Effect.forEach(runtime.shells, (hook) =>
-              hook({
-                shell,
-                command: 'echo safe',
-                cwd: fixture.project,
-                timeout: 1000,
-                env: {},
+test.each(['/bin/fish', '/bin/pwsh', 'cmd.exe'])(
+  'a POSIX adapter rejects actual shell %s before spawn',
+  async (shell) => {
+    const runtime = host({ shell: 'posix' });
+    let spawned = false;
+    await expect(
+      Effect.runPromise(
+        Effect.scoped(
+          runtime.register.pipe(
+            Effect.andThen(() =>
+              Effect.forEach(runtime.shells, (hook) =>
+                hook({
+                  shell,
+                  command: 'echo safe',
+                  cwd: fixture.project,
+                  timeout: 1000,
+                  env: {},
+                }),
+              ),
+            ),
+            Effect.andThen(
+              Effect.sync(() => {
+                spawned = true;
               }),
             ),
           ),
-          Effect.andThen(
-            Effect.sync(() => {
-              spawned = true;
-            }),
-          ),
         ),
       ),
-    ),
-  ).rejects.toThrow('shell');
-  expect(spawned).toBe(false);
-});
+    ).rejects.toThrow('shell');
+    expect(spawned).toBe(false);
+  },
+);
 
 test('the v2 command forwards arguments, attachments, session, and queued delivery', async () => {
   const runtime = host();

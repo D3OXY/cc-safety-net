@@ -162,23 +162,24 @@ describe('refusing a managed path that is not ours', () => {
     ],
   ];
 
-  test.each(
-    REFUSALS,
-  )('leaves %s exactly as it found it', async (_case, seed, left, installMessage, uninstallMessage, errors) => {
-    const { steps } = await row(seed);
+  test.each(REFUSALS)(
+    'leaves %s exactly as it found it',
+    async (_case, seed, left, installMessage, uninstallMessage, errors) => {
+      const { steps } = await row(seed);
 
-    expect({
-      install: steps?.install.result,
-      uninstall: steps?.uninstall.result,
-      detected: steps?.install.detection,
-      left: entriesUnder(steps?.uninstall.tree, DIR),
-    }).toEqual({
-      install: { ok: false, error: { name: 'Error', message: installMessage } },
-      uninstall: { ok: false, error: { name: 'Error', message: uninstallMessage } },
-      detected: { platform: 'hermes-agent', status: 'n/a', configPath: DIR_PATH, errors },
-      left,
-    });
-  });
+      expect({
+        install: steps?.install.result,
+        uninstall: steps?.uninstall.result,
+        detected: steps?.install.detection,
+        left: entriesUnder(steps?.uninstall.tree, DIR),
+      }).toEqual({
+        install: { ok: false, error: { name: 'Error', message: installMessage } },
+        uninstall: { ok: false, error: { name: 'Error', message: uninstallMessage } },
+        detected: { platform: 'hermes-agent', status: 'n/a', configPath: DIR_PATH, errors },
+        left,
+      });
+    },
+  );
 });
 
 describe('removing the Hermes Agent plugin', () => {

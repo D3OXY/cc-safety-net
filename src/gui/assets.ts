@@ -10,7 +10,10 @@ const buildPageScript = async () => {
     sourcemap: 'none',
   });
   const output = result.outputs[0];
-  if (!output) throw new Error(`GUI page script build failed:\n${result.logs.join('\n')}`);
+  if (!output)
+    throw new Error(
+      `GUI page script build failed:\n${result.logs.map((log) => log.message).join('\n')}`,
+    );
 
   return output.text();
 };

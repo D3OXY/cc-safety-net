@@ -1,5 +1,5 @@
 - Run focused tests during development, including the failing and passing tests required by Red-Green TDD.
-- After all implementation changes, run `bun run check`. This is the required final check for typecheck, knip, biome lint, and tests. Do not run its components separately as additional final checks.
+- After all implementation changes, run `bun run check`. This is the required final check for lint, formatting, typecheck, knip, duplication, and tests. Do not run its components separately as additional final checks.
 - Ignore the dist folder; it gets auto-rebuilt by lefthook's pre-commit hook.
 - Keep implementation modular; put tests in `tests/` mirroring `src/`, not colocated in `src/`.
 - Files in `docs/` use lowercase kebab-case names.

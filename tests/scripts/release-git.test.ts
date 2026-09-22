@@ -152,7 +152,7 @@ async function runTransactionCli(repo: string, version: string, dryRun = false) 
     if (exitCode !== 0) throw new Error(stderr);
     return stdout;
   } finally {
-    registry.stop(true);
+    void registry.stop(true);
   }
 }
 
@@ -171,7 +171,7 @@ async function runTransaction(repo: string, version: string, dryRun = false, npm
       dryRun,
     });
   } finally {
-    registry.stop(true);
+    void registry.stop(true);
   }
 }
 

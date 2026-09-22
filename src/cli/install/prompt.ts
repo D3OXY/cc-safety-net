@@ -53,7 +53,7 @@ function nextSelectableCursor(
   cursor: number,
   direction: -1 | 1,
 ): number {
-  if (choices.length === 0 || choices.every((choice) => !choice.available)) return cursor;
+  if (choices.every((choice) => !choice.available)) return cursor;
 
   return Array.from({ length: choices.length }, (_, index) => index + 1)
     .map((offset) => (cursor + offset * direction + choices.length) % choices.length)

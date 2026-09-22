@@ -873,9 +873,9 @@ async function updateInstalledIntegrations(options: UpdateCommandOptions): Promi
   );
   const allReports =
     bunxCacheFailure === null ? reports : [...reports, { message: bunxCacheFailure, failed: true }];
-  allReports.forEach((report) => {
-    report.failed ? console.error(report.message) : output.write(`${report.message}\n`);
-  });
+  allReports.forEach((report) =>
+    report.failed ? console.error(report.message) : output.write(`${report.message}\n`),
+  );
   await printUpdateNudge();
   return allReports.some((report) => report.failed) ? 1 : 0;
 }

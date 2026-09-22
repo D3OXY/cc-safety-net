@@ -25,6 +25,7 @@ type DraftBlock = {
 
 const page = renderPolicyGuiHtml(TOKEN);
 const block = sliceBlock(page, 'var clonePolicy = ', 'var collectFormPolicy = ');
+// oxlint-disable-next-line typescript/no-implied-eval -- evaluates a block extracted from this repo's own built GUI script, never external input.
 const draft = new Function(
   `${block}\nreturn { clonePolicy, collectProjectProposal, projectMarkedFields, overlayProjectProposal, seedProjectDraft };`,
 )() as DraftBlock;

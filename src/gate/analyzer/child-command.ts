@@ -142,7 +142,7 @@ function* normalizeChildCommandCandidates(
       yield* normalizeChildCommandCandidates(
         childIndex === transparentWrapper.childIndex
           ? transparentWrapper.tokens
-          : [...childTokens.slice(childIndex)],
+          : childTokens.slice(childIndex),
         environment,
         childWrapperCwd,
         cwd,
@@ -159,7 +159,7 @@ function* normalizeChildCommandCandidates(
   if (isBusyboxWrapper(childTokens)) {
     reserveChildNormalization(budget);
     yield* normalizeChildCommandCandidates(
-      [...childTokens.slice(1)],
+      childTokens.slice(1),
       environment,
       childWrapperCwd,
       cwd,

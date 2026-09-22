@@ -149,7 +149,7 @@ describe('the update notice both implementations decide on', () => {
           async (side) => {
             const urls: string[] = [];
             globalThis.fetch = ((input: Parameters<typeof fetch>[0]) => {
-              urls.push(String(input));
+              urls.push(input instanceof Request ? input.url : String(input));
               return (row.reply ?? served(LATEST))();
             }) as typeof fetch;
             const values = {
@@ -184,7 +184,7 @@ describe('rule doc appends the notice to the guide', () => {
         try {
           const agreed = await runManagerDifferential({}, async (side) => {
             globalThis.fetch = ((input: Parameters<typeof fetch>[0]) => {
-              expect(String(input)).toBe(REGISTRY_URL);
+              expect(input instanceof Request ? input.url : String(input)).toBe(REGISTRY_URL);
               return served(LATEST)();
             }) as typeof fetch;
             const values = {

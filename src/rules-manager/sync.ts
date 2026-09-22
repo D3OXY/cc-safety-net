@@ -475,7 +475,7 @@ export async function mapRulebookSources<T, U>(
   operation: RuleSyncOperation = createRuleSyncOperation(),
 ): Promise<U[]> {
   if (sources.length > RULE_SOURCE_LIMIT) throw new Error(RULE_SOURCE_LIMIT_ERROR);
-  const results = new Array<U>(sources.length);
+  const results: U[] = [];
   let nextIndex = 0;
   let firstError: { value: unknown } | undefined;
   const workers = Array.from(

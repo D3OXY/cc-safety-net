@@ -173,9 +173,13 @@ function runSide(outdir: string, journey: Journey): Outcome {
 }
 
 for (const journey of JOURNEYS) {
-  test(journey.name, () => {
-    const outcome = runSide(buildRoot, journey);
+  test(
+    journey.name,
+    () => {
+      const outcome = runSide(buildRoot, journey);
 
-    journey.check(outcome);
-  }, 60_000);
+      journey.check(outcome);
+    },
+    60_000,
+  );
 }

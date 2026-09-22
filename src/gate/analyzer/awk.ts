@@ -145,7 +145,6 @@ export function parseAwkArgv(tokens: readonly string[]): AwkArgvMetadata {
     }
 
     if (options && token.startsWith('-') && token !== '-') continue;
-    options = false;
 
     if (!hasExplicitSource && !hasFileSource) {
       sources.push({ tokenIndex: i, kind: 'main-program', value: token });

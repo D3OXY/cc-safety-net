@@ -252,17 +252,19 @@ let rulesScope = 'project';
 let pendingRuleFocus: string | null = null;
 
 let directoryPickerFailed = false;
-const api = (path: string, init: RequestInit = {}) =>
+type ApiRequestInit = Omit<RequestInit, 'headers'> & { headers?: Record<string, string> };
+
+const api = (path: string, init: ApiRequestInit = {}) =>
   fetch(`${path}${path.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
       'x-cc-safety-net-token': token,
-      ...(init.headers || {}),
+      ...init.headers,
     },
   });
 
-const requestJson = async (path: string, init?: RequestInit) => {
+const requestJson = async (path: string, init?: ApiRequestInit) => {
   try {
     const response = await api(path, init);
     const text = await response.text();
@@ -2731,7 +2733,7 @@ document.addEventListener('click', (event) => {
   }
   const feedCopy = target.closest<HTMLElement>('[data-log-copy]');
   if (feedCopy) {
-    copyFeedEntry(feedCopy);
+    void copyFeedEntry(feedCopy);
     return;
   }
   const feedReport = target.closest<HTMLElement>('[data-report-fp]');
@@ -3119,7 +3121,7 @@ load()
     void loadOverview();
     void loadActivity();
   })
-  .catch((error) => {
+  .catch((error: unknown) => {
     setAppStatus('Load failed', 'error');
     setDetailStatus(String(error), 'error');
   });

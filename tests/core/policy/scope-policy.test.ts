@@ -67,21 +67,23 @@ function reportsFor(scope: string, bound: boolean) {
 }
 
 describe('a scope reload reports what the gate would find', () => {
-  test.each(
-    SCOPES.map((row) => [row.behavior, row.scope, row.reports] as const),
-  )('%s', (_behavior, scope, reports) => {
-    expect(reportsFor(scope, false)).toEqual({
-      runtime: [...reports.runtime],
-      overrides: [...reports.overrides],
-    });
-  });
+  test.each(SCOPES.map((row) => [row.behavior, row.scope, row.reports] as const))(
+    '%s',
+    (_behavior, scope, reports) => {
+      expect(reportsFor(scope, false)).toEqual({
+        runtime: [...reports.runtime],
+        overrides: [...reports.overrides],
+      });
+    },
+  );
 
-  test.each(
-    SCOPES.map((row) => [row.scope, row.reports] as const),
-  )('an explicit filesystem binding changes nothing about the %s scope', (scope, reports) => {
-    expect(reportsFor(scope, true)).toEqual({
-      runtime: [...reports.runtime],
-      overrides: [...reports.overrides],
-    });
-  });
+  test.each(SCOPES.map((row) => [row.scope, row.reports] as const))(
+    'an explicit filesystem binding changes nothing about the %s scope',
+    (scope, reports) => {
+      expect(reportsFor(scope, true)).toEqual({
+        runtime: [...reports.runtime],
+        overrides: [...reports.overrides],
+      });
+    },
+  );
 });

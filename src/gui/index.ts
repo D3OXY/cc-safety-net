@@ -818,19 +818,18 @@ function runGhCommand(
       windowsHide: true,
     });
     let settled = false;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timeout = setTimeout(() => {
+      child.kill();
+      finish(null);
+    }, timeoutMs);
     const finish = (code: number | null) => {
       if (settled) return;
       settled = true;
-      if (timeout) clearTimeout(timeout);
+      clearTimeout(timeout);
       resolve(code);
     };
     child.once('error', () => finish(null));
     child.once('close', finish);
-    timeout = setTimeout(() => {
-      child.kill();
-      finish(null);
-    }, timeoutMs);
   });
 }
 
