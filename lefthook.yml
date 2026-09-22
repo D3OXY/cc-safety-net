@@ -5,7 +5,7 @@ pre-commit:
       run: bun scripts/project-bun.ts run knip
     - name: oxfmt
       run: bun scripts/project-bun.ts x oxfmt --no-error-on-unmatched-pattern {staged_files}
-      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,json,jsonc,css,html}"
+      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,json,jsonc,css}"
       stage_fixed: true
     - name: oxlint
       run: bun scripts/project-bun.ts x oxlint --no-error-on-unmatched-pattern {staged_files}
