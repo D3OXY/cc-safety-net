@@ -25,8 +25,8 @@ const PACKAGE_ROOT_FILES = [
 ] as const;
 // The four Node entries share their code through chunks rather than through the bin, so the
 // tarball is materially larger than the entries alone.
-// Current size is 433,762 bytes; the cap leaves ~123 KB of headroom.
-const MAX_TARBALL_BYTES = 560_000;
+// Current size is 563,401 bytes; the cap leaves ~57 KB of headroom.
+const MAX_TARBALL_BYTES = 620_000;
 // The OpenCode v2 peers pull ~55k files through npm, which Windows runners extract at roughly
 // 20x the Linux cost (14-31 min vs ~1 min). The v2 host check and its consumer fixture are
 // platform-independent module wiring, so Windows verifies the tarball without them.
