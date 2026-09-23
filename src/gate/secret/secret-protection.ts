@@ -18,7 +18,7 @@ import {
 import { advanceQuoteScanState, parseShellArgv } from '@/core/shell/tokens';
 import type { EnvironmentContext } from '@/gate/analysis';
 import { extractAwkSystemCommands } from '@/gate/analyzer/awk';
-import { closingParenthesis } from '@/gate/analyzer/interpreters';
+import { closingParenthesis, firstArgumentHasName } from '@/gate/analyzer/interpreters';
 import { extractXargsChildCommandWithInfo } from '@/gate/analyzer/xargs';
 import type { CommandSyntaxFacts, SemanticFactStore, SemanticFacts } from '@/gate/facts';
 import {
@@ -268,7 +268,9 @@ function findSensitivePolicyPathTarget(
           (fileNameRule &&
             candidate.written === true &&
             !candidateExistsOnDisk(target, candidate.cwd, environment, budget)) ||
-          (/\s/.test(target) &&
+          (fileNameRule &&
+            /\s/.test(target) &&
+            !target.includes('$') &&
             !/^(?:[~./]|[A-Za-z]:[\\/])/.test(target) &&
             !candidateExistsOnDisk(target, candidate.cwd, environment, budget)))
       ) {
@@ -712,7 +714,16 @@ function extractPipeCarrierPathTargets(
   budget: Budget,
 ): SecretCandidate[] {
   if (xargsReadsPipeInputAsPath(consumer, store, options, environment, cwd, budget)) {
-    return extractDisplayCommandOperands(producer).map((target) => ({ target, cwd }));
+    // A metadata-only producer's operands are dropped from its own segment in standard mode,
+    // but the names it prints become paths the xargs child reads.
+    const stripped = stripLeadingWrappersAndEnvAssignments(producer);
+    const listed = isMetadataOnlyArgv(basename(stripped[0] ?? '').toLowerCase(), stripped.slice(1))
+      ? stripped.slice(1).filter((token) => !token.startsWith('-'))
+      : [];
+    return [...extractDisplayCommandOperands(producer), ...listed].map((target) => ({
+      target,
+      cwd,
+    }));
   }
 
   return extractStdinScriptPathTargets(
@@ -1238,8 +1249,8 @@ function extractInlineCodePathTargets(
     refine && !(containsRecognizableInlineAccess(masked.masked) || shellExec || languageEval)
       ? []
       : masked.literals;
-  // Standard mode walks as shell only what an exec call receives: every literal when the call
-  // takes a named command first, otherwise the literals inside the call's parentheses.
+  // Standard mode walks as shell only what an exec call receives: every literal when the call's
+  // first argument holds a name, otherwise the literals inside the call's parentheses.
   const execCalls = refine
     ? Array.from(masked.masked.matchAll(SHELL_EXEC_CALL), (call) => {
         const start = call.index + call[0].length;
@@ -1247,7 +1258,7 @@ function extractInlineCodePathTargets(
       })
     : [];
   const shellLiterals =
-    !refine || execCalls.some((call) => /^\s*[A-Za-z_$]/.test(masked.masked.slice(call.start)))
+    !refine || execCalls.some((call) => firstArgumentHasName(masked.masked, call.start))
       ? masked.literals
       : masked.literals.filter(
           (literal) =>

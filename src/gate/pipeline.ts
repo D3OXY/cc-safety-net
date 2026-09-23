@@ -270,8 +270,9 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
     ),
   );
   if (analysis.decision) {
-    // Standard safety hands an unverifiable command to the user rather than to the agent, unless
-    // it feeds a shell from stdin or its text names a destructive command outright.
+    // Standard safety hands an unverifiable command to the user rather than to the agent: any
+    // unparseable text, whose destructive pattern the prompt shows, and a dynamic shell source
+    // unless it feeds a shell from stdin or its text names a destructive command outright.
     const unverifiable =
       !modes.strict &&
       analysis.decision.kind === 'deny' &&

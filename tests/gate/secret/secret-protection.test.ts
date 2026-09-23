@@ -1472,6 +1472,32 @@ bun test tests/gate/secret/secret-protection.test.ts 2>&1 | grep -E "expect\\(|p
     ]);
   });
 
+  test('the standard relaxations keep home credentials, expansions and piped reads', () => {
+    checkCarriers([
+      {
+        name: 'a spaced word under a home credential directory',
+        command: 'cat "x/../../.aws/my dir/creds"',
+        expected: aws('x/../../.aws/my dir/creds'),
+      },
+      {
+        name: 'a spaced word holding an expansion',
+        command: 'X=secrets; cat my\\ notes/$X.pem',
+        expected: { target: 'my notes/${X}.pem', ruleId: 'secret.ext.pem' },
+      },
+      {
+        name: 'a metadata listing whose output xargs reads',
+        command: 'ls .env | xargs cat',
+        expected: env('.env'),
+      },
+      {
+        name: 'a shell string bound to a name before the exec call',
+        command:
+          "python3 -c \"f = 'cat .env'; import subprocess; subprocess.run(['sh', '-c', f])\"",
+        expected: env('.env'),
+      },
+    ]);
+  });
+
   test('creating a secret-named file by redirection is relaxed only in standard mode', () => {
     checkCarriers([
       {

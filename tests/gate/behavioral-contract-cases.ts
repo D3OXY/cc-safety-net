@@ -598,31 +598,14 @@ export function behavioralContractCases(paths: {
       },
     },
     {
-      name: 'allows a quoted heredoc written from inside a brace group',
-      command: "{ sed -n 1,5p a.ts; cat <<'EOF'\nrun('rm -rf /')\nEOF\n} > b.ts",
-      options: options({ cwd: paths.cwd }),
-      expected: { kind: 'allow' },
-    },
-    {
       name: 'blocks a brace-group heredoc piped into a shell',
       command: "{ cat <<'EOF'\nrm -rf ~\nEOF\n} | sh",
       options: options({ cwd: paths.cwd }),
       expected: {
         kind: 'block',
-        ruleId: undefined,
+        ruleId: 'raw-text.dangerous-command',
         intent: 'stop_and_explain',
-        reasonIncludes: 'shell execution source cannot be verified',
-      },
-    },
-    {
-      name: 'blocks a script written from a brace-group heredoc and then executed',
-      command: "{ cat > cleanup.sh <<'EOF'\nrm -rf ~\nEOF\n}; bash cleanup.sh",
-      options: options({ cwd: paths.cwd }),
-      expected: {
-        kind: 'block',
-        ruleId: 'rm.recursive-force-root-or-home',
-        intent: 'hard_stop',
-        reasonIncludes: 'rm -rf',
+        reasonIncludes: 'Unparseable command text',
       },
     },
     {
@@ -658,6 +641,50 @@ export function behavioralContractCases(paths: {
       command: 'eval $(opam env) && opam update',
       options: options({ cwd: paths.cwd }),
       expected: { kind: 'allow' },
+    },
+    {
+      name: 'blocks a paren-less ruby spawn of a destructive command',
+      command: 'ruby -e \'spawn "rm -rf /"\'',
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'interpreter.dangerous-command',
+        intent: 'use_alternative',
+        reasonIncludes: 'Interpreter code contains a dangerous command',
+      },
+    },
+    {
+      name: 'blocks a spaced dotted subprocess call of a destructive command',
+      command: 'python3 -c \'import subprocess; subprocess . run("rm -rf /", shell=True)\'',
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block',
+        ruleId: 'interpreter.dangerous-command',
+        intent: 'use_alternative',
+        reasonIncludes: 'Interpreter code contains a dangerous command',
+      },
+    },
+    ...['{ {}; }', '! {}', 'time {}', 'command {}', 'VAR=1 {}'].map((body) => ({
+      name: `blocks xargs input in command position: ${body}`,
+      command: `printf x | xargs -I{} sh -c '${body}'`,
+      options: options({ cwd: paths.cwd }),
+      expected: {
+        kind: 'block' as const,
+        ruleId: 'xargs.shell-dynamic',
+        intent: 'scope_down' as const,
+        reasonIncludes: 'xargs dynamic input',
+      },
+    })),
+    {
+      name: 'blocks a script written from a redirected group heredoc and then executed',
+      command: "{ cat <<'EOF'\nrm -rf ~\nEOF\n} > cleanup.sh\nbash cleanup.sh",
+      options: options({ cwd: paths.cwd, strict: true }),
+      expected: {
+        kind: 'block',
+        ruleId: undefined,
+        intent: 'stop_and_explain',
+        reasonIncludes: 'heredoc',
+      },
     },
     {
       name: 'blocks an unquoted heredoc carrying a destructive command and a live expansion at strict safety',

@@ -505,8 +505,8 @@ export function containsDangerousCode(
   return !standard || execCallReceivesDangerousLiteral(executableCode, scanWork);
 }
 
-// True when an exec call takes a named command, which may hold any literal, or when a literal
-// inside an exec call's parentheses, or after a paren-less `system`/`exec`, is dangerous text.
+// True when an exec call's first argument holds a name, which may carry any literal, or when a
+// literal inside an exec call's parentheses, or after a paren-less sink, is dangerous text.
 // Backticks, `%x` and `qx` execute their own text, so code holding them always counts.
 function execCallReceivesDangerousLiteral(code: string, scanWork?: { units: number }): boolean {
   if (/`|%x|\bqx\b/.test(code)) return true;
@@ -525,16 +525,16 @@ function execCallReceivesDangerousLiteral(code: string, scanWork?: { units: numb
     index = end + delimiter.length - 1;
   }
   const plain = masked.join('');
-  const calls = Array.from(plain.matchAll(/([\w$.]+)\s*\(/g))
+  const calls = Array.from(plain.matchAll(/([\w$]+(?:\s*\.\s*[\w$]+)*)\s*\(/g))
     .filter((call) => INTERPRETER_EXEC_SINK.test(call[1] ?? ''))
     .map((call) => {
       const start = call.index + call[0].length;
       return { start, end: closingParenthesis(plain, start) };
     });
-  if (calls.some((call) => /^\s*[A-Za-z_$]/.test(plain.slice(call.start)))) return true;
+  if (calls.some((call) => firstArgumentHasName(plain, call.start))) return true;
   return literals.some(
     (literal) =>
-      (/\b(?:system|exec)\s*$/.test(plain.slice(0, literal.start)) ||
+      (/\b(?:system|exec|spawn|popen)\s*$/.test(plain.slice(0, literal.start)) ||
         calls.some((call) => literal.start >= call.start && literal.start < call.end)) &&
       interpreterCodeHasDangerousText(literal.text, scanWork),
   );
@@ -552,6 +552,23 @@ export function closingParenthesis(masked: string, start: number): number {
     if (depth === 0) return index;
   }
   return masked.length;
+}
+
+/**
+ * Whether the first argument of a call whose arguments start at `start` holds a name, in code
+ * whose string literals are already masked: `run(cmd)` or `run(['sh', '-c', cmd])` can carry a
+ * string bound anywhere earlier, so every literal may reach the call.
+ */
+export function firstArgumentHasName(masked: string, start: number): boolean {
+  let depth = 0;
+  for (let index = start; index < masked.length; index++) {
+    const char = masked[index] ?? '';
+    if ('([{'.includes(char)) depth++;
+    if (')]}'.includes(char) && depth-- === 0) return false;
+    if (char === ',' && depth === 0) return false;
+    if (/[A-Za-z_$]/.test(char)) return true;
+  }
+  return false;
 }
 
 const INTERPRETER_EXEC_SINK =

@@ -270,13 +270,12 @@ function replacementIsInertShellArgument(
 ): boolean {
   if (analyzeNested === undefined) return false;
   const token = replacementToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (
-    new RegExp(`(?:^|[;&|(\`\\n]|\\b(?:then|do|else|eval|exec|source))\\s*["']?${token}`).test(
-      source,
-    )
-  ) {
-    return false;
-  }
+  // Any spot where a command word may stand: after an operator, a group or `!`, a keyword or
+  // command prefix, or leading assignments.
+  const commandPosition = new RegExp(
+    `(?:^|[;&|({!\`\\n]|\\b(?:then|do|else|elif|if|while|until|time|command|builtin|nohup|eval|exec|source))\\s*(?:[A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)*["']?${token}`,
+  );
+  if (commandPosition.test(source)) return false;
   const worstCase = source.replaceAll(replacementToken, '/');
   return dangerousInTextMatch(worstCase) === null && analyzeNested(worstCase) === null;
 }
