@@ -1785,6 +1785,11 @@ describe('a gh or git text flag value is text, not a file operand', () => {
         expected: null,
       },
       { name: 'a tag message', command: 'git tag -a v1 -m credentials', expected: null },
+      { name: 'a short title', command: 'gh issue create -t credentials', expected: null },
+      { name: 'a short body', command: 'gh issue comment 1 -b credentials', expected: null },
+      { name: 'a clustered commit message', command: 'git commit -am credentials', expected: null },
+      { name: 'a stash message', command: 'git stash push -m credentials', expected: null },
+      { name: 'a notes message', command: 'git notes add -m credentials', expected: null },
       { name: 'a log grep', command: 'git log --grep credentials', expected: null },
       { name: 'an inline log grep', command: 'git log --grep=credentials', expected: null },
     ]);
@@ -1825,6 +1830,11 @@ describe('a gh or git text flag value is text, not a file operand', () => {
       {
         name: 'a commit message file',
         command: 'git commit -F credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a clustered message file, where -F takes the m',
+        command: 'git commit -Fm credentials',
         expected: creds('credentials'),
       },
       {

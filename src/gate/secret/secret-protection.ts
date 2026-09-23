@@ -144,8 +144,8 @@ const INTERPRETERS_BY_CLUSTERED_CODE_EVAL_FLAG = new Map([
 
 const PATTERN_FIRST_COMMANDS = new Set(['grep', 'rg']);
 // Flags whose value is search text, a title, a message or a filter, never a file name.
-const GH_TEXT_FLAGS = new Set(['--search', '-S', '--title', '--body', '--jq', '-q']);
-const GIT_MESSAGE_SUBCOMMANDS = new Set(['commit', 'merge', 'tag']);
+const GH_TEXT_FLAGS = new Set(['--search', '-S', '--title', '-t', '--body', '-b', '--jq', '-q']);
+const GIT_MESSAGE_SUBCOMMANDS = new Set(['commit', 'merge', 'notes', 'stash', 'tag']);
 const GIT_MESSAGE_FLAGS = new Set(['-m', '--message']);
 const GIT_GREP_FLAGS = new Set(['--grep']);
 const JQ_COMMANDS = new Set(['jq', 'gojq', 'jaq']);
@@ -1023,11 +1023,14 @@ function extractGitOperandPathTargets(tokens: readonly string[]): string[] {
     if (token === '--' || !token.startsWith('-')) {
       return [
         ...targets,
-        ...extractTextFlagOperandCandidates(
-          'git',
-          tokens.slice(index),
-          GIT_MESSAGE_SUBCOMMANDS.has(token) ? GIT_MESSAGE_FLAGS : GIT_GREP_FLAGS,
-        ),
+        ...(GIT_MESSAGE_SUBCOMMANDS.has(token)
+          ? extractTextFlagOperandCandidates(
+              'git',
+              // `-am` is `-a -m`; only letters that take no value may precede the `m`.
+              tokens.slice(index).map((arg) => (/^-[aqsv]+m$/.test(arg) ? '-m' : arg)),
+              GIT_MESSAGE_FLAGS,
+            )
+          : extractTextFlagOperandCandidates('git', tokens.slice(index), GIT_GREP_FLAGS)),
       ];
     }
     targets.push(...extractOperandPathCandidates('git', token));
