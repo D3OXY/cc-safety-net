@@ -1753,6 +1753,99 @@ describe('a jq program is a filter, not a file operand', () => {
   });
 });
 
+describe('a gh or git text flag value is text, not a file operand', () => {
+  const creds = (target: string): Verdict => ({ target, ruleId: 'secret.basename.credentials' });
+
+  test('a search, title, body, jq or message value that is a secret basename is allowed', () => {
+    checkCarriers([
+      {
+        name: 'the issue 131 shape',
+        command: 'gh issue list -R o/r --search credentials',
+        expected: null,
+      },
+      {
+        name: 'an inline search value',
+        command: 'gh pr list --search=credentials',
+        expected: null,
+      },
+      { name: 'the short search flag', command: 'gh issue list -S credentials', expected: null },
+      { name: 'a title', command: 'gh issue create --title credentials', expected: null },
+      { name: 'a body', command: 'gh issue create --body credentials', expected: null },
+      { name: 'a jq filter', command: 'gh api repos/o/r --jq credentials', expected: null },
+      { name: 'the short jq flag', command: 'gh api repos/o/r -q credentials', expected: null },
+      { name: 'a commit message', command: 'git commit -m credentials', expected: null },
+      {
+        name: 'a long commit message',
+        command: 'git commit --message credentials',
+        expected: null,
+      },
+      {
+        name: 'an inline commit message',
+        command: 'git commit --message=credentials',
+        expected: null,
+      },
+      { name: 'a tag message', command: 'git tag -a v1 -m credentials', expected: null },
+      { name: 'a log grep', command: 'git log --grep credentials', expected: null },
+      { name: 'an inline log grep', command: 'git log --grep=credentials', expected: null },
+    ]);
+  });
+
+  test('every operand other than a text flag value is still inspected', () => {
+    checkCarriers([
+      {
+        name: 'a gist upload',
+        command: 'gh gist create credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a body file',
+        command: 'gh issue create --body-file credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'an api input file',
+        command: 'gh api --input credentials repos/o/r',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a secret read inside a body value',
+        command: 'gh issue create --body "$(cat .env)"',
+        expected: env('.env'),
+      },
+      {
+        name: 'an operand after a search value',
+        command: 'gh gist create --desc x --search y credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a pathspec after a commit message',
+        command: 'git commit -m msg credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a commit message file',
+        command: 'git commit -F credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a merge-mode checkout, where -m takes no value',
+        command: 'git checkout -m credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a log -m, where -m takes no value',
+        command: 'git log -m -p credentials',
+        expected: creds('credentials'),
+      },
+      {
+        name: 'a pathspec after --, where -m is a pathspec too',
+        command: 'git commit -- -m credentials',
+        expected: creds('credentials'),
+      },
+    ]);
+  });
+});
+
 describe('secret protection through tool inputs', () => {
   const routeVerdict = (input: unknown, route: ToolRoute): Verdict =>
     findSensitiveTargetInToolInput(input, route, repo, environment);
