@@ -192,6 +192,7 @@ describe('generated artifact contract', () => {
     expect(getRuntimeImportSpecifiers('const z=require("zod")')).toEqual(['zod']);
     expect(getRuntimeImportSpecifiers('await import("./chunks/a.js")')).toEqual(['./chunks/a.js']);
     expect(getRuntimeImportSpecifiers('const flags=["--import","--loader"]')).toEqual([]);
+    expect(getRuntimeImportSpecifiers('const flags=["-files0-from","-print"]')).toEqual([]);
   });
 
   test('flags any non-builtin specifier as an unbundled runtime import', () => {

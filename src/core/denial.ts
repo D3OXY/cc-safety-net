@@ -13,6 +13,8 @@ export interface FormatBlockedMessageInput {
   maxLen?: number;
   redact?: (text: string) => string;
   configWarning?: string;
+  // Worded for the user's approval prompt instead of the agent's block message.
+  askUser?: boolean;
 }
 
 const FOOTERS: Record<BlockIntent, string> = {
@@ -35,7 +37,7 @@ export function formatBlockedMessage(input: FormatBlockedMessageInput): string {
   const excerpt = (text: string) => (text.length > maxLen ? `${text.slice(0, maxLen)}...` : text);
 
   return [
-    'BLOCKED by CC Safety Net',
+    input.askUser ? 'CC Safety Net could not verify this command' : 'BLOCKED by CC Safety Net',
     `Reason: ${redact(input.reason)}`,
     input.ruleId ? `Rule: ${input.ruleId}` : undefined,
     input.toolName ? `Tool: ${input.toolName}` : undefined,
@@ -44,7 +46,9 @@ export function formatBlockedMessage(input: FormatBlockedMessageInput): string {
       ? `Segment: ${excerpt(redact(input.segment))}`
       : undefined,
     input.configWarning ? `Config warning: ${redact(input.configWarning)}` : undefined,
-    FOOTERS[input.intent ?? 'manual_only'],
+    input.askUser
+      ? 'Approve only if you expected this command.'
+      : FOOTERS[input.intent ?? 'manual_only'],
   ]
     .filter((line): line is string => line !== undefined)
     .join('\n\n');
@@ -59,6 +63,7 @@ export type IntegrationDenial = {
   toolName?: string;
 
   configWarning?: string;
+  ask?: true;
 };
 
 export function projectGuardDenial(
@@ -76,6 +81,7 @@ export function projectGuardDenial(
     toolName: options.toolName,
 
     ...(evaluation.configFallback ? { configWarning: evaluation.configFallback.reason } : {}),
+    ...(evaluation.decision.ask ? { ask: true as const } : {}),
   };
 }
 
@@ -93,6 +99,10 @@ export function createFailedClosedDenial(
 
 export function formatDenial(denial: IntegrationDenial): string {
   return formatBlockedMessage({ ...denial, redact: redactSecrets });
+}
+
+export function formatAskPrompt(denial: IntegrationDenial): string {
+  return formatBlockedMessage({ ...denial, redact: redactSecrets, askUser: true });
 }
 
 export function formatIntegrationError(cause: unknown): string {

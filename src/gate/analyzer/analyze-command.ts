@@ -610,7 +610,7 @@ function analyzeCommandView(
     ...inheritedOptions,
     environment: { ...inheritedOptions.environment, env: state.shellGitContextState.env },
   };
-  const heredocReason = getHeredocReason(commandView);
+  const heredocReason = getHeredocReason(commandView, !options.strict);
   if (heredocReason && options.strict) {
     options.trace?.recordSegment({ type: 'error', message: heredocReason });
     return {
@@ -852,7 +852,8 @@ function trackLiteralHeredocFiles(
   const heredoc = commandView.redirections.find(
     (redirection) => redirection.operator === '<<' || redirection.operator === '<<-',
   )?.heredoc;
-  if (!heredoc || !isLiteralHeredoc(heredoc)) return;
+  // A heredoc with no reason is literal, or at standard safety expands variables only.
+  if (!heredoc) return;
 
   for (const target of getLiteralHeredocOutputTargets(commandView)) {
     const path = resolveTrackedHeredocPath(target.text, state.effectiveCwd, paths, budget);
@@ -960,7 +961,7 @@ function isLiteralHeredoc(heredoc: CommandHeredoc): boolean {
   return heredoc.quotedDelimiter || !/[$`\\]/.test(heredoc.body);
 }
 
-function getHeredocReason(commandView: CommandView): string | undefined {
+function getHeredocReason(commandView: CommandView, standard: boolean): string | undefined {
   const heredocs = commandView.redirections.filter(
     (redirection) => redirection.operator === '<<' || redirection.operator === '<<-',
   );
@@ -969,7 +970,11 @@ function getHeredocReason(commandView: CommandView): string | undefined {
 
   const heredoc = heredocs[0];
   if (!heredoc?.heredoc) return REASON_UNSUPPORTED_HEREDOC;
-  if (!isLiteralHeredoc(heredoc.heredoc)) return REASON_UNQUOTED_HEREDOC;
+  // Standard safety: variable expansion in an unquoted body is data; only a command substitution
+  // runs anything.
+  if (!isLiteralHeredoc(heredoc.heredoc) && !(standard && !/\$\(|`/.test(heredoc.heredoc.body))) {
+    return REASON_UNQUOTED_HEREDOC;
+  }
   if (heredoc.fd !== undefined && heredoc.fd !== 0) return REASON_UNSUPPORTED_HEREDOC;
   if (
     commandView.redirections.some(
@@ -1066,10 +1071,17 @@ function analyzeInterpreterHeredocMatch(
   ) {
     return undefined;
   }
-  const head = commandView.words[0];
+  // `uv run python -` launches the same interpreter on the same stdin.
+  const words =
+    isBareCommandWord(commandView.words[0], 'uv') && isBareCommandWord(commandView.words[1], 'run')
+      ? commandView.words.slice(2)
+      : commandView.words;
+  const head = words[0];
   if (head?.provenance !== 'literal' || !isInterpreterCommand(head.text)) return undefined;
-  const stdinIsProgram = commandView.words
-    .slice(1)
+  // Options, then an optional `-` that names stdin as the program; words after it are its argv.
+  const stdinMarker = words.findIndex((word) => isBareCommandWord(word, '-'));
+  const stdinIsProgram = words
+    .slice(1, stdinMarker === -1 ? undefined : stdinMarker)
     .every((word) => word.provenance === 'literal' && word.text.startsWith('-'));
   if (!stdinIsProgram) return undefined;
 
@@ -1092,7 +1104,7 @@ function analyzeInterpreterHeredocMatch(
     );
     if (filteredParanoidMatch) return filteredParanoidMatch;
   }
-  if (!containsDangerousCode(body)) return null;
+  if (!containsDangerousCode(body, undefined, !options.strict)) return null;
   const match = filterDestructiveCommandMatch(
     destructiveCommandMatch('interpreter.dangerous-command', REASON_INTERPRETER_DANGEROUS),
     options.policy,

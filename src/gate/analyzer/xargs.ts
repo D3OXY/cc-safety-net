@@ -100,6 +100,7 @@ export function analyzeXargs(
           childCommand.wrapperEnvAssignments,
           dynamicInput,
           context.environment,
+          context.strict ? undefined : context.analyzeNested,
         ),
       dynamicRmInput,
       shellDynamicMatch,
@@ -183,12 +184,14 @@ function xargsInputCanChangeExecutedSource(
   wrapperEnvAssignments: ReadonlyMap<string, string>,
   dynamicInput: boolean,
   environment: EnvironmentContext,
+  // Standard safety only: analyzes a shell body whose input sits in argument position.
+  analyzeNested?: XargsAnalyzeContext['analyzeNested'],
 ): boolean {
   if (SHELL_WRAPPERS.has(childHead)) {
     if (isShellSyntaxCheck(childTokens)) return false;
     if (
       replacementToken !== null &&
-      shellArgvTokensCanSelectExecutableSource(childTokens, replacementToken)
+      shellArgvTokensCanSelectExecutableSource(childTokens, replacementToken, analyzeNested)
     ) {
       return true;
     }
@@ -200,7 +203,13 @@ function xargsInputCanChangeExecutedSource(
       }
       return scriptSource.kind === 'none' && dynamicInput;
     }
-    if (replacementToken !== null && source.includes(replacementToken)) return true;
+    if (
+      replacementToken !== null &&
+      source.includes(replacementToken) &&
+      !replacementIsInertShellArgument(source, replacementToken, analyzeNested)
+    ) {
+      return true;
+    }
     if (dangerousInTextMatch(source)) return true;
     return shellSourceExecutesDynamicInput(source, replacementToken, wrapperEnvAssignments);
   }
@@ -249,6 +258,27 @@ function xargsInputCanChangeExecutedSource(
   }
 
   return false;
+}
+
+// Standard safety treats input spliced into a shell body as a data word when it never starts a
+// command and the body stays harmless with the worst-case input, `/`, in its place. Input that
+// carries shell syntax of its own is crafted, which standard safety does not cover.
+function replacementIsInertShellArgument(
+  source: string,
+  replacementToken: string,
+  analyzeNested: XargsAnalyzeContext['analyzeNested'] | undefined,
+): boolean {
+  if (analyzeNested === undefined) return false;
+  const token = replacementToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Any spot where a command word may stand: after an operator, a group or `!`, a keyword or
+  // command prefix, or leading assignments.
+  const commandPosition = new RegExp(
+    `(?:^|[;&|({!\`\\n]|\\b(?:then|do|else|elif|if|while|until|time|command|builtin|nohup|eval|exec|source))\\s*(?:[A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)*["']?${token}`,
+  );
+  // A case arm's `)` also opens a command word, but a substitution's `)` does not.
+  if (commandPosition.test(source) || /\bcase\b/.test(source)) return false;
+  const worstCase = source.replaceAll(replacementToken, '/');
+  return dangerousInTextMatch(worstCase) === null && analyzeNested(worstCase) === null;
 }
 
 function executableSourceInputCanChange<
@@ -353,11 +383,13 @@ function xargsInputIsDynamic(
 function shellArgvTokensCanSelectExecutableSource(
   tokens: readonly string[],
   replacementToken: string,
+  analyzeNested?: XargsAnalyzeContext['analyzeNested'],
 ): boolean {
   const baseline = parseShellArgv(tokens);
+  const source = baseline.commandIndex === null ? '' : (tokens[baseline.commandIndex] ?? '');
   if (
-    (baseline.commandIndex !== null &&
-      (tokens[baseline.commandIndex] ?? '').includes(replacementToken)) ||
+    (source.includes(replacementToken) &&
+      !replacementIsInertShellArgument(source, replacementToken, analyzeNested)) ||
     (baseline.scriptIndex !== null &&
       (tokens[baseline.scriptIndex] ?? '').includes(replacementToken))
   ) {

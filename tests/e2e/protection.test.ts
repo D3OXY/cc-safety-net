@@ -193,6 +193,7 @@ describe('built CLI protection contract', () => {
     ['bash syntax', "bash -n -c '(( rm -rf / root ))'"],
     ['Node data', `node -e 'console.log("rm -rf /")'`],
     ['xargs positional input', `find src -type f | xargs sh -c 'wc -l "$1"' _`],
+    ['xargs replacement input', `find src -type f | xargs -I{} sh -c 'echo {}; sed -n 1,20p {}'`],
     ['Parallel literal shell source', `parallel sh -c 'printf safe' ::: job`],
     ['literal stdin-to-shell flow', `printf '%s\\n' 'printf safe' | sh`],
     [
@@ -316,7 +317,7 @@ describe('built CLI protection contract', () => {
     [
       'xargs source execution',
       'xargs-source',
-      `find src -type f | xargs -I{} sh -c 'echo {}; sed -n 1,20p {}'`,
+      `find src -type f | xargs -I{} sh -c 'echo {}; rm -rf {}'`,
       'xargs.shell-dynamic',
     ],
     [

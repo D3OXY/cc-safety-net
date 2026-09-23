@@ -202,11 +202,11 @@ const ROWS: readonly {
     expected: DENIED_HOME_SSH_CONFIG,
   },
   {
-    name: 'the metadata-only relaxation stays standalone-only after a cd',
-    command: 'cd ~ && ls .ssh',
+    name: 'the metadata-only relaxation covers a listing after a cd, not a read',
+    command: 'cd ~ && cat .ssh/config && ls .ssh',
     cwd: 'project',
-    expected: { ruleId: 'secret.home.ssh', segment: '.ssh' },
-    alsoAllows: 'ls ~/.ssh',
+    expected: DENIED_HOME_SSH_CONFIG,
+    alsoAllows: 'cd ~ && ls .ssh',
   },
   {
     name: 'a cd to a directory that does not exist puts later operands under it',
