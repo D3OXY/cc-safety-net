@@ -20,7 +20,9 @@ function isBuildChunkArtifact(path: string): boolean {
 /** @internal */
 export function getRuntimeImportSpecifiers(source: string): string[] {
   return [
-    ...source.matchAll(/(?:\bfrom\s*["']|\bimport\s*\(\s*["']|\brequire\w*\(\s*["'])([^"']+)["']/g),
+    ...source.matchAll(
+      /(?:(?<![\w$-])from\s*["']|\bimport\s*\(\s*["']|\brequire\w*\(\s*["'])([^"']+)["']/g,
+    ),
   ]
     .map((match) => match[1])
     .filter((specifier): specifier is string => specifier !== undefined);
@@ -51,7 +53,7 @@ async function listFiles(directory: string): Promise<string[]> {
 }
 
 function getSharedChunkImports(path: string, source: string): string[] {
-  return [...source.matchAll(/(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)["']([^"']+)["']/g)]
+  return [...source.matchAll(/(?:(?<![\w$-])from\s*|\bimport\s*(?:\(\s*)?)["']([^"']+)["']/g)]
     .map((match) => match[1])
     .filter((specifier): specifier is string => specifier !== undefined)
     .map((specifier) => posix.normalize(posix.join(posix.dirname(path), specifier)))

@@ -1490,6 +1490,21 @@ bun test tests/gate/secret/secret-protection.test.ts 2>&1 | grep -E "expect\\(|p
         expected: env('.env'),
       },
       {
+        name: 'a paren-less ruby spawn of a read',
+        command: `ruby -e 'spawn "cat .env"'`,
+        expected: env('.env'),
+      },
+      {
+        name: 'a write redirection to a path holding an expansion',
+        command: 'echo A=1 > $DIR/.env',
+        expected: env('${DIR}/.env'),
+      },
+      {
+        name: 'find reading its start points from a secret file',
+        command: 'find -files0-from .env',
+        expected: env('.env'),
+      },
+      {
         name: 'a shell string bound to a name before the exec call',
         command:
           "python3 -c \"f = 'cat .env'; import subprocess; subprocess.run(['sh', '-c', f])\"",

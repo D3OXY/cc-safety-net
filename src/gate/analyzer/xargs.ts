@@ -275,7 +275,8 @@ function replacementIsInertShellArgument(
   const commandPosition = new RegExp(
     `(?:^|[;&|({!\`\\n]|\\b(?:then|do|else|elif|if|while|until|time|command|builtin|nohup|eval|exec|source))\\s*(?:[A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)*["']?${token}`,
   );
-  if (commandPosition.test(source)) return false;
+  // A case arm's `)` also opens a command word, but a substitution's `)` does not.
+  if (commandPosition.test(source) || /\bcase\b/.test(source)) return false;
   const worstCase = source.replaceAll(replacementToken, '/');
   return dangerousInTextMatch(worstCase) === null && analyzeNested(worstCase) === null;
 }

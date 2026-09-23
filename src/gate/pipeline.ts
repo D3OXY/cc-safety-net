@@ -278,7 +278,7 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
       analysis.decision.kind === 'deny' &&
       (analysis.decision.ruleId === 'raw-text.dangerous-command' ||
         (analysis.decision.reason === REASON_DYNAMIC_SHELL_SOURCE &&
-          !/^(?:\S*\/)?(?:ba|da|z|k)?sh(?:\s+-[A-Za-z]+)*$/.test(
+          !/^(?:\S*\/)?(?:ba|da|z|k)?sh(?:\s+-[A-Za-z-]*)*$/.test(
             analysis.decision.evidence?.segment ?? '',
           ) &&
           dangerousInTextMatch(invocation.command as string) === null));

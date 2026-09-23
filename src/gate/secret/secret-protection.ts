@@ -48,6 +48,8 @@ const FIND_EXEC_PRIMARIES = new Set(['-exec', '-execdir']);
 const FIND_EXEC_TERMINATORS = new Set([';', '+']);
 const FIND_NON_METADATA_ACTIONS = new Set([
   '-delete',
+  // Reads start points out of a file and prints them, so the file's content reaches the output.
+  '-files0-from',
   '-exec',
   '-execdir',
   '-fls',
@@ -166,7 +168,7 @@ const SIMPLE_INTERPOLATION = /#\{|\$\{|\{\$|[$@][A-Za-z_]/;
 const SHELL_EXEC_CALL =
   /\b(?:subprocess\s*\.\s*(?:run|call|Popen|check_output|check_call|getoutput|getstatusoutput)|(?:[\w$]+\s*\.\s*)*(?:exec(?:File)?(?:Sync)?|spawn(?:File)?(?:Sync)?|system|popen|shell_exec|passthru|child_process|eval))\s*\(/g;
 // Ruby and Perl also take the command without parentheses: `system 'cat x'`.
-const SHELL_EXEC_PREFIX = /\b(?:system|exec)\s*$/;
+const SHELL_EXEC_PREFIX = /\b(?:system|exec|spawn|popen)\s*$/;
 const LANGUAGE_EVAL_CALL = /\b(?:eval|exec)\s*\(/g;
 const LANGUAGE_EVAL_PREFIX = /\b(?:eval|exec)\s*$/;
 const VALUE_CONSUMING_INTERPRETER_FLAGS = new Map([
@@ -267,6 +269,7 @@ function findSensitivePolicyPathTarget(
           )) ||
           (fileNameRule &&
             candidate.written === true &&
+            !target.includes('$') &&
             !candidateExistsOnDisk(target, candidate.cwd, environment, budget)) ||
           (fileNameRule &&
             /\s/.test(target) &&
@@ -1084,7 +1087,13 @@ function extractFindCommandTargets(
   const expressionIndex = tokens.findIndex(
     (token) => token.startsWith('-') || token === '(' || token === '!' || token === ';',
   );
-  const targets = tokens.slice(0, expressionIndex === -1 ? tokens.length : expressionIndex);
+  const targets = [
+    ...tokens.slice(0, expressionIndex === -1 ? tokens.length : expressionIndex),
+    // `-files0-from FILE` reads FILE, which may sit before the start points.
+    ...tokens.flatMap((token, index) =>
+      token === '-files0-from' && tokens[index + 1] !== undefined ? [tokens[index + 1] ?? ''] : [],
+    ),
+  ];
   for (let i = 0; i < tokens.length; i++) {
     if (!FIND_EXEC_PRIMARIES.has(tokens[i] ?? '')) continue;
     const execTokens = tokens.slice(i + 1);

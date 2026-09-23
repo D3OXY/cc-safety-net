@@ -664,17 +664,19 @@ export function behavioralContractCases(paths: {
         reasonIncludes: 'Interpreter code contains a dangerous command',
       },
     },
-    ...['{ {}; }', '! {}', 'time {}', 'command {}', 'VAR=1 {}'].map((body) => ({
-      name: `blocks xargs input in command position: ${body}`,
-      command: `printf x | xargs -I{} sh -c '${body}'`,
-      options: options({ cwd: paths.cwd }),
-      expected: {
-        kind: 'block' as const,
-        ruleId: 'xargs.shell-dynamic',
-        intent: 'scope_down' as const,
-        reasonIncludes: 'xargs dynamic input',
-      },
-    })),
+    ...['{ {}; }', '! {}', 'time {}', 'command {}', 'VAR=1 {}', 'case y in x) {};; esac'].map(
+      (body) => ({
+        name: `blocks xargs input in command position: ${body}`,
+        command: `printf x | xargs -I{} sh -c '${body}'`,
+        options: options({ cwd: paths.cwd }),
+        expected: {
+          kind: 'block' as const,
+          ruleId: 'xargs.shell-dynamic',
+          intent: 'scope_down' as const,
+          reasonIncludes: 'xargs dynamic input',
+        },
+      }),
+    ),
     {
       name: 'blocks a script written from a redirected group heredoc and then executed',
       command: "{ cat <<'EOF'\nrm -rf ~\nEOF\n} > cleanup.sh\nbash cleanup.sh",
