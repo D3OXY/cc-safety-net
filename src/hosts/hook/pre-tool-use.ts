@@ -22,7 +22,7 @@ export type PreToolUseHookInput = {
 type PreToolUseHookOutput = {
   hookSpecificOutput: {
     hookEventName: typeof PRE_TOOL_USE_HOOK_EVENT;
-    permissionDecision: 'allow' | 'deny';
+    permissionDecision: 'allow' | 'deny' | 'ask';
     permissionDecisionReason?: string;
   };
 };
@@ -30,6 +30,8 @@ type PreToolUseHookOutput = {
 export async function runPreToolUseHook(options: {
   agent: string;
   getAgent?: (input: PreToolUseHookInput, environment: Environment) => string;
+  // Only a host that prompts on `ask` may use it; Codex rejects it and runs the tool.
+  canAsk?: (input: PreToolUseHookInput) => boolean;
   getToolRoute: (toolName: string) => ToolRoute;
   getContext?: (
     input: PreToolUseHookInput,
@@ -49,6 +51,20 @@ export async function runPreToolUseHook(options: {
         permissionDecisionReason: message,
       },
     }),
+    ...(options.canAsk
+      ? {
+          createAskOutput: (input: PreToolUseHookInput, message: string) =>
+            options.canAsk?.(input)
+              ? {
+                  hookSpecificOutput: {
+                    hookEventName: PRE_TOOL_USE_HOOK_EVENT,
+                    permissionDecision: 'ask',
+                    permissionDecisionReason: message,
+                  },
+                }
+              : null,
+        }
+      : {}),
     isSupported: (input) => input.hook_event_name === PRE_TOOL_USE_HOOK_EVENT,
     getToolName: (input) => input.tool_name,
     getToolInput: (input, toolName) => ({

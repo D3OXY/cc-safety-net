@@ -9,5 +9,8 @@ export const REASON_STRICT_UNPARSEABLE =
 
 export const REASON_UNSUPPORTED_HEREDOC_SYNTAX = 'Unsupported heredoc syntax';
 
+export const REASON_DYNAMIC_SHELL_SOURCE =
+  'shell execution source cannot be verified safely. Use a literal command string or ask the user to run it manually.';
+
 export const REASON_STRUCTURAL_COMMAND_VALIDATION_LIMIT =
   'CC Safety Net could not validate the command because its structure exceeds safe analysis limits.';

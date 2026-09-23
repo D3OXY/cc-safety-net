@@ -209,6 +209,11 @@ export function isVerifiableLocalGeneratorSource(command: CommandView): boolean 
       operand.parts[1]?.provenance === 'command-substitution' &&
       operand.parts[1].raw.startsWith('$(') &&
       operand.parts[2]?.raw === '"') ||
+    (head.text === 'eval' &&
+      !operand.quoted &&
+      operand.parts.length === 1 &&
+      operand.parts[0]?.provenance === 'command-substitution' &&
+      operand.parts[0].raw.startsWith('$(')) ||
     ((head.text === 'source' || head.text === '.') &&
       !operand.quoted &&
       operand.parts.length === 1 &&

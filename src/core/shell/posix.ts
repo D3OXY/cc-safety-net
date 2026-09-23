@@ -282,7 +282,9 @@ function scanSequence(
         body,
       } satisfies CommandGroup);
       issues.push(...inner.issues);
-      if (inner.pendingHeredocs.length > 0 || containsHeredoc(inner.nodes)) {
+      // A heredoc whose body closes inside the group is an ordinary redirection of its command;
+      // one still pending at the group's close would read its body after the group.
+      if (inner.pendingHeredocs.length > 0) {
         issues.push({
           code: 'unsupported-heredoc-context',
           message: 'heredocs attached inside command groups are not supported safely',

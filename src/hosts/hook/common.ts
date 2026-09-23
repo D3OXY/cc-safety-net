@@ -1,5 +1,6 @@
 import {
   createFailedClosedDenial,
+  formatAskPrompt,
   formatDenial,
   formatIntegrationError,
   type IntegrationDenial,
@@ -26,6 +27,8 @@ type HookAdapter<T> = {
   agent: string;
   getAgent?: (input: T, environment: Environment) => string;
   outputDeny: HookDenyOutput;
+  // Answers an askable denial with the host's own approval prompt; false keeps the deny.
+  outputAsk?: (input: T, denial: IntegrationDenial) => boolean;
   outputAllow?: () => void;
   guardDependencies?: Partial<GuardDependencies>;
   isSupported: (input: T) => boolean;
@@ -46,8 +49,10 @@ type HookAdapter<T> = {
   getSessionId: (input: T) => string | undefined;
 };
 
-type ConfiguredHookAdapter<T> = Omit<HookAdapter<T>, 'outputDeny' | 'outputAllow'> & {
+type ConfiguredHookAdapter<T> = Omit<HookAdapter<T>, 'outputDeny' | 'outputAsk' | 'outputAllow'> & {
   createDenyOutput: (message: string) => object;
+  // Null when this input's host session would not show the prompt to a person.
+  createAskOutput?: (input: T, message: string) => object | null;
   createAllowOutput?: () => object;
 };
 
@@ -178,6 +183,7 @@ async function runHookAdapter<T>(adapter: HookAdapter<T>): Promise<void> {
       toolName: evaluation.stage === 'command-analysis' ? undefined : toolName,
     });
     if (denial) {
+      if (denial.ask && adapter.outputAsk?.(input, denial)) return;
       adapter.outputDeny(denial);
       return;
     }
@@ -236,13 +242,22 @@ export async function runConfiguredHookAdapter<T>(
   adapter: ConfiguredHookAdapter<T>,
 ): Promise<void> {
   const outputDeny: HookDenyOutput = (denial) => outputHookDeny(adapter.createDenyOutput, denial);
+  const createAskOutput = adapter.createAskOutput;
+  const outputAsk = createAskOutput
+    ? (input: T, denial: IntegrationDenial) => {
+        const output = createAskOutput(input, formatAskPrompt(denial));
+        if (output === null) return false;
+        console.log(JSON.stringify(output));
+        return true;
+      }
+    : undefined;
   const createAllowOutput = adapter.createAllowOutput;
   const outputAllow = createAllowOutput
     ? () => console.log(JSON.stringify(createAllowOutput()))
     : undefined;
 
   try {
-    await runHookAdapter<T>({ ...adapter, outputDeny, outputAllow });
+    await runHookAdapter<T>({ ...adapter, outputDeny, outputAsk, outputAllow });
   } catch (error) {
     console.error('CC Safety Net error:', error);
     outputDeny(createFailedClosedDenial());

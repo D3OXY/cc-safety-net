@@ -488,7 +488,11 @@ function supportsInlineEval(interpreter: string): boolean {
   return CODE_FLAGS.get(interpreter)?.has('--eval') ?? false;
 }
 
-export function containsDangerousCode(code: string, scanWork?: { units: number }): boolean {
+export function containsDangerousCode(
+  code: string,
+  scanWork?: { units: number },
+  standard = false,
+): boolean {
   const executableCode = collapseInterpreterShellContinuations(code, scanWork);
   if (!interpreterCodeHasDangerousText(executableCode, scanWork)) return false;
 
@@ -496,7 +500,58 @@ export function containsDangerousCode(code: string, scanWork?: { units: number }
   const strippedCode = stripStringLiterals(executableCode);
   if (interpreterCodeHasDangerousText(strippedCode, scanWork)) return true;
   chargeNativeLinearPass(scanWork, strippedCode);
-  return INTERPRETER_EXEC_SINK.test(strippedCode);
+  if (!INTERPRETER_EXEC_SINK.test(strippedCode)) return false;
+  // Standard safety: a dangerous string literal counts only where an exec call can receive it.
+  return !standard || execCallReceivesDangerousLiteral(executableCode, scanWork);
+}
+
+// True when an exec call takes a named command, which may hold any literal, or when a literal
+// inside an exec call's parentheses, or after a paren-less `system`/`exec`, is dangerous text.
+// Backticks, `%x` and `qx` execute their own text, so code holding them always counts.
+function execCallReceivesDangerousLiteral(code: string, scanWork?: { units: number }): boolean {
+  if (/`|%x|\bqx\b/.test(code)) return true;
+  const masked = code.split('');
+  const literals: { start: number; text: string }[] = [];
+  for (let index = 0; index < code.length; index++) {
+    const quote = code[index];
+    if (quote !== "'" && quote !== '"') continue;
+    const delimiter = code.startsWith(quote.repeat(3), index) ? quote.repeat(3) : quote;
+    const start = index + delimiter.length;
+    let end = start;
+    while (end < code.length && !code.startsWith(delimiter, end)) end += code[end] === '\\' ? 2 : 1;
+    if (end >= code.length) return true;
+    literals.push({ start, text: code.slice(start, end) });
+    masked.fill(' ', index, end + delimiter.length);
+    index = end + delimiter.length - 1;
+  }
+  const plain = masked.join('');
+  const calls = Array.from(plain.matchAll(/([\w$.]+)\s*\(/g))
+    .filter((call) => INTERPRETER_EXEC_SINK.test(call[1] ?? ''))
+    .map((call) => {
+      const start = call.index + call[0].length;
+      return { start, end: closingParenthesis(plain, start) };
+    });
+  if (calls.some((call) => /^\s*[A-Za-z_$]/.test(plain.slice(call.start)))) return true;
+  return literals.some(
+    (literal) =>
+      (/\b(?:system|exec)\s*$/.test(plain.slice(0, literal.start)) ||
+        calls.some((call) => literal.start >= call.start && literal.start < call.end)) &&
+      interpreterCodeHasDangerousText(literal.text, scanWork),
+  );
+}
+
+/**
+ * The index of the `)` closing a call whose arguments start at `start`, in code whose string
+ * literals are already masked; unbalanced code runs to its end.
+ */
+export function closingParenthesis(masked: string, start: number): number {
+  let depth = 1;
+  for (let index = start; index < masked.length; index++) {
+    if (masked[index] === '(') depth++;
+    if (masked[index] === ')') depth--;
+    if (depth === 0) return index;
+  }
+  return masked.length;
 }
 
 const INTERPRETER_EXEC_SINK =

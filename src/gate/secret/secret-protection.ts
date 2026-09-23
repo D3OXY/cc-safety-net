@@ -18,6 +18,7 @@ import {
 import { advanceQuoteScanState, parseShellArgv } from '@/core/shell/tokens';
 import type { EnvironmentContext } from '@/gate/analysis';
 import { extractAwkSystemCommands } from '@/gate/analyzer/awk';
+import { closingParenthesis } from '@/gate/analyzer/interpreters';
 import { extractXargsChildCommandWithInfo } from '@/gate/analyzer/xargs';
 import type { CommandSyntaxFacts, SemanticFactStore, SemanticFacts } from '@/gate/facts';
 import {
@@ -42,6 +43,7 @@ export const REASON_SECRET_PROTECTION = 'Access to a sensitive path is not allow
 const NON_PATH_OPERAND_COMMANDS = new Set(['echo', 'printf']);
 
 const PATH_ROOT_COMMANDS = new Set(['find']);
+const SHELL_RESERVED_WORDS = new Set(['!', 'do', 'elif', 'else', 'if', 'then', 'until', 'while']);
 const FIND_EXEC_PRIMARIES = new Set(['-exec', '-execdir']);
 const FIND_EXEC_TERMINATORS = new Set([';', '+']);
 const FIND_NON_METADATA_ACTIONS = new Set([
@@ -185,6 +187,8 @@ type SecretTarget = {
 type SecretCandidate = {
   readonly target: string;
   readonly cwd: string;
+  // An output redirection target, which the command writes rather than reads.
+  readonly written?: true;
 };
 
 type SecretProtectionPolicy = {
@@ -204,7 +208,8 @@ type CodeLiteral = { readonly start: number; readonly text: string };
 type MaskedCode = { readonly masked: string; readonly literals: readonly CodeLiteral[] };
 
 type PathExtractionOptions = {
-  readonly refineInlineData?: boolean;
+  // Standard mode: inline-code literals and metadata-only segments are not read candidates.
+  readonly standard?: boolean;
   // Inside `$( )` an echo/printf operand is captured output, not display text.
   readonly capturedOutput?: boolean;
 };
@@ -251,6 +256,24 @@ function findSensitivePolicyPathTarget(
     if (activeDefaultTargets && !activeDefaultTargets.has(target)) continue;
     const ruleId = isSensitivePath(target, candidate.cwd, config, environment, budget);
     if (ruleId) {
+      // Standard mode: a secret file name matched on a directory names a folder, and written to
+      // where no file exists creates it; a spaced word neither path-shaped nor on disk is text.
+      const fileNameRule = !ruleId.startsWith('secret.home.') && !ruleId.startsWith('secret.cli.');
+      if (
+        activeDefaultTargets &&
+        ((fileNameRule &&
+          environment.paths.isDirectory(
+            candidateAbsolutePath(target, candidate.cwd, environment, budget),
+          )) ||
+          (fileNameRule &&
+            candidate.written === true &&
+            !candidateExistsOnDisk(target, candidate.cwd, environment, budget)) ||
+          (/\s/.test(target) &&
+            !/^(?:[~./]|[A-Za-z]:[\\/])/.test(target) &&
+            !candidateExistsOnDisk(target, candidate.cwd, environment, budget)))
+      ) {
+        continue;
+      }
       if (
         !ruleId.startsWith('secret.cli.') &&
         matchesAllowedPath(
@@ -322,30 +345,24 @@ export function findSensitiveTargetInSemanticFacts(
     environment,
     budget,
   );
-  if (target === null) return null;
-  const refined =
-    target.ruleId !== 'secret.deny-path' && options.strict === false
-      ? extractToolPathTargets(facts, environment, budget, { refineInlineData: true })
-      : candidates;
-  const refinedTarget =
-    refined.length === candidates.length
-      ? target
-      : findSensitivePolicyPathTarget(
-          candidates,
-          config,
-          facts.invocation.context.configCwd,
-          environment,
-          budget,
-          new Set(refined.map((candidate) => candidate.target)),
-        );
-  if (
-    refinedTarget?.ruleId !== 'secret.deny-path' &&
-    options.strict === false &&
-    isMetadataOnlyCommand(facts, environment)
-  ) {
-    return null;
+  if (target === null || target.ruleId === 'secret.deny-path' || options.strict !== false) {
+    return target;
   }
-  return refinedTarget;
+  const refinedTarget = findSensitivePolicyPathTarget(
+    candidates,
+    config,
+    facts.invocation.context.configCwd,
+    environment,
+    budget,
+    new Set(
+      extractToolPathTargets(facts, environment, budget, { standard: true }).map(
+        (candidate) => candidate.target,
+      ),
+    ),
+  );
+  return refinedTarget?.ruleId !== 'secret.deny-path' && isMetadataOnlyCommand(facts, environment)
+    ? null
+    : refinedTarget;
 }
 
 function isMetadataOnlyCommand(facts: SemanticFacts, environment: EnvironmentContext): boolean {
@@ -368,12 +385,20 @@ function isMetadataOnlyCommand(facts: SemanticFacts, environment: EnvironmentCon
   const stripped = stripLeadingWrappersAndEnvAssignments(tokens);
   if (stripped.length === 0) return false;
   const command = basename(stripped[0] ?? '').toLowerCase();
-  const args = stripped.slice(1);
   if (facts.invocation.route.kind === 'unknown') {
     return syntax.program.dialect === 'powershell' && (command === 'ls' || command === 'stat');
   }
+  return isMetadataOnlyArgv(command, stripped.slice(1));
+}
+
+// A look at names, existence, or ignore status that never reads file content.
+function isMetadataOnlyArgv(command: string, args: readonly string[]): boolean {
   if (command === 'ls' || command === 'stat') return true;
   if (command === 'test') return args.length === 2 && (args[0] === '-e' || args[0] === '-f');
+  if (command === '[') {
+    return args.length === 3 && (args[0] === '-e' || args[0] === '-f') && args[2] === ']';
+  }
+  if (command === 'git') return args[0] === 'check-ignore';
   if (command !== 'find') return false;
   return !args.some((arg) => FIND_NON_METADATA_ACTIONS.has(arg));
 }
@@ -493,7 +518,11 @@ function extractCommandPathTargets(
         );
       }
       if (redirection.targetOrder === 'legacy-segment') return ADOPT_AS_OPERAND;
-      targets.push({ target: map(redirection.target), cwd: state.cwd });
+      targets.push({
+        target: map(redirection.target),
+        cwd: state.cwd,
+        ...(redirection.role === 'file-write' ? { written: true as const } : {}),
+      });
       return null;
     },
   });
@@ -544,6 +573,18 @@ function extractSegmentPathTargets(
   const executable = stripped[0] ?? '';
   const command = basename(executable).toLowerCase();
   const post = stripped.slice(1);
+  // The walk keeps a compound's reserved words, as in `if [ -f x ]` or `then ls x`.
+  const lookStart = stripped.findIndex((token) => !SHELL_RESERVED_WORDS.has(token));
+  if (
+    options.standard === true &&
+    lookStart !== -1 &&
+    isMetadataOnlyArgv(
+      basename(stripped[lookStart] ?? '').toLowerCase(),
+      stripped.slice(lookStart + 1),
+    )
+  ) {
+    return assignmentValues;
+  }
   const explainTargets = extractSafetyNetExplainPathTargets(executable, command, post);
 
   if (explainTargets) {
@@ -1191,12 +1232,28 @@ function extractInlineCodePathTargets(
     masked.literals.some((literal) =>
       LANGUAGE_EVAL_PREFIX.test(masked.masked.slice(0, literal.start)),
     );
-  const refine = options.refineInlineData === true && !SHELL_STDIN_INTERPRETERS.has(command);
+  const refine = options.standard === true && !SHELL_STDIN_INTERPRETERS.has(command);
   // Standard mode: literals are data unless the code as a whole holds a read, exec or eval marker.
   const literals =
     refine && !(containsRecognizableInlineAccess(masked.masked) || shellExec || languageEval)
       ? []
       : masked.literals;
+  // Standard mode walks as shell only what an exec call receives: every literal when the call
+  // takes a named command first, otherwise the literals inside the call's parentheses.
+  const execCalls = refine
+    ? Array.from(masked.masked.matchAll(SHELL_EXEC_CALL), (call) => {
+        const start = call.index + call[0].length;
+        return { start, end: closingParenthesis(masked.masked, start) };
+      })
+    : [];
+  const shellLiterals =
+    !refine || execCalls.some((call) => /^\s*[A-Za-z_$]/.test(masked.masked.slice(call.start)))
+      ? masked.literals
+      : masked.literals.filter(
+          (literal) =>
+            SHELL_EXEC_PREFIX.test(masked.masked.slice(0, literal.start)) ||
+            execCalls.some((call) => literal.start >= call.start && literal.start < call.end),
+        );
   return [
     ...literals
       .map((literal) => literal.text)
@@ -1210,7 +1267,7 @@ function extractInlineCodePathTargets(
           .flatMap((literal) => literal.text.match(BARE_PATH_PATTERN) ?? [])
           .map(here)),
     ...(shellExec
-      ? masked.literals.flatMap(
+      ? shellLiterals.flatMap(
           (literal) =>
             walkShellText(literal.text, store, options, environment, cwd, budget) ?? [
               here(literal.text),
@@ -1643,12 +1700,21 @@ function candidateExistsOnDisk(
   environment: EnvironmentContext,
   budget: Budget,
 ): boolean {
+  const absolute = candidateAbsolutePath(target, cwd, environment, budget);
+  return absolute !== '' && environment.paths.entryKind(absolute) !== 'missing';
+}
+
+function candidateAbsolutePath(
+  target: string,
+  cwd: string,
+  environment: EnvironmentContext,
+  budget: Budget,
+): string {
   try {
-    const absolute = normalizeAbsoluteCandidatePath(target, cwd, environment, budget);
-    return absolute !== '' && environment.paths.entryKind(absolute) !== 'missing';
+    return normalizeAbsoluteCandidatePath(target, cwd, environment, budget);
   } catch (error) {
     if (error instanceof AnalysisLimit) throw error;
-    return false;
+    return '';
   }
 }
 

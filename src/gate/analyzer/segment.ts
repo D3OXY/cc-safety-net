@@ -35,7 +35,11 @@ import {
   REASON_INTERPRETER_BLOCKED,
   REASON_INTERPRETER_DANGEROUS,
 } from './interpreters';
-import { REASON_STRICT_UNPARSEABLE, REASON_UNSUPPORTED_HEREDOC_SYNTAX } from './reasons';
+import {
+  REASON_DYNAMIC_SHELL_SOURCE,
+  REASON_STRICT_UNPARSEABLE,
+  REASON_UNSUPPORTED_HEREDOC_SYNTAX,
+} from './reasons';
 import { hasRecursiveForceFlags } from './rm-flags';
 import {
   ANALYZER_RULES,
@@ -69,8 +73,6 @@ import {
 
 type AnalyzeBlockResult = Omit<AnalyzeResult, 'segment'>;
 
-const REASON_DYNAMIC_SHELL_SOURCE =
-  'shell execution source cannot be verified safely. Use a literal command string or ask the user to run it manually.';
 function findCommandAnalyzer(head: string) {
   return ANALYZER_RULES.find((rule) => rule.heads.has(head))?.analyze;
 }
@@ -496,7 +498,7 @@ export function analyzeSegment(
       });
       if (innerReason && !isInterpreterShellParseNoise(innerReason, codeArg)) return innerReason;
 
-      if (containsDangerousCode(codeArg)) {
+      if (containsDangerousCode(codeArg, undefined, !options.strict)) {
         const match = filterDestructiveCommandMatch(
           destructiveCommandMatch('interpreter.dangerous-command', REASON_INTERPRETER_DANGEROUS),
           options.policy,
@@ -773,7 +775,7 @@ function analyzeStreamInterpreterChild(
   }
   const nested = options.analyzeNested(codeArg, { effectiveCwd, envAssignments });
   if (nested && !isInterpreterShellParseNoise(nested, codeArg)) return nested;
-  if (containsDangerousCode(codeArg)) {
+  if (containsDangerousCode(codeArg, undefined, !options.strict)) {
     const dangerous = filterDestructiveCommandMatch(
       destructiveCommandMatch('interpreter.dangerous-command', REASON_INTERPRETER_DANGEROUS),
       options.policy,

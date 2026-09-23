@@ -8,6 +8,8 @@ import type { EffectiveSafetyLevel, PolicySnapshot } from '@/core/policy/types';
 import { getCommandFromToolInput, ToolInputLimitError } from '@/core/tool-input';
 import type { AnalyzeInput, EnvironmentContext } from '@/gate/analysis';
 import { analyzeCommandWithProgram, analyzeOrCapBreach } from '@/gate/analyzer';
+import { dangerousInTextMatch } from '@/gate/analyzer/dangerous-text';
+import { REASON_DYNAMIC_SHELL_SOURCE } from '@/gate/analyzer/reasons';
 import {
   REASON_COMMAND_ANALYSIS_LIMIT,
   REASON_RECURSION_LIMIT,
@@ -268,11 +270,22 @@ export function evaluateGuard(invocation: ToolInvocation, options: GuardOptions)
     ),
   );
   if (analysis.decision) {
+    // Standard safety hands an unverifiable command to the user rather than to the agent, unless
+    // it feeds a shell from stdin or its text names a destructive command outright.
+    const unverifiable =
+      !modes.strict &&
+      analysis.decision.kind === 'deny' &&
+      (analysis.decision.ruleId === 'raw-text.dangerous-command' ||
+        (analysis.decision.reason === REASON_DYNAMIC_SHELL_SOURCE &&
+          !/^(?:\S*\/)?(?:ba|da|z|k)?sh(?:\s+-[A-Za-z]+)*$/.test(
+            analysis.decision.evidence?.segment ?? '',
+          ) &&
+          dangerousInTextMatch(invocation.command as string) === null));
     return {
       stage: 'command-analysis',
       ...reported,
       ...('errorCode' in analysis ? { errorCode: analysis.errorCode } : {}),
-      decision: analysis.decision,
+      decision: unverifiable ? { ...analysis.decision, ask: true } : analysis.decision,
     };
   }
   return { stage: 'command-analysis', ...reported, decision: { kind: 'allow' } };
