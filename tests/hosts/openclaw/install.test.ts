@@ -62,27 +62,30 @@ describe('resolving the OpenClaw state directory', () => {
     ['  ', undefined, '<home>/.openclaw/openclaw.json', '<home>/.openclaw/extensions'],
     ['  ', '~/cfg/openclaw.json', '<home>/cfg/openclaw.json', '<home>/cfg/extensions'],
     ['  ', '<home>/c/openclaw.json', '<home>/c/openclaw.json', '<home>/c/extensions'],
-  ])('reads OPENCLAW_STATE_DIR=%s with OPENCLAW_CONFIG_PATH=%s', async (stateDir, configPath, config, extensions) => {
-    const env = {
-      ...(stateDir === undefined ? {} : { OPENCLAW_STATE_DIR: stateDir }),
-      ...(configPath === undefined ? {} : { OPENCLAW_CONFIG_PATH: configPath }),
-    };
+  ])(
+    'reads OPENCLAW_STATE_DIR=%s with OPENCLAW_CONFIG_PATH=%s',
+    async (stateDir, configPath, config, extensions) => {
+      const env = {
+        ...(stateDir === undefined ? {} : { OPENCLAW_STATE_DIR: stateDir }),
+        ...(configPath === undefined ? {} : { OPENCLAW_CONFIG_PATH: configPath }),
+      };
 
-    expect(
-      (
-        await differential(
-          {
-            seed: {},
-            env,
-          },
-          (environment) => ({
-            config: getOpenClawConfigPath(environment),
-            plugin: getOpenClawPluginDir(environment),
-          }),
-        )
-      ).outcome,
-    ).toEqual({ kind: 'returned', value: { config, plugin: `${extensions}/cc-safety-net` } });
-  });
+      expect(
+        (
+          await differential(
+            {
+              seed: {},
+              env,
+            },
+            (environment) => ({
+              config: getOpenClawConfigPath(environment),
+              plugin: getOpenClawPluginDir(environment),
+            }),
+          )
+        ).outcome,
+      ).toEqual({ kind: 'returned', value: { config, plugin: `${extensions}/cc-safety-net` } });
+    },
+  );
 });
 
 describe('guarding the extension directory before a --force command', () => {

@@ -3,10 +3,13 @@ pre-commit:
   jobs:
     - name: knip
       run: bun scripts/project-bun.ts run knip
-    - name: biome
-      run: bun scripts/project-bun.ts x biome check --write --no-errors-on-unmatched {staged_files}
-      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,json,jsonc}"
+    - name: oxfmt
+      run: bun scripts/project-bun.ts x oxfmt --no-error-on-unmatched-pattern {staged_files}
+      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,json,jsonc,css}"
       stage_fixed: true
+    - name: oxlint
+      run: bun scripts/project-bun.ts x oxlint --no-error-on-unmatched-pattern {staged_files}
+      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts}"
     - name: build
       run: bun scripts/project-bun.ts run build && git add -A dist/
 

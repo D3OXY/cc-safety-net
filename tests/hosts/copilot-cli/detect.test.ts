@@ -58,16 +58,16 @@ const VERSIONS: Array<string | null> = [null, '0.0.400', '0.0.422', '1.0.8'];
 
 afterEach(removeTempRoots);
 
-test.each([
-  '{"disableAllHooks":"false"}',
-  '{"hooks":[]}',
-])('rejects malformed Copilot hook settings: %s', async (content) => {
-  expect(await detection({ [REPO_HOOK]: content }, '1.0.8')).toEqual(
-    absent([
-      `Invalid hook config ${at(REPO_HOOK)}: hooks.preToolUse must be an array of hook objects`,
-    ]),
-  );
-});
+test.each(['{"disableAllHooks":"false"}', '{"hooks":[]}'])(
+  'rejects malformed Copilot hook settings: %s',
+  async (content) => {
+    expect(await detection({ [REPO_HOOK]: content }, '1.0.8')).toEqual(
+      absent([
+        `Invalid hook config ${at(REPO_HOOK)}: hooks.preToolUse must be an array of hook objects`,
+      ]),
+    );
+  },
+);
 
 test('reports a regular file occupying the Copilot hooks directory', async () => {
   const result = await detection({ '.copilot/hooks': 'not a directory' }, '1.0.8');
@@ -85,11 +85,14 @@ describe('the version gate on each hook source', () => {
     expect(await detection({}, version)).toEqual(absent());
   });
 
-  test.each(
-    VERSIONS,
-  )('honours a repository hook file at every version, here %s', async (version) => {
-    expect(await detection({ [REPO_HOOK]: HOOK_FILE }, version)).toEqual(viaHooks([at(REPO_HOOK)]));
-  });
+  test.each(VERSIONS)(
+    'honours a repository hook file at every version, here %s',
+    async (version) => {
+      expect(await detection({ [REPO_HOOK]: HOOK_FILE }, version)).toEqual(
+        viaHooks([at(REPO_HOOK)]),
+      );
+    },
+  );
 
   test.each([
     [
@@ -106,11 +109,12 @@ describe('the version gate on each hook source', () => {
     ],
     ['0.0.422', viaHooks([at(USER_HOOK)])],
     ['1.0.8', viaHooks([at(USER_HOOK)])],
-  ] as Array<
-    [string | null, Detected]
-  >)('reads a user hook file only from 0.0.422 on (%s)', async (version, expected) => {
-    expect(await detection({ [USER_HOOK]: HOOK_FILE }, version)).toEqual(expected);
-  });
+  ] as Array<[string | null, Detected]>)(
+    'reads a user hook file only from 0.0.422 on (%s)',
+    async (version, expected) => {
+      expect(await detection({ [USER_HOOK]: HOOK_FILE }, version)).toEqual(expected);
+    },
+  );
 
   test.each([
     [
@@ -126,11 +130,12 @@ describe('the version gate on each hook source', () => {
       ]),
     ],
     ['1.0.8', viaHooks([at(REPO_SETTINGS)])],
-  ] as Array<
-    [string | null, Detected]
-  >)('reads an inline hook definition only from 1.0.8 on (%s)', async (version, expected) => {
-    expect(await detection({ [REPO_SETTINGS]: HOOK_FILE }, version)).toEqual(expected);
-  });
+  ] as Array<[string | null, Detected]>)(
+    'reads an inline hook definition only from 1.0.8 on (%s)',
+    async (version, expected) => {
+      expect(await detection({ [REPO_SETTINGS]: HOOK_FILE }, version)).toEqual(expected);
+    },
+  );
 
   test('orders the matched sources repository-first, inline before hook file', async () => {
     expect(
@@ -174,19 +179,19 @@ describe('disableAllHooks', () => {
     );
   });
 
-  test.each([
-    '0.0.400',
-    '0.0.422',
-  ])('is ignored by %s, which cannot read the file it sits in', async (version) => {
-    expect(await detection(SEED, version)).toEqual(
-      viaHooks(
-        [at(REPO_HOOK)],
-        [
-          `GitHub Copilot CLI ${version} does not support inline hook definitions in Copilot config files; requires 1.0.8+`,
-        ],
-      ),
-    );
-  });
+  test.each(['0.0.400', '0.0.422'])(
+    'is ignored by %s, which cannot read the file it sits in',
+    async (version) => {
+      expect(await detection(SEED, version)).toEqual(
+        viaHooks(
+          [at(REPO_HOOK)],
+          [
+            `GitHub Copilot CLI ${version} does not support inline hook definitions in Copilot config files; requires 1.0.8+`,
+          ],
+        ),
+      );
+    },
+  );
 
   test('a repository source that switches hooks on ends the search before the user files', async () => {
     expect(

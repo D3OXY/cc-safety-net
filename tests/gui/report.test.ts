@@ -18,6 +18,7 @@ type ReportBlock = {
 
 const page = renderPolicyGuiHtml(TOKEN);
 const block = sliceBlock(page, 'var reportIssueUrl =', 'var openReportDialog =');
+// oxlint-disable-next-line typescript/no-implied-eval -- evaluates a block extracted from this repo's own built GUI script, never external input.
 const report = new Function(
   `${block}\nreturn { reportIssueUrl, scrubReportPaths, buildReportUrl, buildReportRequest };`,
 )() as ReportBlock;

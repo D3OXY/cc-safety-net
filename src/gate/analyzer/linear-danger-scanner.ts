@@ -191,7 +191,7 @@ function hasRawRm(text: ScannedText): boolean {
   let active = false;
   let recursiveLong = false;
   let forceLong = false;
-  for (let i = 0; i <= scanLength(text); ) {
+  for (let i = 0; i <= scanLength(text);) {
     const char = scanChar(text, i);
     if (i === scanLength(text) || isRawStop(char)) {
       active = false;

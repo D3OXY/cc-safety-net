@@ -96,7 +96,14 @@ const all = async (seed: TreeSpec, outputs: Outputs = {}) =>
   ).outcome;
 
 const summarize = (statuses: unknown) =>
-  (statuses as ReadonlyArray<Record<string, unknown>>).map(
+  (
+    statuses as ReadonlyArray<{
+      platform: string;
+      detected: boolean;
+      configured: boolean;
+      inspectionStatus: string;
+    }>
+  ).map(
     (status) =>
       `${status.platform} ${status.detected ? 'detected' : 'absent'} ${status.configured ? 'configured' : 'inactive'} ${status.inspectionStatus}`,
   );

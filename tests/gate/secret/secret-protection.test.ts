@@ -445,15 +445,16 @@ describe('the carriers a candidate path can arrive through', () => {
     ]);
   });
 
-  test.each([
-    ...MODES,
-  ])('an escaped printf percent does not interpolate a secret filename (%j)', (mode) => {
-    expect(secretIn("printf '%%s' .env | xargs cat", mode)).toBeNull();
-    expect(secretIn("printf -- '%%%%s' .env | xargs cat", mode)).toBeNull();
-    expect(secretIn("printf 'ready' .env | xargs cat", mode)).toBeNull();
-    expect(secretIn("printf '.env' ignored | xargs cat", mode)).toStrictEqual(env('.env'));
-    expect(secretIn("printf '%% %s' .env | xargs cat", mode)).toStrictEqual(env('.env'));
-  });
+  test.each([...MODES])(
+    'an escaped printf percent does not interpolate a secret filename (%j)',
+    (mode) => {
+      expect(secretIn("printf '%%s' .env | xargs cat", mode)).toBeNull();
+      expect(secretIn("printf -- '%%%%s' .env | xargs cat", mode)).toBeNull();
+      expect(secretIn("printf 'ready' .env | xargs cat", mode)).toBeNull();
+      expect(secretIn("printf '.env' ignored | xargs cat", mode)).toStrictEqual(env('.env'));
+      expect(secretIn("printf '%% %s' .env | xargs cat", mode)).toStrictEqual(env('.env'));
+    },
+  );
 
   test('a path echoed into xargs is read by the child, unless the child only prints it', () => {
     checkCarriers([

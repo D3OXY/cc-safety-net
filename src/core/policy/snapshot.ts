@@ -36,8 +36,8 @@ export function loadPolicySnapshot(
   };
 
   const overrides = {
-    ...(rules.userConfig?.overrides ?? {}),
-    ...(rules.projectConfig?.overrides ?? {}),
+    ...rules.userConfig?.overrides,
+    ...rules.projectConfig?.overrides,
   };
   const ruleMetadata = Object.freeze(
     Object.fromEntries(

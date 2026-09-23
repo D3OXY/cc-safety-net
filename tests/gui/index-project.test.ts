@@ -197,7 +197,9 @@ describe('the GUI project draft', () => {
 
     expect(read.projectionDiagnostics.length).toBeGreaterThan(0);
     expect(read.projection).toStrictEqual({});
-    expect((row.responses[1]?.body as DiffBody).existingFileDiagnostics.length).toBeGreaterThan(0);
+    expect(
+      (row.responses[1]?.body as DiffBody | undefined)?.existingFileDiagnostics.length,
+    ).toBeGreaterThan(0);
     expect(row.responses[2]?.status).toBe(200);
     expect(row.tree.find((entry) => entry.path === PROJECT_POLICY_FILE)?.content).toBe(
       json(PARANOID),

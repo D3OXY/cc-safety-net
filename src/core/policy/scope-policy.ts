@@ -39,7 +39,7 @@ export function loadRulesPolicy(
   options: RulesPolicyOptions,
 ): LoadedRulesPolicy {
   const paths = getPolicyPaths(environment, options);
-  let sameConfigPath = false;
+  let sameConfigPath: boolean;
   try {
     sameConfigPath = isSamePolicyFilesystemTarget(
       paths.userConfigTarget,

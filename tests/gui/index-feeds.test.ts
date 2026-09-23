@@ -195,7 +195,10 @@ describe('the GUI activity feed over HTTP', () => {
     expect(week.logsDir).toBe(posix.join('<root>', 'home/logs'));
     expect(week.homeDir).toBe(posix.join('<root>', 'home'));
     expect(week.entries.map((entry) => entry.ts)).toStrictEqual(
-      [...week.entries.map((entry) => entry.ts)].sort().reverse(),
+      week.entries
+        .map((entry) => entry.ts)
+        .sort()
+        .reverse(),
     );
     expect(week.counts.blockedByDay).toHaveLength(7);
     expect(week.counts.analyzedByDay).toHaveLength(7);
@@ -291,7 +294,7 @@ describe('the GUI rulebook listing', () => {
     );
 
     expect(row.responses[0]?.status).toBe(200);
-    expect((row.responses[0]?.body as { error?: unknown }).error).toBeString();
+    expect((row.responses[0]?.body as { error?: unknown } | undefined)?.error).toBeString();
   });
 
   test('refuses the listing without a token', async () => {
@@ -382,7 +385,9 @@ describe('the GUI star, integrations and install endpoints', () => {
 
     expect(row.responses[0]).toMatchObject({ status: 400, body: { error: 'unknown target' } });
     expect(row.responses[1]?.status).toBe(400);
-    expect((row.responses[1]?.body as { errors: string[] }).errors[0]).toStartWith('Invalid JSON:');
+    expect((row.responses[1]?.body as { errors: string[] } | undefined)?.errors[0]).toStartWith(
+      'Invalid JSON:',
+    );
     expect(row.responses[2]).toMatchObject({ status: 200, body: { ok: true, output: 'done' } });
     expect(row.responses[3]?.status).toBe(200);
     expect(calls).toStrictEqual([

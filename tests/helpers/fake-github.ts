@@ -22,14 +22,14 @@ export type Fault =
 
 export type FakeGitHub = {
   origin: string;
-  resolveUrl(url: string): string;
+  resolveUrl: (url: string) => string;
   requests: string[];
   faults: Map<string, Fault>;
-  release(): void;
-  maxInFlight(): number;
-  reset(): void;
+  release: () => void;
+  maxInFlight: () => number;
+  reset: () => void;
   repositories: ScriptedRepository[];
-  close(): Promise<void>;
+  close: () => Promise<void>;
 };
 
 const RULES_PATH = '.cc-safety-net/rules';
@@ -85,7 +85,7 @@ export async function startFakeGitHub(repositories: ScriptedRepository[]): Promi
       peak = 0;
     },
     repositories,
-    close: server.close,
+    close: () => server.close(),
   };
 }
 

@@ -160,19 +160,23 @@ describe('properties every proposed document must satisfy', () => {
     60_000,
   );
 
-  test.each(
-    ENV_MAPS.map((row) => [row.label, row.values, row.effectiveLevel] as const),
-  )('the default policy reports the effective level under %s', (_label, values, effectiveLevel) => {
-    let preview!: ReturnType<typeof ported.createPolicyPreview>;
-    withCapturedReports(() => {
-      preview = ported.createPolicyPreview(ported.DEFAULT_GUI_POLICY, environmentWith(values).env);
-    });
-    expect(preview.effectiveLevel).toBe(effectiveLevel);
-    const catastrophic = Object.values(preview.rules).filter(
-      (state) => state.source === 'catastrophic',
-    );
-    expect(catastrophic.length).toBeGreaterThan(0);
-  });
+  test.each(ENV_MAPS.map((row) => [row.label, row.values, row.effectiveLevel] as const))(
+    'the default policy reports the effective level under %s',
+    (_label, values, effectiveLevel) => {
+      let preview!: ReturnType<typeof ported.createPolicyPreview>;
+      withCapturedReports(() => {
+        preview = ported.createPolicyPreview(
+          ported.DEFAULT_GUI_POLICY,
+          environmentWith(values).env,
+        );
+      });
+      expect(preview.effectiveLevel).toBe(effectiveLevel);
+      const catastrophic = Object.values(preview.rules).filter(
+        (state) => state.source === 'catastrophic',
+      );
+      expect(catastrophic.length).toBeGreaterThan(0);
+    },
+  );
 
   test('with no mode flag set the default policy activates exactly the ungated rules', () => {
     const preview = ported.createPolicyPreview(ported.DEFAULT_GUI_POLICY, environmentWith({}).env);
@@ -303,27 +307,30 @@ describe('reading the user policy file for the GUI', () => {
 describe('repairing the user policy file', () => {
   afterEach(removeTempRoots);
 
-  test.each(
-    FILE_STATES.map((row) => [row.behavior, row] as const),
-  )('repair rewrites the canonical document — %s', (_behavior, row) => {
-    const home = seedHome(row.file);
-    const repaired = gui.repairUserPolicyForGui(home.environment);
+  test.each(FILE_STATES.map((row) => [row.behavior, row] as const))(
+    'repair rewrites the canonical document — %s',
+    (_behavior, row) => {
+      const home = seedHome(row.file);
+      const repaired = gui.repairUserPolicyForGui(home.environment);
 
-    expect(repaired.errors).toEqual([]);
-    expect(repaired.policy.audit.retention_days).toBe(row.repairedRetentionDays);
-    expect(
-      snapshotTree(home.root).filter((entry) => entry.path.startsWith('.cc-safety-net/')),
-    ).toEqual([
-      {
-        path: '.cc-safety-net/policy.json',
-        kind: 'file',
-        content: `${JSON.stringify(repaired.policy, null, 2)}\n`,
-      },
-    ]);
-    if (process.platform !== 'win32')
-      expect(lstatSync(join(home.root, '.cc-safety-net', 'policy.json')).mode & 0o777).toBe(0o600);
-    expect(getUserPolicyDiagnostics(repaired.policy, home.environment.home)).toEqual([]);
-  });
+      expect(repaired.errors).toEqual([]);
+      expect(repaired.policy.audit.retention_days).toBe(row.repairedRetentionDays);
+      expect(
+        snapshotTree(home.root).filter((entry) => entry.path.startsWith('.cc-safety-net/')),
+      ).toEqual([
+        {
+          path: '.cc-safety-net/policy.json',
+          kind: 'file',
+          content: `${JSON.stringify(repaired.policy, null, 2)}\n`,
+        },
+      ]);
+      if (process.platform !== 'win32')
+        expect(lstatSync(join(home.root, '.cc-safety-net', 'policy.json')).mode & 0o777).toBe(
+          0o600,
+        );
+      expect(getUserPolicyDiagnostics(repaired.policy, home.environment.home)).toEqual([]);
+    },
+  );
 
   test('a file nothing could be salvaged from is replaced with the defaults', () => {
     const home = seedHome('{ not json');

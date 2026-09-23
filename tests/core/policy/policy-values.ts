@@ -176,7 +176,7 @@ export const RULES_CONFIG_VALUES: readonly unknown[] = [
     },
   },
   { version: 1, overrides: { 'a/i': { reason: '' }, 'a/j': { reason: LONG_REASON } } },
-  { version: 1, overrides: { 'a/m': { reason: [...LONG_REASON] } } },
+  { version: 1, overrides: { 'a/m': { reason: Array.from(LONG_REASON) } } },
   { version: 1, overrides: { 'a/k': { reason: 'ok', intent: 'scope_down' } } },
   { version: 1, overrides: { plain: 'off', 'too/many/slashes': 'off', '/leading': 'off' } },
   { version: 1, overrides: { 'a/l': null } },

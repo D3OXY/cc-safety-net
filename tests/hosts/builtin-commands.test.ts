@@ -55,17 +55,17 @@ test('the Pi prompt is the same for an empty and for a filled request', () => {
   expect(empty).toStartWith('# CC Safety Net');
 });
 
-test.each([
-  true,
-  false,
-])('registering the Pi command with isIdle %p records the same call', async (isIdle) => {
-  const ported = await recordPiCommand(portedRegister, 'explain rm', isIdle);
+test.each([true, false])(
+  'registering the Pi command with isIdle %p records the same call',
+  async (isIdle) => {
+    const ported = await recordPiCommand(portedRegister, 'explain rm', isIdle);
 
-  expect(ported.commands).toStrictEqual([
-    ['cc-safety-net', 'Operate CC Safety Net: explain blocks, rules, integrations, diagnostics'],
-  ]);
-  expect(ported.messages[0]?.[1]).toStrictEqual(isIdle ? undefined : { deliverAs: 'followUp' });
-});
+    expect(ported.commands).toStrictEqual([
+      ['cc-safety-net', 'Operate CC Safety Net: explain blocks, rules, integrations, diagnostics'],
+    ]);
+    expect(ported.messages[0]?.[1]).toStrictEqual(isIdle ? undefined : { deliverAs: 'followUp' });
+  },
+);
 
 test('the skill document the template is built from keeps its expected shape', () => {
   const skill = readFileSync(join(import.meta.dir, '../../skills/cc-safety-net/SKILL.md'), 'utf-8');

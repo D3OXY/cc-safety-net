@@ -88,14 +88,18 @@ function expectOutcome(
 for (const host of HOOK_HOSTS) {
   describe(`hook ${host.flag}`, () => {
     for (const row of host.rows(fixture)) {
-      test(row.name, async () => {
-        expectOutcome(
-          SPAWNED.has(row.name)
-            ? runEntry(['hook', host.flag], row)
-            : await runInProcess(host.flag, row),
-          row.expected,
-        );
-      }, 60_000);
+      test(
+        row.name,
+        async () => {
+          expectOutcome(
+            SPAWNED.has(row.name)
+              ? runEntry(['hook', host.flag], row)
+              : await runInProcess(host.flag, row),
+            row.expected,
+          );
+        },
+        60_000,
+      );
     }
   });
 }

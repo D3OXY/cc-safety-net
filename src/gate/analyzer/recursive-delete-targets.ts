@@ -61,8 +61,7 @@ export interface RecursiveDeleteTargetClassificationOptions {
   skipCwdSelf?: boolean;
 }
 
-export interface TrustedTempDescendantTargetOptions
-  extends RecursiveDeleteTargetClassificationOptions {
+export interface TrustedTempDescendantTargetOptions extends RecursiveDeleteTargetClassificationOptions {
   containmentTarget?: string;
 }
 

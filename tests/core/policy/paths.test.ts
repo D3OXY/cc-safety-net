@@ -90,18 +90,19 @@ describe('the user policy scope', () => {
     expect(slash(paths.userConfigTarget.relativePath)).toBe(row.targetRelativePath);
   });
 
-  test.each(
-    USER_SCOPES.map((row) => [row.behavior, row] as const),
-  )('a local rulebook lives in a directory of its own beside rule.json — %s', (_behavior, row) => {
-    expect(
-      slash(
-        getLocalRulebookPath(
-          getUserRulesDir(environmentWith(row.safetyNetHome), row.options),
-          'team-rules',
+  test.each(USER_SCOPES.map((row) => [row.behavior, row] as const))(
+    'a local rulebook lives in a directory of its own beside rule.json — %s',
+    (_behavior, row) => {
+      expect(
+        slash(
+          getLocalRulebookPath(
+            getUserRulesDir(environmentWith(row.safetyNetHome), row.options),
+            'team-rules',
+          ),
         ),
-      ),
-    ).toBe(`${row.rulesDir}/team-rules/rulebook.json`);
-  });
+      ).toBe(`${row.rulesDir}/team-rules/rulebook.json`);
+    },
+  );
 });
 
 const PROJECT_SCOPES: readonly {

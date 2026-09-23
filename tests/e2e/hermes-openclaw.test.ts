@@ -172,19 +172,22 @@ describe('packaged OpenClaw plugin protection through the built plugin directory
   test.each([
     ['the default host', 'default', { command: 'git status' }],
     ['an explicit gateway host', 'gateway', { command: 'git status', host: 'gateway' }],
-  ] as const)('registers the exec policy hook and allows git status on %s', async (_name, slugName, params) => {
-    await withHostWorkspace(async ({ cwd, home }) => {
-      const sessionId = `${SESSION_PREFIX}-openclaw-safe-${slugName}`;
-      await expectAllowedAction(cwd, home, sessionId, async (action) => {
-        const output = await runOpenClawHost(params, cwd, home, sessionId);
-        expect(output).toMatchObject({
-          id: 'cc-safety-net',
-          registration: { hookName: 'before_tool_call', matcher: ['exec'], priority: 50 },
+  ] as const)(
+    'registers the exec policy hook and allows git status on %s',
+    async (_name, slugName, params) => {
+      await withHostWorkspace(async ({ cwd, home }) => {
+        const sessionId = `${SESSION_PREFIX}-openclaw-safe-${slugName}`;
+        await expectAllowedAction(cwd, home, sessionId, async (action) => {
+          const output = await runOpenClawHost(params, cwd, home, sessionId);
+          expect(output).toMatchObject({
+            id: 'cc-safety-net',
+            registration: { hookName: 'before_tool_call', matcher: ['exec'], priority: 50 },
+          });
+          return readOpenClawResult(output, action);
         });
-        return readOpenClawResult(output, action);
       });
-    });
-  });
+    },
+  );
 
   test.each([
     ['a destructive command', 'openclaw-reset', { command: 'git reset --hard' }, 'git.reset-hard'],

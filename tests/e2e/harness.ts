@@ -122,8 +122,8 @@ export async function runCommand(
     cwd,
     env: isolatedEnv(home, options.level, options.env),
   });
-  proc.stdin.write(typeof input === 'string' ? input : JSON.stringify(input));
-  proc.stdin.end();
+  void proc.stdin.write(typeof input === 'string' ? input : JSON.stringify(input));
+  void proc.stdin.end();
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),

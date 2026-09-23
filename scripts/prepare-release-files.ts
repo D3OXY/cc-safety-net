@@ -14,8 +14,8 @@ export function updateReleaseManifests(cwd: string, requestedVersion: string): v
   ].forEach((relativePath) => {
     const path = resolve(cwd, relativePath);
     // Reserializing would fight the committed formatting (JSON.stringify expands arrays that
-    // biome collapses, so the release commit fails biome ci on the tag); only the version
-    // value changes. A failed replacement leaves the old version, which the release
+    // oxfmt collapses, so the release commit fails the formatting check on the tag); only the
+    // version value changes. A failed replacement leaves the old version, which the release
     // transaction rejects before any git mutation.
     writeFileSync(
       path,

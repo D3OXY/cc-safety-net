@@ -732,38 +732,39 @@ describe('the policy loader port reproduces every configuration recovery row', (
   const root = mkdtempSync(join(tmpdir(), 'next-policy-loader-'));
   afterAll(() => rmSync(root, { recursive: true, force: true }));
 
-  test.each(
-    ROWS.map((row, index) => [row.name, row, index] as const),
-  )('loads %s identically', (_label, row, index) => {
-    const sub = join(root, String(index));
-    writeTree(sub, { project: null, 'home/.cc-safety-net': null, ...row.tree });
-    const options = row.options?.(sub) ?? {
-      cwd: join(sub, 'project'),
-      userConfigDir: join(sub, 'home', '.cc-safety-net', 'rules'),
-    };
-    const env = row.env?.(sub) ?? {};
-    const before = snapshotTree(sub);
-    const globals = globalThis as Record<string, unknown>;
-    const restored = globals.__CC_SAFETY_NET_EMBEDDED_POLICY__;
-    try {
-      globals.__CC_SAFETY_NET_EMBEDDED_POLICY__ = row.embedded;
-      const actual = loadPortedSnapshot(
-        createTestEnvironment({
-          env: new Map(Object.entries(env)),
-          home: HOME,
-          paths: processPathResolver,
-        }),
-        options,
-      );
-      expect(Object.isFrozen(actual)).toBeTrue();
-      expect(Object.isFrozen(actual.policy)).toBeTrue();
-      expect(Object.isFrozen(actual.policy.rules)).toBeTrue();
-      expect(Object.isFrozen(actual.ruleMetadata)).toBeTrue();
-      if (actual.policyScopes) expect(Object.isFrozen(actual.policyScopes)).toBeTrue();
-      row.check(actual);
-    } finally {
-      globals.__CC_SAFETY_NET_EMBEDDED_POLICY__ = restored;
-    }
-    expect(snapshotTree(sub)).toStrictEqual(before);
-  });
+  test.each(ROWS.map((row, index) => [row.name, row, index] as const))(
+    'loads %s identically',
+    (_label, row, index) => {
+      const sub = join(root, String(index));
+      writeTree(sub, { project: null, 'home/.cc-safety-net': null, ...row.tree });
+      const options = row.options?.(sub) ?? {
+        cwd: join(sub, 'project'),
+        userConfigDir: join(sub, 'home', '.cc-safety-net', 'rules'),
+      };
+      const env = row.env?.(sub) ?? {};
+      const before = snapshotTree(sub);
+      const globals = globalThis as Record<string, unknown>;
+      const restored = globals.__CC_SAFETY_NET_EMBEDDED_POLICY__;
+      try {
+        globals.__CC_SAFETY_NET_EMBEDDED_POLICY__ = row.embedded;
+        const actual = loadPortedSnapshot(
+          createTestEnvironment({
+            env: new Map(Object.entries(env)),
+            home: HOME,
+            paths: processPathResolver,
+          }),
+          options,
+        );
+        expect(Object.isFrozen(actual)).toBeTrue();
+        expect(Object.isFrozen(actual.policy)).toBeTrue();
+        expect(Object.isFrozen(actual.policy.rules)).toBeTrue();
+        expect(Object.isFrozen(actual.ruleMetadata)).toBeTrue();
+        if (actual.policyScopes) expect(Object.isFrozen(actual.policyScopes)).toBeTrue();
+        row.check(actual);
+      } finally {
+        globals.__CC_SAFETY_NET_EMBEDDED_POLICY__ = restored;
+      }
+      expect(snapshotTree(sub)).toStrictEqual(before);
+    },
+  );
 });

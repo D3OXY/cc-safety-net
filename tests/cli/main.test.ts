@@ -8,7 +8,7 @@ afterEach(() => {
   removeTempRoots();
 });
 
-const differential = async (row: CliRow) => await runCliDifferential(row);
+const differential = async (row: CliRow) => runCliDifferential(row);
 
 describe('help', () => {
   for (const args of [['help'], ['--help'], ['-h'], []]) {

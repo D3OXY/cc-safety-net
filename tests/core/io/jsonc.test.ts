@@ -16,7 +16,7 @@ const MANAGED = 'cc-safety-net';
 
 function isSubsequence(part: string, whole: string): boolean {
   return (
-    [...whole].reduce((matched, char) => {
+    Array.from(whole).reduce((matched, char) => {
       return matched < part.length && part[matched] === char ? matched + 1 : matched;
     }, 0) === part.length
   );
@@ -553,7 +553,7 @@ describe('invariants over generated documents', () => {
       const start = Math.floor(random() * (document.length + 1));
       const end = start + Math.floor(random() * (document.length - start + 1));
       const removed = removeArrayRangeItem(document, { start, end });
-      const prefix = [...removed].findIndex((char, index) => char !== document[index]);
+      const prefix = Array.from(removed).findIndex((char, index) => char !== document[index]);
       const kept = prefix === -1 ? removed.length : prefix;
       return (
         removed.length > document.length - (end - start) ||

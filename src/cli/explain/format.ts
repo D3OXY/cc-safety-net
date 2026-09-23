@@ -138,7 +138,6 @@ export function formatTraceHuman(result: ExplainResult, options?: { asciiOnly?: 
     if (inRecursion) {
       lines.push(`  ${box.v}`);
       lines.push(`  ${box.bl}${box.h.repeat(width - 2)}`);
-      inRecursion = false;
     }
 
     if (!hasVisibleSteps) {

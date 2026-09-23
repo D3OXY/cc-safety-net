@@ -56,10 +56,10 @@ export type CommandTrace = Readonly<{
 export type CommandTraceContext = {
   currentSegmentIndex?: number;
   flattenNested?: boolean;
-  allocateSegment(): number;
-  getNextSegmentIndex(): number;
-  recordGlobal(step: TraceStep): void;
-  recordSegment(step: TraceStep, segmentIndex?: number): void;
+  allocateSegment: () => number;
+  getNextSegmentIndex: () => number;
+  recordGlobal: (step: TraceStep) => void;
+  recordSegment: (step: TraceStep, segmentIndex?: number) => void;
 };
 
 type RecorderOptions = {

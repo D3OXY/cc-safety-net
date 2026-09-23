@@ -595,14 +595,15 @@ describe('the audit retention window read from the policy file', () => {
   const windowFor = (userConfigDir: string) =>
     readRetentionDays(createTestEnvironment({ home: HOME }), { userConfigDir });
 
-  test.each(
-    RETENTION_FILES.map((row) => [row.behavior, row.file, row.days] as const),
-  )('%s', (behavior, file, days) => {
-    const home = join(root, behavior.replace(/\W+/g, '-'));
-    mkdirSync(join(home, 'rules'), { recursive: true });
-    writeFileSync(join(home, 'policy.json'), file);
-    expect(windowFor(join(home, 'rules'))).toBe(days);
-  });
+  test.each(RETENTION_FILES.map((row) => [row.behavior, row.file, row.days] as const))(
+    '%s',
+    (behavior, file, days) => {
+      const home = join(root, behavior.replace(/\W+/g, '-'));
+      mkdirSync(join(home, 'rules'), { recursive: true });
+      writeFileSync(join(home, 'policy.json'), file);
+      expect(windowFor(join(home, 'rules'))).toBe(days);
+    },
+  );
 
   test('a directory where the policy file belongs falls back to the default', () => {
     const userConfigDir = join(root, 'directory', 'rules');

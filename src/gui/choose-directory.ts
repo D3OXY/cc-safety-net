@@ -32,10 +32,7 @@ const onPath = (binary: string, env: NodeJS.ProcessEnv) =>
     }
   });
 
-export function isDirectoryPickerAvailable(
-  platform: NodeJS.Platform | string,
-  env: NodeJS.ProcessEnv,
-): boolean {
+export function isDirectoryPickerAvailable(platform: string, env: NodeJS.ProcessEnv): boolean {
   if (platform === 'darwin' || platform === 'win32') return true;
   if (platform !== 'linux') return false;
   if (!env.DISPLAY && !env.WAYLAND_DISPLAY) return false;
@@ -43,7 +40,7 @@ export function isDirectoryPickerAvailable(
 }
 
 function getDialogCommand(
-  platform: NodeJS.Platform | string,
+  platform: string,
   env: NodeJS.ProcessEnv,
 ): { cmd: string; args: string[] } | null {
   if (platform === 'darwin') return { cmd: 'osascript', args: ['-e', MACOS_SCRIPT] };
@@ -60,7 +57,7 @@ function getDialogCommand(
 export type ChooseDirectoryResult = { path: string } | { cancelled: true } | { error: string };
 
 export function chooseDirectory(
-  platform: NodeJS.Platform | string = process.platform,
+  platform: string = process.platform,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<ChooseDirectoryResult> {
   const command = getDialogCommand(platform, env);

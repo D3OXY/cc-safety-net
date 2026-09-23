@@ -15,6 +15,7 @@ type Entry = {
 const page = renderPolicyGuiHtml(TOKEN);
 const block = sliceBlock(page, 'var commandSignature = (source) => {', '\n// ');
 
+// oxlint-disable-next-line typescript/no-implied-eval -- evaluates a block extracted from this repo's own built GUI script, never external input.
 const findSuspects = new Function('entries', `${block}\nreturn findSuspectEntries(entries);`) as (
   entries: readonly Entry[],
 ) => Set<Entry>;

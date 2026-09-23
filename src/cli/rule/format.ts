@@ -143,8 +143,8 @@ function getMergedOverrides(
   kind: 'off' | 'reason',
 ): Array<{ key: string; value: RuleOverride }> {
   return Object.entries({
-    ...(policy.userConfig?.overrides ?? {}),
-    ...(policy.projectConfig?.overrides ?? {}),
+    ...policy.userConfig?.overrides,
+    ...policy.projectConfig?.overrides,
   })
     .filter((entry): entry is [string, RuleOverride] => {
       if (kind === 'off') return entry[1] === 'off';

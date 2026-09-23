@@ -339,23 +339,26 @@ describe('built CLI protection contract', () => {
     ],
     ['parallel command stream', 'parallel-stream', 'parallel', 'parallel.command-stream-dynamic'],
     ['secret content', 'secret-content', 'cat "$HOME/.ssh/id_rsa"', 'secret.home.ssh'],
-  ] as const)('Coding CLI blocks log-derived %s in standard mode', async (_name, slug, command, ruleId) => {
-    await withWorkspace(async ({ cwd, home }) => {
-      const sessionId = `log-regression-${slug}-standard`;
-      const result = await runCodingCliTool(
-        'Bash',
-        { command },
-        cwd,
-        home,
-        sessionId,
-        () => writeFileSync(join(cwd, `${slug}-ran`), 'ran'),
-        'standard',
-      );
-      expect(result.allowed).toBe(false);
-      expect(result.reason).toContain(ruleId);
-      expectSingleAudit(home, sessionId, { agent: 'claude-code', command, ruleId });
-    });
-  });
+  ] as const)(
+    'Coding CLI blocks log-derived %s in standard mode',
+    async (_name, slug, command, ruleId) => {
+      await withWorkspace(async ({ cwd, home }) => {
+        const sessionId = `log-regression-${slug}-standard`;
+        const result = await runCodingCliTool(
+          'Bash',
+          { command },
+          cwd,
+          home,
+          sessionId,
+          () => writeFileSync(join(cwd, `${slug}-ran`), 'ran'),
+          'standard',
+        );
+        expect(result.allowed).toBe(false);
+        expect(result.reason).toContain(ruleId);
+        expectSingleAudit(home, sessionId, { agent: 'claude-code', command, ruleId });
+      });
+    },
+  );
 
   test('Coding CLI blocks direct .env reads', async () => {
     await withSecretWorkspace(async ({ cwd, home }) => {
@@ -416,18 +419,21 @@ describe('built CLI protection contract', () => {
         ].join('\n'),
       },
     ],
-  ] as const)('Coding CLI allows harmless %s without auditing it', async (name, toolName, toolInput) => {
-    await withSecretWorkspace(async ({ cwd, home }) => {
-      const sessionId = `claude-${name.replaceAll(' ', '-')}`;
-      await expectAllowedAction(
-        cwd,
-        home,
-        sessionId,
-        (action) => runCodingCliTool(toolName, toolInput, cwd, home, sessionId, action),
-        false,
-      );
-    });
-  });
+  ] as const)(
+    'Coding CLI allows harmless %s without auditing it',
+    async (name, toolName, toolInput) => {
+      await withSecretWorkspace(async ({ cwd, home }) => {
+        const sessionId = `claude-${name.replaceAll(' ', '-')}`;
+        await expectAllowedAction(
+          cwd,
+          home,
+          sessionId,
+          (action) => runCodingCliTool(toolName, toolInput, cwd, home, sessionId, action),
+          false,
+        );
+      });
+    },
+  );
 
   test.each([
     ['relative path', 'relative', '../.env'],

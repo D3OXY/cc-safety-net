@@ -244,15 +244,16 @@ describe('rulebook source syntax', () => {
     );
   });
 
-  test.each(
-    SPECS.map((row) => [row.behavior, row.spec] as const),
-  )('assertBareRulebookName rejects exactly the names the local pattern rejects (%s)', (_behavior, spec) => {
-    expect(describeOutcome(() => assertBareRulebookName(spec))).toEqual(
-      NAME_PATTERN.test(spec)
-        ? { ok: true, value: undefined }
-        : { ok: false, error: { name: 'Error', message: bareNameError(spec) } },
-    );
-  });
+  test.each(SPECS.map((row) => [row.behavior, row.spec] as const))(
+    'assertBareRulebookName rejects exactly the names the local pattern rejects (%s)',
+    (_behavior, spec) => {
+      expect(describeOutcome(() => assertBareRulebookName(spec))).toEqual(
+        NAME_PATTERN.test(spec)
+          ? { ok: true, value: undefined }
+          : { ok: false, error: { name: 'Error', message: bareNameError(spec) } },
+      );
+    },
+  );
 
   test('the vendored path a name resolves to is the path the vendored-path pattern accepts', () => {
     expect(getRepositoryRulebookPath('team-rules')).toBe(
@@ -310,12 +311,13 @@ const WRAPPER_COMMANDS: readonly {
 ];
 
 describe('the transparent wrapper vocabulary', () => {
-  test.each(
-    WRAPPER_COMMANDS.map((row) => [row.command, row.reserved, row.interpreter] as const),
-  )('%p is reserved=%p interpreter=%p', (command, reserved, interpreter) => {
-    expect(isReservedTransparentWrapper(command)).toBe(reserved);
-    expect(isInterpreterCommand(command)).toBe(interpreter);
-  });
+  test.each(WRAPPER_COMMANDS.map((row) => [row.command, row.reserved, row.interpreter] as const))(
+    '%p is reserved=%p interpreter=%p',
+    (command, reserved, interpreter) => {
+      expect(isReservedTransparentWrapper(command)).toBe(reserved);
+      expect(isInterpreterCommand(command)).toBe(interpreter);
+    },
+  );
 
   test('an interpreter is always reserved, over the whole analyzer command corpus', () => {
     const words = corpusWords();

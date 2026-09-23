@@ -76,7 +76,7 @@ export function startStubModelServer() {
       toolCallIssued = false;
     },
     stop() {
-      server.stop(true);
+      void server.stop(true);
     },
   };
 }
@@ -84,7 +84,7 @@ export function startStubModelServer() {
 export function reserveLoopbackPort(): number {
   const probe = Bun.serve({ port: 0, hostname: '127.0.0.1', fetch: () => new Response('') });
   const port = boundPort(probe);
-  probe.stop(true);
+  void probe.stop(true);
   return port;
 }
 

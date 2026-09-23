@@ -209,49 +209,57 @@ function rowFor(slug: string, extra: Partial<CliRow>): CliRow {
 
 describe('explain renders the same trace from both bins', () => {
   for (const explainCase of EXPLAIN_CASES.filter((entry) => !LIMIT_SLUGS.includes(entry.slug))) {
-    test(explainCase.slug, async () => {
-      const asJson = await explain(
-        rowFor(explainCase.slug, { args: ['explain', '--json', explainCase.command] }),
-      );
-      const outcome = asJson;
-      expect(outcome.exitCode).toBe(0);
-      expect(asJson.stdout).toMatchSnapshot('json');
-      expect(reportFacts(JSON.parse(outcome.stdout) as ExplainResult)).toEqual(
-        PINS[explainCase.slug] as ReturnType<typeof reportFacts>,
-      );
+    test(
+      explainCase.slug,
+      async () => {
+        const asJson = await explain(
+          rowFor(explainCase.slug, { args: ['explain', '--json', explainCase.command] }),
+        );
+        const outcome = asJson;
+        expect(outcome.exitCode).toBe(0);
+        expect(asJson.stdout).toMatchSnapshot('json');
+        expect(reportFacts(JSON.parse(outcome.stdout) as ExplainResult)).toEqual(
+          PINS[explainCase.slug] as ReturnType<typeof reportFacts>,
+        );
 
-      const asHuman = await explain(
-        rowFor(explainCase.slug, { args: ['explain', explainCase.command] }),
-      );
-      expect(asHuman.exitCode).toBe(0);
-      expect(asHuman.stdout).toMatchSnapshot('human');
-    }, 30_000);
+        const asHuman = await explain(
+          rowFor(explainCase.slug, { args: ['explain', explainCase.command] }),
+        );
+        expect(asHuman.exitCode).toBe(0);
+        expect(asHuman.stdout).toMatchSnapshot('human');
+      },
+      30_000,
+    );
   }
 });
 
 describe('explain reports an analysis budget breach as bounded output', () => {
   for (const [index, slug] of LIMIT_SLUGS.entries()) {
-    test(slug, async () => {
-      const message = LIMIT_MESSAGES[index] as string;
-      const asJson = await explain(
-        rowFor(slug, {
-          args: ['explain', '--json', EXPLAIN_CASES.find((e) => e.slug === slug)?.command ?? ''],
-        }),
-      );
-      const outcome = asJson;
-      expect(outcome.stdout).toBe(`${JSON.stringify({ error: message })}\n`);
-      expect(outcome.exitCode).toBe(1);
-      expect(asJson.stdout).toMatchSnapshot('json');
+    test(
+      slug,
+      async () => {
+        const message = LIMIT_MESSAGES[index] as string;
+        const asJson = await explain(
+          rowFor(slug, {
+            args: ['explain', '--json', EXPLAIN_CASES.find((e) => e.slug === slug)?.command ?? ''],
+          }),
+        );
+        const outcome = asJson;
+        expect(outcome.stdout).toBe(`${JSON.stringify({ error: message })}\n`);
+        expect(outcome.exitCode).toBe(1);
+        expect(asJson.stdout).toMatchSnapshot('json');
 
-      const asHuman = await explain(
-        rowFor(slug, {
-          args: ['explain', EXPLAIN_CASES.find((e) => e.slug === slug)?.command ?? ''],
-        }),
-      );
-      expect(asHuman.stdout).toBe('');
-      expect(asHuman.stderr).toBe(`${message}\n`);
-      expect(asHuman.exitCode).toBe(1);
-    }, 30_000);
+        const asHuman = await explain(
+          rowFor(slug, {
+            args: ['explain', EXPLAIN_CASES.find((e) => e.slug === slug)?.command ?? ''],
+          }),
+        );
+        expect(asHuman.stdout).toBe('');
+        expect(asHuman.stderr).toBe(`${message}\n`);
+        expect(asHuman.exitCode).toBe(1);
+      },
+      30_000,
+    );
   }
 });
 
@@ -276,13 +284,17 @@ describe('explain flags', () => {
   ];
 
   for (const row of flagRows) {
-    test(row.name, async () => {
-      const outcome = await runCliDifferential({
-        args: row.args,
-        ...(row.seed ? { seed: row.seed } : {}),
-      });
-      expect(outcome.exitCode).toBe(row.exitCode);
-    }, 30_000);
+    test(
+      row.name,
+      async () => {
+        const outcome = runCliDifferential({
+          args: row.args,
+          ...(row.seed ? { seed: row.seed } : {}),
+        });
+        expect(outcome.exitCode).toBe(row.exitCode);
+      },
+      30_000,
+    );
   }
 });
 
@@ -306,11 +318,15 @@ const KNOWN_GAPS = [
 
 describe('explain diverges from the shipped CLI only where the design says it must', () => {
   for (const gap of KNOWN_GAPS) {
-    test(gap.name, async () => {
-      const result = await explain({ args: ['explain', '--json', gap.command] });
-      const document = JSON.parse(result.stdout) as ExplainResult;
-      expect({ result: document.result, ruleId: document.ruleId }).toEqual(gap.ported);
-    }, 30_000);
+    test(
+      gap.name,
+      async () => {
+        const result = await explain({ args: ['explain', '--json', gap.command] });
+        const document = JSON.parse(result.stdout) as ExplainResult;
+        expect({ result: document.result, ruleId: document.ruleId }).toEqual(gap.ported);
+      },
+      30_000,
+    );
   }
 
   for (const command of [

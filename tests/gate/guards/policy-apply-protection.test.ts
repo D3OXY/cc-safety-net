@@ -167,12 +167,13 @@ describe('policy apply protection', () => {
 
   test('only a route that carries a command candidate reaches the recognizer', () => {
     const routes: readonly ToolRoute[] = [
-      ...(['posix', 'powershell', 'auto'] as const).map(
-        (shell): ToolRoute => ({ kind: 'command', shell }),
-      ),
-      ...(['patch', 'path', 'grep', 'glob', 'unknown'] as const).map(
-        (kind): ToolRoute => ({ kind }),
-      ),
+      ...(['posix', 'powershell', 'auto'] as const).map((shell): ToolRoute => ({
+        kind: 'command',
+        shell,
+      })),
+      ...(['patch', 'path', 'grep', 'glob', 'unknown'] as const).map((kind): ToolRoute => ({
+        kind,
+      })),
     ];
     const invocation = 'cc-safety-net policy apply proposal.json';
     for (const route of routes) {

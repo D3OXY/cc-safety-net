@@ -15,15 +15,16 @@ const promptFor = (state: {
   rulesData: { projectPath: string; rulebooks: { spec: string; name: string }[] } | null;
   rulesScope: 'user' | 'project';
   fields: Record<string, string>;
-}) =>
-  (
-    new Function(
-      'rulesData',
-      'rulesScope',
-      'fields',
-      `const qs = (id) => ({ value: fields[id] });\n${block}\nreturn rulePromptText();`,
-    ) as (rulesData: unknown, rulesScope: string, fields: Record<string, string>) => string
-  )(state.rulesData, state.rulesScope, state.fields);
+}) => {
+  // oxlint-disable-next-line typescript/no-implied-eval -- evaluates a block extracted from this repo's own built GUI script, never external input.
+  const rulePromptText = new Function(
+    'rulesData',
+    'rulesScope',
+    'fields',
+    `const qs = (id) => ({ value: fields[id] });\n${block}\nreturn rulePromptText();`,
+  ) as (rulesData: unknown, rulesScope: string, fields: Record<string, string>) => string;
+  return rulePromptText(state.rulesData, state.rulesScope, state.fields);
+};
 
 const RULEBOOKS = [
   { spec: 'kenryu42/ops-rules', name: 'ops-guard' },

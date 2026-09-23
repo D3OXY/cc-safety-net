@@ -5,7 +5,9 @@ import { readFileSync } from 'node:fs';
 function run(command: string[]) {
   const result = Bun.spawnSync(command, { stdout: 'pipe', stderr: 'pipe' });
   if (result.exitCode === 0) return;
-  throw new Error(`${command.join(' ')} failed\n${result.stdout}${result.stderr}`);
+  throw new Error(
+    `${command.join(' ')} failed\n${result.stdout.toString()}${result.stderr.toString()}`,
+  );
 }
 
 export function verifyRepositoryPlugin(): void {

@@ -145,29 +145,31 @@ const AS_LEGACY_CONFIG: readonly { behavior: string; file: string; expected: Exp
 describe('reading a file as a rules config', () => {
   afterEach(removeTempRoots);
 
-  test.each(
-    AS_RULES_CONFIG.map((row) => [row.behavior, row.file, row.expected] as const),
-  )('%s', (_behavior, file, expected) => {
-    const root = tree();
-    expect(reported(ported.validateRulesConfigFile(join(root, file)), root)).toEqual({
-      errors: [...expected.errors],
-      ruleNames: [...expected.ruleNames],
-    });
-  });
+  test.each(AS_RULES_CONFIG.map((row) => [row.behavior, row.file, row.expected] as const))(
+    '%s',
+    (_behavior, file, expected) => {
+      const root = tree();
+      expect(reported(ported.validateRulesConfigFile(join(root, file)), root)).toEqual({
+        errors: [...expected.errors],
+        ruleNames: [...expected.ruleNames],
+      });
+    },
+  );
 });
 
 describe('reading a file as a legacy inline config', () => {
   afterEach(removeTempRoots);
 
-  test.each(
-    AS_LEGACY_CONFIG.map((row) => [row.behavior, row.file, row.expected] as const),
-  )('%s', (_behavior, file, expected) => {
-    const root = tree();
-    expect(reported(ported.validateConfigFile(join(root, file)), root)).toEqual({
-      errors: [...expected.errors],
-      ruleNames: [...expected.ruleNames],
-    });
-  });
+  test.each(AS_LEGACY_CONFIG.map((row) => [row.behavior, row.file, row.expected] as const))(
+    '%s',
+    (_behavior, file, expected) => {
+      const root = tree();
+      expect(reported(ported.validateConfigFile(join(root, file)), root)).toEqual({
+        errors: [...expected.errors],
+        ruleNames: [...expected.ruleNames],
+      });
+    },
+  );
 });
 
 describe('where the version-0 leftovers live', () => {

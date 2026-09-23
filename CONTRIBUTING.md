@@ -167,9 +167,12 @@ bun run check
 bun run check
 
 # Individual commands
-bun run lint          # Lint + format (Biome)
+bun run lint          # Lint (Oxlint, type-aware)
+bun run format        # Format (Oxfmt)
+bun run format:check  # Formatting check (Oxfmt)
 bun run typecheck     # Type check
 bun run knip          # Dead code detection
+bun run check-duplicates  # Duplicate-code detection (jscpd)
 bun test              # Run tests
 
 # Run specific test
@@ -189,7 +192,8 @@ bun run build
 | Build/test runtime | **Bun**, pinned in `package.json` |
 | Published runtime | **Node.js 18+** |
 | Package Manager | **bun only** (`bun install`, `bun run`) |
-| Formatter/Linter | **Biome** |
+| Formatter | **Oxfmt** |
+| Linter | **Oxlint** (type-aware) |
 | Type Hints | Required on all functions |
 | Type Syntax | `type \| null` preferred over `type \| undefined` |
 | File Naming | `kebab-case` (e.g., `worktree-relaxation.ts`, not `worktreeRelaxation.ts`) |

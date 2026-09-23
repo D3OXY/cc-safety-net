@@ -145,22 +145,20 @@ const findingRules: FindingRule[] = [
         : [];
     },
   },
-  ...directoryKinds.map(
-    (kind): FindingRule => ({
-      derive: (report) =>
-        report.posture.directories
-          .filter((directory) => directory.kind === kind && directory.status === 'unsafe')
-          .map((directory) => ({
-            checkId: `posture.${kind}-directory-unsafe`,
-            severity: 'error' as const,
-            title: `${kind[0]?.toUpperCase()}${kind.slice(1)} directory is unsafe`,
-            detail: `The ${kind} directory ${describeDirectoryIssues(directory.issues)}.`,
-            fixHint:
-              'Ensure this is a real directory owned by the current user with no group or other write access, then rerun doctor.',
-            ...(directory.path ? { path: directory.path } : {}),
-          })),
-    }),
-  ),
+  ...directoryKinds.map((kind): FindingRule => ({
+    derive: (report) =>
+      report.posture.directories
+        .filter((directory) => directory.kind === kind && directory.status === 'unsafe')
+        .map((directory) => ({
+          checkId: `posture.${kind}-directory-unsafe`,
+          severity: 'error' as const,
+          title: `${kind[0]?.toUpperCase()}${kind.slice(1)} directory is unsafe`,
+          detail: `The ${kind} directory ${describeDirectoryIssues(directory.issues)}.`,
+          fixHint:
+            'Ensure this is a real directory owned by the current user with no group or other write access, then rerun doctor.',
+          ...(directory.path ? { path: directory.path } : {}),
+        })),
+  })),
   {
     derive: (report) => {
       const ids = [...report.effectiveSafety.weakenedRuleOverrides].sort();

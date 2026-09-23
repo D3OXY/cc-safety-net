@@ -78,7 +78,7 @@ function run(
   });
   if (allowedExitCodes.includes(result.exitCode)) return result;
   throw new Error(
-    `${command.join(' ')} failed (${result.exitCode})\n${result.stdout}${result.stderr}`,
+    `${command.join(' ')} failed (${result.exitCode})\n${result.stdout.toString()}${result.stderr.toString()}`,
   );
 }
 
@@ -207,7 +207,7 @@ export async function verifyPackage(): Promise<void> {
     // Rulebooks are live files with no sync step, so `rule verify` is the command
     // that must fail closed on an over-limit rulebook without echoing its content.
     const ruleLimitResult = run(['node', cli, 'rule', 'verify'], directory, [1]);
-    const ruleLimitOutput = `${ruleLimitResult.stdout}${ruleLimitResult.stderr}`;
+    const ruleLimitOutput = `${ruleLimitResult.stdout.toString()}${ruleLimitResult.stderr.toString()}`;
     if (
       !ruleLimitOutput.includes("Rulebook exceeds CC Safety Net's safe validation limits.") ||
       ruleLimitOutput.includes('TOPSECRET')
@@ -238,7 +238,7 @@ export async function verifyPackage(): Promise<void> {
       directory,
       [1],
     );
-    const sourceLimitOutput = `${sourceLimitResult.stdout}${sourceLimitResult.stderr}`;
+    const sourceLimitOutput = `${sourceLimitResult.stdout.toString()}${sourceLimitResult.stderr.toString()}`;
     if (
       !sourceLimitOutput.includes("Rule config exceeds CC Safety Net's safe source limit.") ||
       sourceLimitOutput.includes('TOPSECRET') ||
@@ -561,7 +561,7 @@ function runPackedAmpHost(
     options.env,
   );
   if (result.stderr.length > 0)
-    throw new Error(`Packed Amp plugin wrote to stderr: ${result.stderr}`);
+    throw new Error(`Packed Amp plugin wrote to stderr: ${result.stderr.toString()}`);
   return parsePackedJson('Packed Amp plugin', result.stdout) as Record<string, unknown>;
 }
 
@@ -584,7 +584,8 @@ function runPackedCliHook(
     }),
     options.env,
   );
-  if (result.stderr.length > 0) throw new Error(`Packed CLI wrote to stderr: ${result.stderr}`);
+  if (result.stderr.length > 0)
+    throw new Error(`Packed CLI wrote to stderr: ${result.stderr.toString()}`);
   return result.stdout.length === 0
     ? null
     : (parsePackedJson('Packed CLI', result.stdout) as Record<string, unknown>);
@@ -604,7 +605,7 @@ function runPackedHost(
     options.env,
   );
   if (result.stderr.length > 0)
-    throw new Error(`Packed integration wrote to stderr: ${result.stderr}`);
+    throw new Error(`Packed integration wrote to stderr: ${result.stderr.toString()}`);
   return parsePackedJson('Packed integration', result.stdout) as Record<string, unknown>;
 }
 
@@ -629,7 +630,7 @@ function parsePackedJson(label: string, output: Uint8Array) {
   try {
     return JSON.parse(output.toString()) as unknown;
   } catch (error) {
-    throw new Error(`${label} returned invalid JSON: ${output}`, { cause: error });
+    throw new Error(`${label} returned invalid JSON: ${output.toString()}`, { cause: error });
   }
 }
 
