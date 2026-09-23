@@ -143,6 +143,11 @@ const INTERPRETERS_BY_CLUSTERED_CODE_EVAL_FLAG = new Map([
 ]);
 
 const PATTERN_FIRST_COMMANDS = new Set(['grep', 'rg']);
+// Flags whose value is search text, a title, a message or a filter, never a file name.
+const GH_TEXT_FLAGS = new Set(['--search', '-S', '--title', '-t', '--body', '-b', '--jq', '-q']);
+const GIT_MESSAGE_SUBCOMMANDS = new Set(['commit', 'merge', 'notes', 'stash', 'tag']);
+const GIT_MESSAGE_FLAGS = new Set(['-m', '--message']);
+const GIT_GREP_FLAGS = new Set(['--grep']);
 const JQ_COMMANDS = new Set(['jq', 'gojq', 'jaq']);
 const PATTERN_FILE_SHORT = 'f';
 const PATTERN_FILE_LONG = 'file';
@@ -625,6 +630,12 @@ function extractSegmentPathTargets(
   if (command === 'git') {
     return [...assignmentValues, ...extractGitOperandPathTargets(post).map(here)];
   }
+  if (command === 'gh') {
+    return [
+      ...assignmentValues,
+      ...extractTextFlagOperandCandidates(command, post, GH_TEXT_FLAGS).map(here),
+    ];
+  }
   if (JQ_COMMANDS.has(command)) {
     return [...assignmentValues, ...extractJqPathTargets(post).map(here)];
   }
@@ -1012,7 +1023,14 @@ function extractGitOperandPathTargets(tokens: readonly string[]): string[] {
     if (token === '--' || !token.startsWith('-')) {
       return [
         ...targets,
-        ...tokens.slice(index).flatMap((arg) => extractOperandPathCandidates('git', arg)),
+        ...(GIT_MESSAGE_SUBCOMMANDS.has(token)
+          ? extractTextFlagOperandCandidates(
+              'git',
+              // `-am` is `-a -m`; only letters that take no value may precede the `m`.
+              tokens.slice(index).map((arg) => (/^-[aeinopqsv]+m$/.test(arg) ? '-m' : arg)),
+              GIT_MESSAGE_FLAGS,
+            )
+          : extractTextFlagOperandCandidates('git', tokens.slice(index), GIT_GREP_FLAGS)),
       ];
     }
     targets.push(...extractOperandPathCandidates('git', token));
@@ -1028,6 +1046,30 @@ function extractGitOperandPathTargets(tokens: readonly string[]): string[] {
     index++;
   }
   return targets;
+}
+
+function extractTextFlagOperandCandidates(
+  command: string,
+  tokens: readonly string[],
+  textFlags: ReadonlySet<string>,
+): string[] {
+  const candidates: string[] = [];
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index] ?? '';
+    if (token === '--') {
+      return [
+        ...candidates,
+        ...tokens.slice(index).flatMap((arg) => extractOperandPathCandidates(command, arg)),
+      ];
+    }
+    if (textFlags.has(token)) {
+      index++;
+      continue;
+    }
+    if (token.includes('=') && textFlags.has(token.slice(0, token.indexOf('=')))) continue;
+    candidates.push(...extractOperandPathCandidates(command, token));
+  }
+  return candidates;
 }
 
 function extractCurlUploadPathTargets(tokens: readonly string[]): string[] {

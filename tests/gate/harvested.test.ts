@@ -119,7 +119,6 @@ const WINDOWS_CELLS: Readonly<Record<string, string>> = {
   'find /tmp -execdir rm -rf {} +': 'deny find.exec-rm-recursive-force @command-analysis',
   'git grep -n "\\.npmrc"': 'deny secret.basename.npmrc @secret-protection',
   'git grep -n "process\\.env" -- .': 'deny secret.basename.env @secret-protection',
-  'git log --grep "fix\\.env"': 'deny secret.basename.env @secret-protection',
   'printf %s `cat $HOME/.ssh/id_rsa`': 'deny secret.basename.id-rsa @secret-protection',
   'rm -rf /tmp': 'allow',
   'rm -rf /tmp allowed': 'allow',

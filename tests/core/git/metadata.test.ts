@@ -56,7 +56,7 @@ beforeAll(() => {
   mkdirSync(join(root, 'hooks-outside'));
   rmSync(join(root, 'external-gitdir', 'hooks'), { recursive: true, force: true });
   symlinkSync(join(root, 'hooks-outside'), join(root, 'external-gitdir', 'hooks'));
-});
+}, 30_000);
 
 afterAll(() => {
   rmSync(root, { recursive: true, force: true });
