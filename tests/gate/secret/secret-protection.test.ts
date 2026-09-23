@@ -1788,6 +1788,12 @@ describe('a gh or git text flag value is text, not a file operand', () => {
       { name: 'a short title', command: 'gh issue create -t credentials', expected: null },
       { name: 'a short body', command: 'gh issue comment 1 -b credentials', expected: null },
       { name: 'a clustered commit message', command: 'git commit -am credentials', expected: null },
+      { name: 'a no-verify commit message', command: 'git commit -nm credentials', expected: null },
+      {
+        name: 'an edit no-verify commit message',
+        command: 'git commit -enm credentials',
+        expected: null,
+      },
       { name: 'a stash message', command: 'git stash push -m credentials', expected: null },
       { name: 'a notes message', command: 'git notes add -m credentials', expected: null },
       { name: 'a log grep', command: 'git log --grep credentials', expected: null },

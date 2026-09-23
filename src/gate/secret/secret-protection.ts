@@ -1027,7 +1027,7 @@ function extractGitOperandPathTargets(tokens: readonly string[]): string[] {
           ? extractTextFlagOperandCandidates(
               'git',
               // `-am` is `-a -m`; only letters that take no value may precede the `m`.
-              tokens.slice(index).map((arg) => (/^-[aqsv]+m$/.test(arg) ? '-m' : arg)),
+              tokens.slice(index).map((arg) => (/^-[aeinopqsv]+m$/.test(arg) ? '-m' : arg)),
               GIT_MESSAGE_FLAGS,
             )
           : extractTextFlagOperandCandidates('git', tokens.slice(index), GIT_GREP_FLAGS)),
