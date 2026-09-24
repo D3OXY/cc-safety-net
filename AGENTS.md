@@ -9,7 +9,7 @@
 - Multi-part work may be split into a `gh stack` stack. Open stack PRs with
   `gh stack submit --auto --open`: plain `--auto` opens drafts, which the review bots skip.
 - `dist/` is committed and CI rejects a stale build, but a rebase replays the old build output.
-  When `gh stack rebase` stops, resolve conflicts in source files only, never hand-merge `dist/`:
+  When `gh stack rebase` stops, resolve and `git add` the source files, never hand-merge `dist/`:
   run `bun run build && git add -A dist`, then `gh stack rebase --continue`.
 
 ## Testing
