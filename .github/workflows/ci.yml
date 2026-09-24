@@ -7,8 +7,9 @@ on:
     paths-ignore:
       - '**.md'
       - '.github/assets/**'
+  # No branch filter: a stacked PR is opened against its parent branch and only
+  # joins the stack afterwards, so filtering on main would skip its first run.
   pull_request:
-    branches: [main]
     paths-ignore:
       - '**.md'
       - '.github/assets/**'
