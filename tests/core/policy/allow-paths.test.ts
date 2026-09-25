@@ -224,6 +224,15 @@ const ROWS: readonly Row[] = [
 ];
 
 describe('allow and deny path entries', () => {
+  test('Windows home aliases with backslashes still protect guard config', () => {
+    if (process.platform !== 'win32') return;
+    for (const alias of ['~', '$HOME', '${HOME}']) {
+      expect(
+        getSecretAllowPathError(`${alias}\\.cc-safety-net\\**\\.env.local`, 'C:\\Users\\tester'),
+      ).toBe(ALLOW_COVERS_GUARD);
+    }
+  });
+
   test.each(ROWS.map((row) => [row.behavior, row] as const))('%s', (_behavior, row) => {
     expect(getDestructiveAllowPathError(row.value, HOME)).toBe(row.destructive);
     expect(getSecretDenyPathError(row.value, HOME)).toBe(row.secretDeny);

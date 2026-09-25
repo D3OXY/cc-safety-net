@@ -47,7 +47,9 @@ const SECRET_ALLOW_GUARD_CONFIG = "cannot cover the guard's own configuration";
 
 function expandSecretPolicyEntry(value: unknown, home: string): string | null {
   if (typeof value !== 'string' || value.trim() === '') return null;
-  return expandAllowPathHome(value.trim().replace(/^\$(?:\{HOME\}|HOME(?=\/|$))/, '~'), home);
+  const trimmed = value.trim();
+  const path = IS_WINDOWS ? trimmed.replaceAll('\\', '/') : trimmed;
+  return expandAllowPathHome(path.replace(/^\$(?:\{HOME\}|HOME(?=\/|$))/, '~'), home);
 }
 
 export function getSecretAllowPathError(value: unknown, home: string): string | null {
