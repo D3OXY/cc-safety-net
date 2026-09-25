@@ -2072,6 +2072,39 @@ describe('the policy layer over the built-in catalog', () => {
     });
   });
 
+  test('a recursive basename allow entry permits only that name at any depth', () => {
+    const config = { denyPaths: [], allowPaths: ['**/.env.local'] };
+    expect(targetVerdict(['.env.local'], config)).toBeNull();
+    expect(targetVerdict(['packages/convex/.env.local'], config)).toBeNull();
+    expect(secretIn('cat packages/convex/.env.local', UNSET, config)).toBeNull();
+    expect(secretIn('printf token > packages/convex/.env.local', UNSET, config)).toBeNull();
+    expect(targetVerdict(['packages/convex/.env.production'], config)).toStrictEqual({
+      target: 'packages/convex/.env.production',
+      ruleId: 'secret.pattern.env-variant',
+    });
+    expect(targetVerdict(['.env'], config)).toStrictEqual(env('.env'));
+    expect(
+      targetVerdict(['packages/convex/.env.local'], {
+        denyPaths: ['packages/convex'],
+        allowPaths: ['**/.env.local'],
+      }),
+    ).toStrictEqual({ target: 'packages/convex/.env.local', ruleId: 'secret.deny-path' });
+    expect(targetVerdict(['~/.cc-safety-net/.env.local'], config)).toStrictEqual({
+      target: '~/.cc-safety-net/.env.local',
+      ruleId: 'secret.pattern.env-variant',
+    });
+  });
+
+  test('a recursive basename allow entry can be limited to a directory', () => {
+    const config = { denyPaths: [], allowPaths: [join(repo, 'packages', '**', '.env.local')] };
+    expect(targetVerdict(['packages/.env.local'], config)).toBeNull();
+    expect(targetVerdict(['packages/convex/.env.local'], config)).toBeNull();
+    expect(targetVerdict(['apps/web/.env.local'], config)).toStrictEqual({
+      target: 'apps/web/.env.local',
+      ruleId: 'secret.pattern.env-variant',
+    });
+  });
+
   test('a path bound to a name in an operand is decided as that path, allow entries included', () => {
     for (const path of ['corp-ca-bundle.pem', 'certs/corp ca=bundle.pem', 'C:/keys/corp.pem']) {
       for (const command of [

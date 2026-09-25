@@ -18,7 +18,7 @@ const DENY_BLOCKS_EVERYTHING =
 const ALLOW_DISABLES_EVERYTHING =
   'cannot cover the home directory or a path above it (this would disable secret protection everywhere)';
 const ALLOW_COVERS_GUARD = "cannot cover the guard's own configuration";
-const HAS_GLOB = 'cannot contain glob characters (* or ?); list the exact file or directory';
+const HAS_GLOB = 'supports only **/ followed by an exact basename';
 
 type Row = {
   readonly behavior: string;
@@ -178,6 +178,27 @@ const ROWS: readonly Row[] = [
     destructive: NOT_ABSOLUTE,
     secretDeny: null,
     secretAllow: HAS_GLOB,
+  },
+  {
+    behavior: 'a recursive basename glob can match in every directory',
+    value: '**/.env.local',
+    destructive: NOT_ABSOLUTE,
+    secretDeny: null,
+    secretAllow: null,
+  },
+  {
+    behavior: 'a recursive basename glob can be limited to a home subdirectory',
+    value: '~/code/**/.env.local',
+    destructive: null,
+    secretDeny: null,
+    secretAllow: null,
+  },
+  {
+    behavior: 'a recursive basename glob cannot target the guard configuration',
+    value: '~/.cc-safety-net/**/.env.local',
+    destructive: null,
+    secretDeny: null,
+    secretAllow: ALLOW_COVERS_GUARD,
   },
   {
     behavior: 'a relative glob is rejected by the secret allow list on the glob alone',

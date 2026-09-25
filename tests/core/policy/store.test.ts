@@ -192,7 +192,7 @@ const SALVAGE_ROWS: readonly {
     document: {
       version: 1,
       secret_protection: {
-        allow_paths: ['~/**/config', '~/.cc-safety-net/policy.json', '~/work/sample.env'],
+        allow_paths: ['~/**/config*', '~/.cc-safety-net/policy.json', '~/work/sample.env'],
       },
     },
     expected: {

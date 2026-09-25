@@ -4,6 +4,15 @@ const IS_WINDOWS = process.platform === 'win32';
 
 const GLOB_CHARS = /[*?]/;
 
+export function parseRecursiveSecretAllowPath(path: string) {
+  const match = /^(?:(.*)\/)?\*\*\/([^/*?\\]+)$/.exec(path.replaceAll('\\', '/'));
+  if (!match) return null;
+  const name = match[2];
+  const root = match[1];
+  if (!name || GLOB_CHARS.test(root ?? '') || name === '.' || name === '..') return null;
+  return { root: root === undefined ? '' : root || '/', name };
+}
+
 export function expandAllowPathHome(path: string, home: string): string {
   if (path === '~') return home;
   if (path.startsWith('~/')) return `${home}${path.slice(1)}`;
@@ -41,8 +50,14 @@ function expandSecretPolicyEntry(value: unknown, home: string): string | null {
 export function getSecretAllowPathError(value: unknown, home: string): string | null {
   const expanded = expandSecretPolicyEntry(value, home);
   if (expanded === null) return 'must be a non-empty path string';
+  const recursive = parseRecursiveSecretAllowPath(expanded);
+  if (recursive) {
+    return isAbsolute(recursive.root) && coversGuardConfig(recursive.root, home)
+      ? SECRET_ALLOW_GUARD_CONFIG
+      : null;
+  }
   if (GLOB_CHARS.test(expanded)) {
-    return 'cannot contain glob characters (* or ?); list the exact file or directory';
+    return 'supports only **/ followed by an exact basename';
   }
   if (!isAbsolute(expanded)) return null;
   if (getAllowPathHomeConflictError(expanded, home) !== null) {
