@@ -15,7 +15,7 @@
 
 **English** · [简体中文](https://ccsafetynet.com/docs/zh-Hans) · [日本語](https://ccsafetynet.com/docs/ja)
 
-https://github.com/user-attachments/assets/1f1c4db6-c733-447a-8d49-2ab8214c3c0e
+https://github.com/user-attachments/assets/55887071-c722-4ed3-85c8-2ed00ba96b01
 
 </div>
 
