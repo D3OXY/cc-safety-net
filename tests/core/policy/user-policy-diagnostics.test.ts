@@ -38,15 +38,16 @@ describe('user policy diagnostics', () => {
     ],
     [
       'the secret lists report the reason each entry was refused',
-      { version: 1, secret_protection: { deny_paths: ['~'], allow_paths: ['~/**/x*'] } },
+      { version: 1, secret_protection: { deny_paths: ['~'], allow_paths: ['~/**/x*', '~/**/x'] } },
       [
         'secret_protection.deny_paths[0] cannot be the home directory or a path above it (this would block every command the agent runs)',
-        'secret_protection.allow_paths[0] supports only **/ followed by an exact basename',
+        'secret_protection.allow_paths[0] supports only a folder followed by **/ and an exact file name, such as ~/code/**/.env.local',
+        'secret_protection.allow_paths[1] cannot cover the home directory or a path above it (this would disable secret protection everywhere)',
       ],
     ],
     [
       'a recursive basename allow entry is valid',
-      { version: 1, secret_protection: { allow_paths: ['**/.env.local'] } },
+      { version: 1, secret_protection: { allow_paths: ['~/code/**/.env.local'] } },
       [],
     ],
     [

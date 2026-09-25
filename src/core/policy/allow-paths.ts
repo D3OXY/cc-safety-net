@@ -6,14 +6,14 @@ const GLOB_CHARS = /[*?]/;
 
 export function parseRecursiveSecretAllowPath(path: string) {
   const trimmed = path.trim();
-  const match = /^(?:(.*)\/)?\*\*\/([^/*?\\]+)$/.exec(
+  const match = /^(.*)\/\*\*\/([^/*?\\]+)$/.exec(
     IS_WINDOWS ? trimmed.replaceAll('\\', '/') : trimmed,
   );
   if (!match) return null;
-  const name = match[2];
-  const root = match[1];
-  if (!name || GLOB_CHARS.test(root ?? '') || name === '.' || name === '..') return null;
-  return { root: root === undefined ? '' : root || '/', name };
+  const root = match[1] ?? '';
+  const name = match[2] ?? '';
+  if (GLOB_CHARS.test(root) || name === '.' || name === '..') return null;
+  return { root: root || '/', name };
 }
 
 export function expandAllowPathHome(path: string, home: string): string {
@@ -55,20 +55,15 @@ function expandSecretPolicyEntry(value: unknown, home: string): string | null {
 export function getSecretAllowPathError(value: unknown, home: string): string | null {
   const expanded = expandSecretPolicyEntry(value, home);
   if (expanded === null) return 'must be a non-empty path string';
-  const recursive = parseRecursiveSecretAllowPath(expanded);
-  if (recursive) {
-    return isAbsolute(recursive.root) && coversGuardConfig(recursive.root, home)
-      ? SECRET_ALLOW_GUARD_CONFIG
-      : null;
+  const root = parseRecursiveSecretAllowPath(expanded)?.root ?? expanded;
+  if (GLOB_CHARS.test(root)) {
+    return 'supports only a folder followed by **/ and an exact file name, such as ~/code/**/.env.local';
   }
-  if (GLOB_CHARS.test(expanded)) {
-    return 'supports only **/ followed by an exact basename';
-  }
-  if (!isAbsolute(expanded)) return null;
-  if (getAllowPathHomeConflictError(expanded, home) !== null) {
+  if (!isAbsolute(root)) return null;
+  if (getAllowPathHomeConflictError(root, home) !== null) {
     return SECRET_ALLOW_DISABLES_EVERYTHING;
   }
-  return coversGuardConfig(expanded, home) ? SECRET_ALLOW_GUARD_CONFIG : null;
+  return coversGuardConfig(root, home) ? SECRET_ALLOW_GUARD_CONFIG : null;
 }
 
 function coversGuardConfig(absolutePath: string, home: string): boolean {

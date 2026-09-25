@@ -2073,7 +2073,7 @@ describe('the policy layer over the built-in catalog', () => {
   });
 
   test('a recursive basename allow entry permits only that name at any depth', () => {
-    const config = { denyPaths: [], allowPaths: ['**/.env.local'] };
+    const config = { denyPaths: [], allowPaths: [join(repo, '**', '.env.local')] };
     expect(targetVerdict(['.env.local'], config)).toBeNull();
     expect(targetVerdict(['packages/convex/.env.local'], config)).toBeNull();
     expect(secretIn('cat packages/convex/.env.local', UNSET, config)).toBeNull();
@@ -2086,10 +2086,15 @@ describe('the policy layer over the built-in catalog', () => {
     expect(
       targetVerdict(['packages/convex/.env.local'], {
         denyPaths: ['packages/convex'],
-        allowPaths: ['**/.env.local'],
+        allowPaths: [join(repo, '**', '.env.local')],
       }),
     ).toStrictEqual({ target: 'packages/convex/.env.local', ruleId: 'secret.deny-path' });
-    expect(targetVerdict(['~/.cc-safety-net/.env.local'], config)).toStrictEqual({
+    expect(
+      targetVerdict(['~/.cc-safety-net/.env.local'], {
+        denyPaths: [],
+        allowPaths: ['~/.cc-safety-net/**/.env.local'],
+      }),
+    ).toStrictEqual({
       target: '~/.cc-safety-net/.env.local',
       ruleId: 'secret.pattern.env-variant',
     });
@@ -2099,7 +2104,7 @@ describe('the policy layer over the built-in catalog', () => {
     expect(
       targetVerdict(['packages/convex/.env.local'], {
         denyPaths: [],
-        allowPaths: [' **/.env.local '],
+        allowPaths: [` ${join(repo, '**', '.env.local')} `],
       }),
     ).toBeNull();
   });
@@ -2115,6 +2120,25 @@ describe('the policy layer over the built-in catalog', () => {
       expect(targetVerdict(['apps/web/.env.local'], config)).toStrictEqual({
         target: 'apps/web/.env.local',
         ruleId: 'secret.pattern.env-variant',
+      });
+    }
+  });
+
+  test('a recursive basename allow entry never reaches a file through home or above', () => {
+    for (const entry of [
+      '**/config',
+      '**/.npmrc',
+      '~/**/config',
+      '~/**/.npmrc',
+      join(userHome, '**', 'config'),
+      join('..', '**', 'config'),
+      join('..', '**', '.npmrc'),
+    ]) {
+      const config = { denyPaths: [], allowPaths: [entry] };
+      expect(targetVerdict(['~/.ssh/config'], config), entry).toStrictEqual(ssh('~/.ssh/config'));
+      expect(targetVerdict(['~/.npmrc'], config), entry).toStrictEqual({
+        target: '~/.npmrc',
+        ruleId: 'secret.basename.npmrc',
       });
     }
   });

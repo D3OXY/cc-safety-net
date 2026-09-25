@@ -2405,21 +2405,16 @@ function matchesAllowedPath(
   if (guardRoot && isSameOrChildPath(normalized, guardRoot)) return false;
   return allowPaths.some((entry) => {
     const recursive = parseRecursiveSecretAllowPath(entry);
-    if (recursive) {
-      if (posix.basename(normalized) !== comparable(recursive.name)) return false;
-      if (!recursive.root) return true;
-      const root = comparable(
-        normalizeAbsoluteCandidatePath(recursive.root, configCwd, environment, budget),
-      );
-      return normalized !== root && isSameOrChildPath(normalized, root);
-    }
-    const root = comparable(normalizeAbsoluteCandidatePath(entry, configCwd, environment, budget));
+    if (recursive && posix.basename(normalized) !== comparable(recursive.name)) return false;
+    const root = comparable(
+      normalizeAbsoluteCandidatePath(recursive?.root ?? entry, configCwd, environment, budget),
+    );
     if (!root) return false;
 
     if (home && (home === root || home.startsWith(root.endsWith('/') ? root : `${root}/`))) {
       return false;
     }
-    return isSameOrChildPath(normalized, root);
+    return isSameOrChildPath(normalized, root) && !(recursive && normalized === root);
   });
 }
 
