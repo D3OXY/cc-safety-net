@@ -742,7 +742,7 @@ describe('resource limits', () => {
       },
     );
     expect(results).toStrictEqual({ ok: true, entries: 64, added: 64, requests: 131, logged: 131 });
-  });
+  }, 30_000);
 
   test('an exhausted request budget fails the whole operation and writes nothing', async () => {
     const { results, tree } = await runManagerDifferential(

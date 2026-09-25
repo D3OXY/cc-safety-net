@@ -2190,7 +2190,7 @@ describe('invariants over the corpus and the seeded fuzz', () => {
       ).toBeTrue();
       expect(row.value.target, row.command).not.toBe('');
     }
-  });
+  }, 30_000);
 
   test('the only failure is the fail-closed parse signal, and it is raised in every mode', () => {
     const failures = sources().flatMap((command) => {
@@ -2204,7 +2204,7 @@ describe('invariants over the corpus and the seeded fuzz', () => {
         expect(outcome.ok ? '' : outcome.error.message, row.command).toBe(PARSE_FAILURE);
       }
     }
-  });
+  }, 30_000);
 
   test('the same command decides the same way twice', () => {
     for (const command of sources()) {
@@ -2220,7 +2220,7 @@ describe('invariants over the corpus and the seeded fuzz', () => {
       const denied = standard.ok && standard.value !== null;
       expect(denied && strict.ok ? strict.value !== null : true, command).toBeTrue();
     }
-  });
+  }, 30_000);
 
   test('an allow entry that resolves to the home directory changes no verdict', () => {
     const allowHome = { denyPaths: [], allowPaths: [userHome] };

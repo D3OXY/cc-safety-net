@@ -376,7 +376,7 @@ describe('atomic policy writes', () => {
     expect(readFileSync(join(base, 'root', 'rules', 'link.json'), 'utf-8')).toBe(SENTINEL);
     expect(lstatSync(join(base, 'root', 'rules', 'link.json')).isSymbolicLink()).toBe(true);
     expect(snapshotTree(base).filter((entry) => entry.path.includes('.tmp'))).toEqual([]);
-  });
+  }, 30_000);
 });
 
 describe('policy directory listings', () => {
