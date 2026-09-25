@@ -5,7 +5,7 @@ const IS_WINDOWS = process.platform === 'win32';
 const GLOB_CHARS = /[*?]/;
 
 export function parseRecursiveSecretAllowPath(path: string) {
-  const match = /^(?:(.*)\/)?\*\*\/([^/*?\\]+)$/.exec(path.replaceAll('\\', '/'));
+  const match = /^(?:(.*)\/)?\*\*\/([^/*?\\]+)$/.exec(path.trim().replaceAll('\\', '/'));
   if (!match) return null;
   const name = match[2];
   const root = match[1];

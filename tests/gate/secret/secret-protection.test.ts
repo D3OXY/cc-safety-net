@@ -2095,6 +2095,15 @@ describe('the policy layer over the built-in catalog', () => {
     });
   });
 
+  test('a recursive basename allow entry matches after surrounding space is trimmed', () => {
+    expect(
+      targetVerdict(['packages/convex/.env.local'], {
+        denyPaths: [],
+        allowPaths: [' **/.env.local '],
+      }),
+    ).toBeNull();
+  });
+
   test('a recursive basename allow entry can be limited to a directory', () => {
     for (const entry of [
       join(repo, 'packages', '**', '.env.local'),
