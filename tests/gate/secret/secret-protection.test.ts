@@ -2119,6 +2119,16 @@ describe('the policy layer over the built-in catalog', () => {
     }
   });
 
+  test('a POSIX scoped entry keeps a literal backslash in its root', () => {
+    if (process.platform === 'win32') return;
+    const config = { denyPaths: [], allowPaths: ['foo\\bar/**/.env.local'] };
+    expect(targetVerdict(['foo/bar/.env.local'], config)).toStrictEqual({
+      target: 'foo/bar/.env.local',
+      ruleId: 'secret.pattern.env-variant',
+    });
+    expect(targetVerdict(['foo\\bar/.env.local'], config)).toBeNull();
+  });
+
   test('a path bound to a name in an operand is decided as that path, allow entries included', () => {
     for (const path of ['corp-ca-bundle.pem', 'certs/corp ca=bundle.pem', 'C:/keys/corp.pem']) {
       for (const command of [
