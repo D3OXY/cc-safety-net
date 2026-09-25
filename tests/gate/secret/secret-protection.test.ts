@@ -2096,13 +2096,18 @@ describe('the policy layer over the built-in catalog', () => {
   });
 
   test('a recursive basename allow entry can be limited to a directory', () => {
-    const config = { denyPaths: [], allowPaths: [join(repo, 'packages', '**', '.env.local')] };
-    expect(targetVerdict(['packages/.env.local'], config)).toBeNull();
-    expect(targetVerdict(['packages/convex/.env.local'], config)).toBeNull();
-    expect(targetVerdict(['apps/web/.env.local'], config)).toStrictEqual({
-      target: 'apps/web/.env.local',
-      ruleId: 'secret.pattern.env-variant',
-    });
+    for (const entry of [
+      join(repo, 'packages', '**', '.env.local'),
+      '~/work/packages/**/.env.local',
+    ]) {
+      const config = { denyPaths: [], allowPaths: [entry] };
+      expect(targetVerdict(['packages/.env.local'], config)).toBeNull();
+      expect(targetVerdict(['packages/convex/.env.local'], config)).toBeNull();
+      expect(targetVerdict(['apps/web/.env.local'], config)).toStrictEqual({
+        target: 'apps/web/.env.local',
+        ruleId: 'secret.pattern.env-variant',
+      });
+    }
   });
 
   test('a path bound to a name in an operand is decided as that path, allow entries included', () => {
